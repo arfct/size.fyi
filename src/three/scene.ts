@@ -3,12 +3,44 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 
 export type ViewName = '3d' | 'front' | 'side' | 'top';
-export interface SceneItem { name: string; h: number; w: number; d: number; color: string; }
+export interface SceneItem {
+  name: string; h: number; w: number; d: number; color: string;
+  radius?: number; radiusAxis?: 'x' | 'y' | 'z';
+}
 export interface SizeScene {
   setItems(items: SceneItem[]): void;
   setView(view: ViewName): void;
   resize(): void;
   dispose(): void;
+}
+
+function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
+  const hx = a / 2, hy = b / 2, rr = Math.min(r, hx, hy);
+  const s = new THREE.Shape();
+  s.moveTo(-hx + rr, -hy);
+  s.lineTo(hx - rr, -hy); s.absarc(hx - rr, -hy + rr, rr, -Math.PI / 2, 0, false);
+  s.lineTo(hx, hy - rr);  s.absarc(hx - rr, hy - rr, rr, 0, Math.PI / 2, false);
+  s.lineTo(-hx + rr, hy); s.absarc(-hx + rr, hy - rr, rr, Math.PI / 2, Math.PI, false);
+  s.lineTo(-hx, -hy + rr); s.absarc(-hx + rr, -hy + rr, rr, Math.PI, Math.PI * 1.5, false);
+  return s;
+}
+
+function buildGeometry(item: SceneItem): THREE.BufferGeometry {
+  if (!item.radius || !item.radiusAxis)
+    return new THREE.BoxGeometry(item.w, item.h, item.d);
+  const opts = { bevelEnabled: false, curveSegments: 12 };
+  let geo: THREE.BufferGeometry;
+  if (item.radiusAxis === 'z') {
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.h, item.radius), { ...opts, depth: item.d });
+  } else if (item.radiusAxis === 'y') {
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.d, item.radius), { ...opts, depth: item.h });
+    geo.rotateX(-Math.PI / 2);
+  } else {
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.d, item.h, item.radius), { ...opts, depth: item.w });
+    geo.rotateY(Math.PI / 2);
+  }
+  geo.center(); // extrusion spans [0, depth] along its axis; recenter like BoxGeometry
+  return geo;
 }
 
 export function createScene(container: HTMLElement): SizeScene {
@@ -74,12 +106,12 @@ export function createScene(container: HTMLElement): SizeScene {
     const gap = maxDim * 0.08;
     let x = 0;
     for (const item of items) {
-      const geo = new THREE.BoxGeometry(item.w, item.h, item.d);
+      const geo = buildGeometry(item);
       const mat = new THREE.MeshLambertMaterial({ color: item.color, transparent: true, opacity: 0.55 });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(x + item.w / 2, item.h / 2, 0);
       const edges = new THREE.LineSegments(
-        new THREE.EdgesGeometry(geo),
+        new THREE.EdgesGeometry(geo, 30),
         new THREE.LineBasicMaterial({ color: item.color }),
       );
       edges.position.copy(mesh.position);

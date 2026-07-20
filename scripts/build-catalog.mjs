@@ -26,7 +26,14 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
       const v = d[k];
       if (typeof v !== 'number' || v < 0.1 || v > 100_000) errors.push(`${id}: ${k}=${v} out of range`);
     }
-    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'brand', 'year', 'aliases', 'source']);
+    if (d.radius !== undefined || d.radiusAxis !== undefined) {
+      const cross = { x: ['h', 'd'], y: ['w', 'd'], z: ['h', 'w'] }[d.radiusAxis];
+      if (!cross) errors.push(`${id}: radiusAxis must be x|y|z when radius present`);
+      else if (typeof d.radius !== 'number' || d.radius <= 0
+        || d.radius > Math.min(d[cross[0]], d[cross[1]]) / 2 + 0.01)
+        errors.push(`${id}: radius out of range for its cross-section`);
+    }
+    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'brand', 'year', 'aliases', 'source', 'radius', 'radiusAxis']);
     for (const k of Object.keys(d)) if (!allowed.has(k)) errors.push(`${id}: unknown key ${k}`);
     devices.push(d);
   }
