@@ -40,7 +40,7 @@ function Shell() {
         </aside>
         <section className="flex flex-1 flex-col gap-3">
           <ViewTabs />
-          <div className="relative flex-1 overflow-hidden rounded-lg border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
+          <div className="relative flex-1 overflow-hidden rounded-lg bg-white dark:bg-stone-900">
             {state.items.length === 0 ? <EmptyState /> : <Viewer />}
           </div>
         </section>
