@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ComparisonItem } from '../../shared/types';
 import { formatDims } from '../../shared/dimensions';
 import { type ARTarget, canLaunchAR, launchAR } from '../ar';
+import { CATEGORY_ICON, MY_ITEM_ICON } from '../categoryIcon';
 import { itemColor } from '../palette';
 import { useComparison } from '../store';
 
@@ -11,11 +12,11 @@ const volumeOf = (item: ComparisonItem) => {
   return d.h * d.w * d.d;
 };
 
-// The colored ellipsis doubles as a menu trigger — tinted with the item's swatch color so it
-// still keys the model on the canvas. Self-contained dropdown: a ref-scoped mousedown-outside
-// listener and Escape close it; the trigger and menu live inside the ref so clicking them never
-// counts as "outside".
-function ItemMenu({ color, name, ar, onEdit, onRemove }: { color: string; name: string; ar?: ARTarget; onEdit: () => void; onRemove: () => void }) {
+// A neutral ellipsis menu trigger on the right of each row (the item's swatch color now lives on
+// the leading category icon). Self-contained dropdown: a ref-scoped mousedown-outside listener
+// and Escape close it; the trigger and menu live inside the ref so clicking them never counts as
+// "outside".
+function ItemMenu({ name, ar, onEdit, onRemove }: { name: string; ar?: ARTarget; onEdit: () => void; onRemove: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -41,7 +42,7 @@ function ItemMenu({ color, name, ar, onEdit, onRemove }: { color: string; name: 
         onClick={() => setOpen((o) => !o)}
         className="flex h-6 w-6 items-center justify-center rounded-full outline-none hover:bg-stone-200 focus-visible:bg-stone-200 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700"
       >
-        <Ellipsis size={18} style={{ color }} aria-hidden />
+        <Ellipsis size={18} className="text-stone-400 dark:text-stone-500" aria-hidden />
       </button>
       {open && (
         <div role="menu" className="absolute right-0 top-full z-30 mt-1 min-w-32 rounded-md border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900">
@@ -94,8 +95,10 @@ export default function ItemList({ onEdit }: { onEdit: (index: number, name: str
         const ar: ARTarget | undefined = item.kind === 'device' && item.device.model3d
           ? { usdzUrl: `/models/${item.device.slug}.usdz`, glbUrl: `/models/${item.device.model3d.url}`, title: name }
           : undefined;
+        const Icon = item.kind === 'device' ? CATEGORY_ICON[item.device.category] : MY_ITEM_ICON;
         return (
-          <li key={`${name}-${i}`} className="flex items-center gap-2 rounded-md px-4 py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
+          <li key={`${name}-${i}`} className="flex items-center gap-2.5 rounded-md px-4 py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
+            <Icon size={18} style={{ color: itemColor(item, i) }} className="shrink-0" aria-hidden />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 {url ? (
@@ -105,7 +108,6 @@ export default function ItemList({ onEdit }: { onEdit: (index: number, name: str
                   <p className="min-w-0 truncate text-[16px] font-medium">{name}</p>
                 )}
                 <ItemMenu
-                  color={itemColor(item, i)}
                   name={name}
                   ar={ar}
                   onEdit={() => onEdit(i, name, `${dims.h}×${dims.w}×${dims.d}`)}

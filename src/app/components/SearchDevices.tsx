@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { searchDevices, suggestDevices } from '../../shared/search';
 import type { Device } from '../../shared/types';
@@ -101,21 +101,24 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
         </button>
       ) : (
         <>
-          <input
-            ref={inputRef}
-            id="device-search"
-            type="text"
-            role="combobox"
-            aria-label="Search devices"
-            aria-expanded={rows.length > 0}
-            aria-controls="device-results"
-            value={query}
-            disabled={full}
-            onChange={(e) => { setQuery(e.target.value); revealOnMobile(); }}
-            onFocus={(e) => { e.currentTarget.select(); revealOnMobile(); }}
-            placeholder={status === 'loading' ? 'Loading catalog…' : 'Search'}
-            className="w-full rounded-full border border-stone-300 bg-transparent px-4 py-2 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
-          />
+          <div className="relative">
+            <Search size={18} aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+            <input
+              ref={inputRef}
+              id="device-search"
+              type="text"
+              role="combobox"
+              aria-label="Search devices"
+              aria-expanded={rows.length > 0}
+              aria-controls="device-results"
+              value={query}
+              disabled={full}
+              onChange={(e) => { setQuery(e.target.value); revealOnMobile(); }}
+              onFocus={(e) => { e.currentTarget.select(); revealOnMobile(); }}
+              placeholder={status === 'loading' ? 'Loading catalog…' : 'Search'}
+              className="w-full rounded-full border border-stone-300 bg-transparent py-2 pl-11 pr-4 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
+            />
+          </div>
           {rows.length === 0 && (
             <p className="px-4 py-1.5 text-[13px] text-stone-500">{trimmed ? 'No matches.' : 'No suggestions.'}</p>
           )}
