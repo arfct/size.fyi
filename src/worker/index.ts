@@ -4,6 +4,15 @@ import { formatDims } from '../shared/dimensions';
 
 interface Env { ASSETS: Fetcher }
 
+// Serve the HTML shell with `no-cache` (revalidate every navigation) so app updates land on the
+// next load while we stabilize. Hashed /assets/* files keep their immutable caching — they're
+// served by the static-asset layer, not this handler. Reinstate a max-age once things settle.
+function htmlNoCache(res: Response): Response {
+  const headers = new Headers(res.headers);
+  headers.set('cache-control', 'no-cache');
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
 let catalogCache: Promise<Map<string, Device>> | null = null;
 
 function loadCatalog(env: Env, origin: string): Promise<Map<string, Device>> {
@@ -49,13 +58,13 @@ export default {
     try {
       const bySlug = await loadCatalog(env, url.origin);
       const { items } = decodeComparison(url.pathname, bySlug);
-      if (items.length === 0) return assetRes;
+      if (items.length === 0) return htmlNoCache(assetRes);
       const title = `${comparisonTitle(items)} — size.fyi`;
       const desc = `Compare sizes in 3D: ${items
         .map((i) => `${i.kind === 'device' ? i.device.name : i.name} (${formatDims(i.kind === 'device' ? i.device : i, 'metric')})`)
         .join(' vs ')}`;
       const canonical = `https://size.fyi${url.pathname}`;
-      return new HTMLRewriter()
+      const transformed = new HTMLRewriter()
         .on('title', { element(e) { e.setInnerContent(title); } })
         .on('head', {
           element(e) {
@@ -75,8 +84,9 @@ export default {
           },
         })
         .transform(assetRes);
+      return htmlNoCache(transformed);
     } catch {
-      return assetRes; // fail open
+      return htmlNoCache(assetRes); // fail open
     }
   },
 } satisfies ExportedHandler<Env>;

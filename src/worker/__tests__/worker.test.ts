@@ -39,6 +39,12 @@ describe('OG injection', () => {
     expect(html).toContain('property="og:title"');
     expect(html).toContain('https://size.fyi/drinks-can-vs-paper-a4');
   });
+  test('the HTML document is served no-cache so app updates land on next load', async () => {
+    const withOg = await SELF.fetch('https://size.fyi/drinks-can-vs-paper-a4');
+    expect(withOg.headers.get('cache-control')).toBe('no-cache');
+    const plain = await SELF.fetch('https://size.fyi/totally-unknown-thing');
+    expect(plain.headers.get('cache-control')).toBe('no-cache');
+  });
   test('custom tokens work without catalog hits', async () => {
     const res = await SELF.fetch('https://size.fyi/shoebox~350x250x130-vs-drinks-can');
     expect(await res.text()).toContain('Shoebox vs Drinks Can');
