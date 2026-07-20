@@ -80,9 +80,9 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
         aria-label={state.mode === 'edit' ? 'Edit item' : 'Add item'}
         className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl dark:bg-stone-900"
       >
-        <h2 className="text-[16px] font-semibold">{state.mode === 'edit' ? 'Edit item' : 'Add item'}</h2>
-
-        <label htmlFor="dlg-name" className="mt-4 block text-[13px] font-medium text-stone-500">Name</label>
+        <label htmlFor="dlg-name" className="block text-[13px] font-medium text-stone-500">
+          {state.mode === 'edit' ? 'Edit item' : 'Add an item'}
+        </label>
         <input
           id="dlg-name"
           ref={nameRef}
@@ -90,9 +90,13 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
           onChange={(e) => setName(e.target.value)}
           onKeyDown={onEnter}
           placeholder="Name"
+          type="text"
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
+          data-1p-ignore
+          data-lpignore="true"
+          data-form-type="other"
           className="mt-1 w-full border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
         />
 
