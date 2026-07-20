@@ -55,7 +55,7 @@ test('layout sorts smallest-to-largest by volume regardless of input order', () 
   expect(xMid!).toBeLessThan(xBig!);
 });
 
-test('stack targets: volume-sorted z (front-to-back), per-pair min-dim gap, centered on x=0, no overlap', () => {
+test('stack targets: largest at the back (z=0) down to smallest at the front, per-pair min-dim gap', () => {
   const a = item({ name: 'A', h: 10, w: 10, d: 10 }); // vol 1000, minDim 10
   const b = item({ name: 'B', h: 20, w: 20, d: 30 }); // vol 12000, minDim 20
   const c = item({ name: 'C', h: 5, w: 5, d: 5 }); // vol 125, minDim 5
@@ -63,24 +63,24 @@ test('stack targets: volume-sorted z (front-to-back), per-pair min-dim gap, cent
   const keys = computeKeys(items); // keys[0]=a, keys[1]=b, keys[2]=c
   const targets = computeTargets(items, keys, 'stack');
 
-  // Sorted smallest→largest: c, a, b. Gaps: c→a = min(5,10)=5, a→b = min(10,20)=10.
-  const tc = targets.get(keys[2]!)!;
-  expect(tc.pos.x).toBe(0);
-  expect(tc.pos.y).toBeCloseTo(c.h / 2);
-  expect(tc.pos.z).toBeCloseTo(c.d / 2); // 2.5
-  expect(tc.renderOrder).toBe(0);
+  // Largest→smallest along +z: b, a, c. Gaps: b→a = min(20,10)=10, a→c = min(10,5)=5.
+  const tb = targets.get(keys[1]!)!;
+  expect(tb.pos.x).toBe(0);
+  expect(tb.pos.y).toBeCloseTo(b.h / 2);
+  expect(tb.pos.z).toBeCloseTo(b.d / 2); // 15
+  expect(tb.renderOrder).toBe(0);
 
   const ta = targets.get(keys[0]!)!;
-  expect(ta.pos.z).toBeCloseTo(c.d + 5 + a.d / 2); // 5 + 5 + 5 = 15
+  expect(ta.pos.z).toBeCloseTo(b.d + 10 + a.d / 2); // 30 + 10 + 5 = 45
   expect(ta.renderOrder).toBe(1);
 
-  const tb = targets.get(keys[1]!)!;
-  expect(tb.pos.z).toBeCloseTo(c.d + 5 + a.d + 10 + b.d / 2); // 5 + 5 + 10 + 10 + 15 = 45
-  expect(tb.renderOrder).toBe(2);
+  const tc = targets.get(keys[2]!)!;
+  expect(tc.pos.z).toBeCloseTo(b.d + 10 + a.d + 5 + c.d / 2); // 30 + 10 + 10 + 5 + 2.5 = 57.5
+  expect(tc.renderOrder).toBe(2);
 
-  // No overlap in depth along the sorted order c → a → b.
-  expect(ta.pos.z - a.d / 2).toBeGreaterThanOrEqual(tc.pos.z + c.d / 2 - 1e-9);
-  expect(tb.pos.z - b.d / 2).toBeGreaterThanOrEqual(ta.pos.z + a.d / 2 - 1e-9);
+  // No overlap in depth along the placement order b → a → c.
+  expect(ta.pos.z - a.d / 2).toBeGreaterThanOrEqual(tb.pos.z + b.d / 2 - 1e-9);
+  expect(tc.pos.z - c.d / 2).toBeGreaterThanOrEqual(ta.pos.z + a.d / 2 - 1e-9);
 });
 
 test('row layout keeps renderOrder 0 for all items', () => {

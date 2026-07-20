@@ -260,32 +260,34 @@ export function computeKeys(items: SceneItem[]): string[] {
 const volumeOf = (i: SceneItem) => i.h * i.w * i.d;
 const minDimOf = (i: SceneItem) => Math.min(i.h, i.w, i.d);
 
-// Items are always laid out smallest-to-largest by volume. Row = sequential along x (all at z=0);
-// Stack = sequential along z (front-to-back), every item centered on x=0. Either way each item
-// sits with its bottom on the ground (y=h/2) and the gap between two neighbours equals the smaller
-// of their smallest dimensions. Stack renderOrder increases along z (nearer items drawn later) so
-// the translucent items blend back-to-front from the default/front/side views (paired with
+// Items are sorted by volume. Row = sequential along +x smallest→largest (all at z=0). Stack =
+// sequential along +z with the LARGEST at the back (z=0) and the smallest at the front (nearest the
+// camera), so the size progression reads front-to-back small→large and the largest doesn't occlude
+// the rest. Either way each item sits with its bottom on the ground (y=h/2) and the gap between two
+// neighbours equals the smaller of their smallest dimensions. Stack renderOrder increases along z
+// (nearer items drawn later) so the translucent items blend front-to-back correctly (paired with
 // depthWrite:false on the transparent materials in createScene). Pure — exported for direct testing.
 export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutMode): Map<string, LayoutTarget> {
   const targets = new Map<string, LayoutTarget>();
   const order = items
     .map((item, i) => ({ item, key: keys[i]! }))
     .sort((a, b) => volumeOf(a.item) - volumeOf(b.item));
-  const gapAfter = (idx: number) => {
-    const next = order[idx + 1];
-    return next ? Math.min(minDimOf(order[idx]!.item), minDimOf(next.item)) : 0;
+  const gapBetween = (seq: typeof order, idx: number) => {
+    const next = seq[idx + 1];
+    return next ? Math.min(minDimOf(seq[idx]!.item), minDimOf(next.item)) : 0;
   };
   if (mode === 'stack') {
+    const seq = [...order].reverse(); // largest first (back), smallest last (front)
     let z = 0;
-    order.forEach(({ item, key }, idx) => {
+    seq.forEach(({ item, key }, idx) => {
       targets.set(key, { pos: new THREE.Vector3(0, item.h / 2, z + item.d / 2), renderOrder: idx });
-      z += item.d + gapAfter(idx);
+      z += item.d + gapBetween(seq, idx);
     });
   } else {
     let x = 0;
     order.forEach(({ item, key }, idx) => {
       targets.set(key, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, 0), renderOrder: 0 });
-      x += item.w + gapAfter(idx);
+      x += item.w + gapBetween(order, idx);
     });
   }
   return targets;
