@@ -20,7 +20,10 @@ Cloudflare at effectively zero cost, no ads, no accounts, no server-side state.
 - No user accounts, no server-stored comparisons, no public "latest
   comparisons" feed (the old sizeasy feed was mostly junk).
 - No user-submitted catalog entries (catalog grows via git commits/PRs).
-- No non-box shapes (cylinders, meshes) — everything renders as a box.
+- No arbitrary meshes — items render as boxes, optionally with a per-axis
+  corner radius (which covers cylinders like cans and bottles; see Device
+  catalog). Added mid-build at the user's request, superseding the original
+  "boxes only" non-goal.
 
 ## Architecture
 
@@ -38,8 +41,9 @@ size.fyi/
 ```
 
 - Vite builds the client app.
-- A build step compiles `data/devices/*.json` into one minified, content-hashed
-  `devices.<hash>.json` asset.
+- A build step compiles `data/devices/*.json` into one minified
+  `public/devices.json` asset (stable name; freshness handled by the Worker's
+  ETag on `/api/devices`).
 - Wrangler deploys the Worker with the built assets; zone routes for
   `size.fyi/*` and `www.size.fyi/*` are already configured in `wrangler.jsonc`.
 - `src/shared/` is the future-proofing layer: the same URL/device code runs in
