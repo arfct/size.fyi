@@ -12,7 +12,7 @@ type ResultRow = { kind: 'device'; device: Device } | { kind: 'mine'; item: MyIt
 // How many ranked suggestions to show when the query is empty.
 const SUGGESTION_COUNT = 4;
 
-export default function SearchDevices() {
+export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: string) => void }) {
   const { devices, status, retry } = useCatalog();
   const { state, dispatch } = useComparison();
   const [query, setQuery] = useState('');
@@ -41,12 +41,13 @@ export default function SearchDevices() {
     [devices, activeCategories, addedSlugs],
   );
 
-  // Query drives full search (my-items first, then catalog); empty query shows ranked suggestions.
+  // Query drives full search (catalog first, then any matching custom items appended at the end);
+  // empty query shows ranked suggestions.
   const rows: ResultRow[] = useMemo(() => {
     if (!trimmed) return suggestions.map((device): ResultRow => ({ kind: 'device', device }));
     return [
-      ...myMatches.map((item): ResultRow => ({ kind: 'mine', item })),
       ...results.map((device): ResultRow => ({ kind: 'device', device })),
+      ...myMatches.map((item): ResultRow => ({ kind: 'mine', item })),
     ];
   }, [trimmed, suggestions, myMatches, results]);
 
@@ -108,6 +109,14 @@ export default function SearchDevices() {
               ))}
             </ul>
           )}
+          <button
+            type="button"
+            disabled={full}
+            onClick={() => onAddCustom(trimmed)}
+            className="mt-1 block w-full truncate rounded-md py-1.5 text-left text-[16px] text-blue-600 hover:bg-stone-200/60 disabled:opacity-40 dark:text-blue-400 dark:hover:bg-stone-800/60"
+          >
+            {trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}
+          </button>
         </>
       )}
     </section>

@@ -8,6 +8,7 @@ export interface ComparisonState {
 }
 export type Action =
   | { type: 'add'; item: ComparisonItem }
+  | { type: 'update'; index: number; item: ComparisonItem }
   | { type: 'remove'; index: number }
   | { type: 'clear' }
   | { type: 'setView'; view: View }
@@ -21,6 +22,8 @@ export function reducer(state: ComparisonState, action: Action): ComparisonState
     case 'add':
       if (state.items.length >= MAX_ITEMS) return state;
       return { ...state, items: [...state.items, action.item] };
+    case 'update':
+      return { ...state, items: state.items.map((it, i) => (i === action.index ? action.item : it)) };
     case 'remove':
       return { ...state, items: state.items.filter((_, i) => i !== action.index) };
     case 'clear':

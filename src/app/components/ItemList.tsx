@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { ComparisonItem } from '../../shared/types';
 import { formatDims } from '../../shared/dimensions';
 import { itemColor } from '../palette';
@@ -8,7 +9,62 @@ const volumeOf = (item: ComparisonItem) => {
   return d.h * d.w * d.d;
 };
 
-export default function ItemList() {
+// The colored dot doubles as a menu trigger. Self-contained dropdown: a ref-scoped
+// mousedown-outside listener and Escape close it; the trigger and menu live inside the ref so
+// clicking them never counts as "outside".
+function ItemMenu({ color, name, onEdit, onRemove }: { color: string; name: string; onEdit: () => void; onRemove: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        aria-label={`Options for ${name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-6 w-6 items-center justify-center rounded-full outline-none hover:bg-stone-200 focus-visible:bg-stone-200 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700"
+      >
+        <span className="h-3 w-3 rounded-full" style={{ background: color }} />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full z-30 mt-1 min-w-32 rounded-md border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); onEdit(); }}
+            className="block w-full px-3 py-1.5 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); onRemove(); }}
+            className="block w-full px-3 py-1.5 text-left text-[13px] text-red-600 hover:bg-stone-100 dark:hover:bg-stone-800"
+          >
+            Remove
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ItemList({ onEdit }: { onEdit: (index: number, name: string, dims: string) => void }) {
   const { state, dispatch } = useComparison();
   if (state.items.length === 0) return null;
   // Display smallest-to-largest by volume; keep each item's original index for its (stable) color
@@ -23,7 +79,7 @@ export default function ItemList() {
         const dims = item.kind === 'device' ? item.device : item;
         const url = item.kind === 'device' ? item.device.url : undefined;
         return (
-          <li key={`${name}-${i}`} className="group flex items-center gap-2 rounded-md py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
+          <li key={`${name}-${i}`} className="flex items-center gap-2 rounded-md py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 {url ? (
@@ -32,12 +88,15 @@ export default function ItemList() {
                 ) : (
                   <p className="min-w-0 truncate text-[16px] font-medium">{name}</p>
                 )}
-                <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: itemColor(item, i) }} />
+                <ItemMenu
+                  color={itemColor(item, i)}
+                  name={name}
+                  onEdit={() => onEdit(i, name, `${dims.h}×${dims.w}×${dims.d}`)}
+                  onRemove={() => dispatch({ type: 'remove', index: i })}
+                />
               </div>
               <p className="text-[13px] text-stone-500">{formatDims(dims, state.units)}</p>
             </div>
-            <button onClick={() => dispatch({ type: 'remove', index: i })} aria-label={`Remove ${name}`}
-              className="text-stone-400 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 hover:text-stone-700 dark:hover:text-stone-200">✕</button>
           </li>
         );
       })}

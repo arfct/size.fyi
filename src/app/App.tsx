@@ -1,6 +1,6 @@
-import { useRef } from 'react';
-import CustomEntry from './components/CustomEntry';
+import { useRef, useState } from 'react';
 import EmptyState from './components/EmptyState';
+import ItemDialog, { type DialogState } from './components/ItemDialog';
 import ItemList from './components/ItemList';
 import LayoutToggle from './components/LayoutToggle';
 import SearchDevices from './components/SearchDevices';
@@ -18,6 +18,7 @@ function Shell() {
   const asideRef = useRef<HTMLDivElement>(null);
   const isDesktop = useIsDesktop();
   const showViewer = state.items.length > 0;
+  const [dialog, setDialog] = useState<DialogState | null>(null);
 
   return (
     <div className="relative flex min-h-screen flex-col bg-white text-stone-900 dark:bg-stone-900 dark:text-stone-100 md:flex-row">
@@ -54,9 +55,8 @@ function Shell() {
             <button onClick={() => dispatch({ type: 'dismissMissing' })} aria-label="Dismiss">✕</button>
           </div>
         )}
-        <ItemList />
-        <CustomEntry />
-        <SearchDevices />
+        <ItemList onEdit={(index, name, dims) => setDialog({ mode: 'edit', index, name, dims })} />
+        <SearchDevices onAddCustom={(name) => setDialog({ mode: 'add', name })} />
       </div>
       {/* Safe area: the pill and empty state stay centered here, not in the full-bleed canvas.
           On desktop the section itself must be transparent to pointer events (md:pointer-events-none)
@@ -69,6 +69,7 @@ function Shell() {
         {!showViewer && <EmptyState />}
         {showViewer && !isDesktop && <Viewer />}
       </section>
+      <ItemDialog state={dialog} onClose={() => setDialog(null)} />
     </div>
   );
 }

@@ -12,7 +12,7 @@ function Harness() {
   const { state } = useComparison();
   return (
     <>
-      <SearchDevices />
+      <SearchDevices onAddCustom={() => {}} />
       <ul data-testid="items">
         {state.items.map((it, i) => (
           <li key={i}>
@@ -40,7 +40,7 @@ function FullHarness() {
       missing: [],
     });
   }, [dispatch]);
-  return <SearchDevices />;
+  return <SearchDevices onAddCustom={() => {}} />;
 }
 
 function setup() {
@@ -63,7 +63,7 @@ beforeEach(() => {
   );
 });
 
-test('a my-item match appears above device results, labeled, and selecting it dispatches a custom add', async () => {
+test('a my-item match appears after device results, labeled, and selecting it dispatches a custom add', async () => {
   addMyItem({ name: 'Shoebox', h: 350, w: 250, d: 130 });
   vi.stubGlobal(
     'fetch',
@@ -85,12 +85,13 @@ test('a my-item match appears above device results, labeled, and selecting it di
 
   const options = await screen.findAllByRole('option');
   expect(options).toHaveLength(2);
-  expect(options[0]).toHaveTextContent('Shoebox');
-  expect(options[0]).toHaveTextContent('(my item)');
-  expect(options[1]).toHaveTextContent('Shovel');
-  expect(options[1]).not.toHaveTextContent('(my item)');
+  // Device results come first; the custom (my-item) match is appended at the end.
+  expect(options[0]).toHaveTextContent('Shovel');
+  expect(options[0]).not.toHaveTextContent('(my item)');
+  expect(options[1]).toHaveTextContent('Shoebox');
+  expect(options[1]).toHaveTextContent('(my item)');
 
-  await user.click(options[0]!);
+  await user.click(options[1]!);
 
   // Dispatched as a 'custom' item carrying the stored dimensions, not a 'device' add.
   expect(screen.getByTestId('items')).toHaveTextContent('Shoebox 350x250x130');
