@@ -95,7 +95,7 @@ export default function ItemList({ onEdit }: { onEdit: (index: number, name: str
           ? { usdzUrl: `/models/${item.device.slug}.usdz`, glbUrl: `/models/${item.device.model3d.url}`, title: name }
           : undefined;
         return (
-          <li key={`${name}-${i}`} className="flex items-center gap-2 rounded-md py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
+          <li key={`${name}-${i}`} className="flex items-center gap-2 rounded-md py-2 hover:bg-stone-200/60 md:-ml-4 md:w-[calc(100%+1rem)] md:px-4 dark:hover:bg-stone-800/60">
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 {url ? (

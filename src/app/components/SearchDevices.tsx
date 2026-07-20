@@ -126,7 +126,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
                   aria-selected={false}
                   disabled={full}
                   onClick={() => addRow(row)}
-                  className="block w-full truncate rounded-md py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
+                  className="block w-full truncate rounded-md py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 md:-ml-4 md:w-[calc(100%+1rem)] md:px-4 dark:hover:bg-stone-800/60"
                 >
                   {row.kind === 'mine' ? (
                     <>
@@ -146,7 +146,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
                 type="button"
                 disabled={full}
                 onClick={() => onAddCustom(trimmed)}
-                className="block w-full truncate rounded-md py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
+                className="block w-full truncate rounded-md py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 md:-ml-4 md:w-[calc(100%+1rem)] md:px-4 dark:hover:bg-stone-800/60"
               >
                 {trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}
               </button>
