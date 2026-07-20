@@ -3,6 +3,7 @@ import { Combobox } from '@base-ui/react/combobox';
 import { searchDevices } from '../../shared/search';
 import { parseDimensions } from '../../shared/dimensions';
 import type { Device } from '../../shared/types';
+import { MAX_ITEMS } from '../../shared/types';
 import { useCatalog } from '../useCatalog';
 import { useComparison } from '../store';
 import { addMyItem, getMyItems } from '../localStore';
@@ -21,7 +22,7 @@ export default function AddItemPanel() {
   const [name, setName] = useState('');
   const [dims, setDims] = useState('');
   const [dimsError, setDimsError] = useState<string | null>(null);
-  const full = state.items.length >= 8;
+  const full = state.items.length >= MAX_ITEMS;
 
   const trimmedQuery = query.trim();
   const results = useMemo(() => searchDevices(devices, query), [devices, query]);
@@ -82,7 +83,11 @@ export default function AddItemPanel() {
               } else {
                 dispatch({ type: 'add', item: { kind: 'custom', ...ci.item } });
               }
-              setQuery('');
+              // Root's single-selection mode fills the (controlled) input with the
+              // selected item's label right after this callback returns, so a
+              // synchronous setQuery('') here would just be overwritten. Deferring
+              // to a microtask lets our reset run after that internal fill-in.
+              queueMicrotask(() => setQuery(''));
             }}
           >
             <Combobox.Input
@@ -154,7 +159,7 @@ export default function AddItemPanel() {
         >
           Add item
         </button>
-        {full && <p className="text-xs text-stone-500">Comparison is full (8 items)</p>}
+        {full && <p className="text-xs text-stone-500">Comparison is full ({MAX_ITEMS} items)</p>}
       </div>
     </section>
   );
