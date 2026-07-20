@@ -8,14 +8,16 @@ test('buildBananaGeometry normalizes to an exact, centered w×h×d bounding box'
   const bb = geo.boundingBox!;
   const size = bb.getSize(new THREE.Vector3());
 
-  expect(size.x).toBeCloseTo(190, 6);
-  expect(size.y).toBeCloseTo(80, 6);
-  expect(size.z).toBeCloseTo(35, 6);
+  // 1e-3 mm tolerance: far below anything visually relevant, far above float32 noise
+  // (ULP at magnitude ~95 is ~7.6e-6, so a tight toBeCloseTo(…, 6) is flaky here).
+  expect(Math.abs(size.x - 190)).toBeLessThan(1e-3);
+  expect(Math.abs(size.y - 80)).toBeLessThan(1e-3);
+  expect(Math.abs(size.z - 35)).toBeLessThan(1e-3);
 
   const center = bb.getCenter(new THREE.Vector3());
-  expect(center.x).toBeCloseTo(0, 6);
-  expect(center.y).toBeCloseTo(0, 6);
-  expect(center.z).toBeCloseTo(0, 6);
+  expect(Math.abs(center.x)).toBeLessThan(1e-3);
+  expect(Math.abs(center.y)).toBeLessThan(1e-3);
+  expect(Math.abs(center.z)).toBeLessThan(1e-3);
 });
 
 test('buildBananaGeometry produces no NaN positions', () => {
