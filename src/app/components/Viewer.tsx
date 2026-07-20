@@ -57,6 +57,8 @@ export default function Viewer({ asideRef }: ViewerProps) {
 
   useEffect(() => { sceneRef.current?.setView(state.view); }, [state.view]);
 
+  useEffect(() => { sceneRef.current?.setLayout(state.layoutMode); }, [state.layoutMode]);
+
   return (
     <div ref={ref} className="relative h-full min-h-[320px] w-full" data-testid="viewer">
       {unavailable && (

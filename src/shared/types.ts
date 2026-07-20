@@ -16,4 +16,5 @@ export type ComparisonItem =
   | { kind: 'custom'; name: string; h: number; w: number; d: number };
 export type View = '3d' | 'front' | 'side' | 'top';
 export type Units = 'metric' | 'imperial';
+export type LayoutMode = 'row' | 'stack';
 export const MAX_ITEMS = 8;

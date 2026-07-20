@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import CustomEntry from './components/CustomEntry';
 import EmptyState from './components/EmptyState';
 import ItemList from './components/ItemList';
+import LayoutToggle from './components/LayoutToggle';
 import SearchDevices from './components/SearchDevices';
 import ShareButton from './components/ShareButton';
 import ViewTabs from './components/ViewTabs';
@@ -30,7 +31,7 @@ function Shell() {
       )}
       <div
         ref={asideRef}
-        className="relative z-10 w-full space-y-4 p-4 md:h-screen md:w-80 md:shrink-0 md:overflow-y-auto md:bg-white/85 md:backdrop-blur md:dark:bg-stone-900/85"
+        className="relative z-10 w-full space-y-4 p-4 md:h-screen md:w-80 md:shrink-0 md:overflow-y-auto"
       >
         <header className="flex items-center justify-between border-b border-stone-200 pb-3 dark:border-stone-800">
           <a href="/" className="text-lg font-semibold tracking-tight">size.fyi</a>
@@ -63,6 +64,7 @@ function Shell() {
           lives directly in this section there and needs normal event flow. */}
       <section className="relative z-0 min-h-[360px] flex-1 overflow-hidden md:h-screen md:pointer-events-none">
         <ViewTabs />
+        <LayoutToggle />
         {!showViewer && <EmptyState />}
         {showViewer && !isDesktop && <Viewer />}
       </section>
