@@ -56,8 +56,12 @@ function Shell() {
         <CustomEntry />
         <SearchDevices />
       </div>
-      {/* Safe area: the pill and empty state stay centered here, not in the full-bleed canvas. */}
-      <section className="relative z-0 min-h-[360px] flex-1 overflow-hidden md:h-screen">
+      {/* Safe area: the pill and empty state stay centered here, not in the full-bleed canvas.
+          On desktop the section itself must be transparent to pointer events (md:pointer-events-none)
+          so orbit drags reach the canvas behind it; its interactive children opt back in with
+          pointer-events-auto. Mobile is untouched (no md: prefix) since the contained Viewer
+          lives directly in this section there and needs normal event flow. */}
+      <section className="relative z-0 min-h-[360px] flex-1 overflow-hidden md:h-screen md:pointer-events-none">
         <ViewTabs />
         {!showViewer && <EmptyState />}
         {showViewer && !isDesktop && <Viewer />}

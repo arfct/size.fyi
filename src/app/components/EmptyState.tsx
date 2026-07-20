@@ -3,7 +3,7 @@ import { getRecents } from '../localStore';
 export default function EmptyState() {
   const recents = getRecents();
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
+    <div className="pointer-events-auto flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
       <div>
         <h2 className="text-xl font-semibold">Compare the size of anything</h2>
         <p className="mt-1 text-sm text-stone-500">

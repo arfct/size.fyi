@@ -12,7 +12,7 @@ export default function ViewTabs() {
     <div
       role="tablist"
       aria-label="View"
-      className="absolute left-1/2 top-3 z-10 inline-flex -translate-x-1/2 rounded-full border border-stone-200/70 bg-white/70 p-0.5 shadow-sm backdrop-blur dark:border-stone-800/70 dark:bg-stone-900/70"
+      className="pointer-events-auto absolute left-1/2 top-3 z-10 inline-flex -translate-x-1/2 rounded-full border border-stone-200/70 bg-white/70 p-0.5 shadow-sm backdrop-blur dark:border-stone-800/70 dark:bg-stone-900/70"
     >
       {VIEWS.map((v) => (
         <button key={v.id} role="tab" aria-selected={state.view === v.id}
