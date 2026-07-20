@@ -19,5 +19,5 @@
   { "slug": "xbox-series-x", "name": "Xbox Series X", "brand": "Microsoft", "category": "console", "h": 301, "w": 151, "d": 151, "year": 2020, "aliases": ["series x", "xsx"], "source": "xbox.com" },
   { "slug": "xbox-series-s", "name": "Xbox Series S", "brand": "Microsoft", "category": "console", "h": 275, "w": 151, "d": 65, "year": 2020, "aliases": ["series s", "xss"], "source": "xbox.com" },
   { "slug": "steam-deck-oled", "name": "Steam Deck OLED", "brand": "Valve", "category": "console", "h": 117, "w": 298, "d": 49, "year": 2023, "aliases": ["steam deck", "steamdeck"], "source": "steamdeck.com" },
-  { "slug": "airpods-pro-2-case", "name": "AirPods Pro 2 (Charging Case)", "brand": "Apple", "category": "audio", "h": 60.6, "w": 45.2, "d": 21.7, "year": 2023, "aliases": ["airpods pro case", "airpods case", "airpods pro 2"], "source": "apple.com" }
+  { "slug": "airpods-pro-2-case", "name": "AirPods Pro 2 (Charging Case)", "brand": "Apple", "category": "audio", "h": 45.2, "w": 60.6, "d": 21.7, "year": 2023, "aliases": ["airpods pro case", "airpods case", "airpods pro 2"], "source": "apple.com" }
 ]
