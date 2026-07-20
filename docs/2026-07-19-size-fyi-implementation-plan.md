@@ -1117,6 +1117,117 @@ Verify: three labeled translucent boxes on a grid; orbit works; `scene.setView('
 
 ---
 
+### Task 6b: Per-axis corner radius (cylinders, rounded phones)
+
+Added mid-execution at the user's request (2026-07-19). Catalog devices may
+declare a corner radius on one axis; the scene renders an extruded
+rounded-rect instead of a box. Custom items remain plain boxes (v1).
+
+**Files:**
+- Modify: `src/shared/types.ts` (Device + radius fields), `src/three/scene.ts`
+  (geometry builder), `scripts/build-catalog.mjs` (validation),
+  `data/devices/everyday.json`, `data/devices/devices.json` (radius data),
+  `src/three/demo.html` (radius examples for visual verification)
+
+**Interfaces:**
+- Consumes: existing `SceneItem`, `Device`, build-catalog validation loop.
+- Produces: `Device` and `SceneItem` gain `radius?: number` and
+  `radiusAxis?: 'x' | 'y' | 'z'` (x=width, y=height, z=depth; fillets the four
+  box edges parallel to that axis). Task 8's Viewer must pass both fields
+  through when mapping items → SceneItems.
+
+- [ ] **Step 1: Extend types**
+
+In `src/shared/types.ts`, add to `Device` (and export the axis type):
+```ts
+export type RadiusAxis = 'x' | 'y' | 'z';
+// in Device:
+  radius?: number;            // mm; fillets edges parallel to radiusAxis
+  radiusAxis?: RadiusAxis;    // x=width, y=height, z=depth
+```
+Add the same two optional fields to `SceneItem` in `src/three/scene.ts`.
+
+- [ ] **Step 2: Validation (build-catalog.mjs)**
+
+Add `radius`, `radiusAxis` to the `allowed` key set, and after the h/w/d loop:
+```js
+if (d.radius !== undefined || d.radiusAxis !== undefined) {
+  const cross = { x: ['h', 'd'], y: ['w', 'd'], z: ['h', 'w'] }[d.radiusAxis];
+  if (!cross) errors.push(`${id}: radiusAxis must be x|y|z when radius present`);
+  else if (typeof d.radius !== 'number' || d.radius <= 0
+    || d.radius > Math.min(d[cross[0]], d[cross[1]]) / 2 + 0.01)
+    errors.push(`${id}: radius out of range for its cross-section`);
+}
+```
+Verify: `npm run validate` passes; a temporary entry with radius 40 on a
+65mm-wide can (max 32.51) fails; revert.
+
+- [ ] **Step 3: Geometry builder (scene.ts)**
+
+Replace the `BoxGeometry` construction in `setItems` with `buildGeometry(item)`:
+```ts
+function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
+  const hx = a / 2, hy = b / 2, rr = Math.min(r, hx, hy);
+  const s = new THREE.Shape();
+  s.moveTo(-hx + rr, -hy);
+  s.lineTo(hx - rr, -hy); s.absarc(hx - rr, -hy + rr, rr, -Math.PI / 2, 0, false);
+  s.lineTo(hx, hy - rr);  s.absarc(hx - rr, hy - rr, rr, 0, Math.PI / 2, false);
+  s.lineTo(-hx + rr, hy); s.absarc(-hx + rr, hy - rr, rr, Math.PI / 2, Math.PI, false);
+  s.lineTo(-hx, -hy + rr); s.absarc(-hx + rr, -hy + rr, rr, Math.PI, Math.PI * 1.5, false);
+  return s;
+}
+
+function buildGeometry(item: SceneItem): THREE.BufferGeometry {
+  if (!item.radius || !item.radiusAxis)
+    return new THREE.BoxGeometry(item.w, item.h, item.d);
+  const opts = { bevelEnabled: false, curveSegments: 12 };
+  let geo: THREE.BufferGeometry;
+  if (item.radiusAxis === 'z') {
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.h, item.radius), { ...opts, depth: item.d });
+  } else if (item.radiusAxis === 'y') {
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.d, item.radius), { ...opts, depth: item.h });
+    geo.rotateX(-Math.PI / 2);
+  } else {
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.d, item.h, item.radius), { ...opts, depth: item.w });
+    geo.rotateY(Math.PI / 2);
+  }
+  geo.center(); // extrusion spans [0, depth] along its axis; recenter like BoxGeometry
+  return geo;
+}
+```
+Change the edge-lines construction to a 30° threshold so curve tessellation
+doesn't render as wireframe noise (box edges are 90°, unaffected):
+`new THREE.EdgesGeometry(geo, 30)`.
+
+- [ ] **Step 4: Radius data**
+
+Approximate visual values (cylinders exact; phone corners are visual
+approximations, not manufacturer claims):
+- `drinks-can`: `"radius": 32.5, "radiusAxis": "y"` (cylinder)
+- `wine-bottle`: `"radius": 35, "radiusAxis": "y"` (cylinder)
+- `banana`: `"radius": 17.5, "radiusAxis": "x"` (cylinder along length)
+- every `category: "phone"` device: `"radius": 11, "radiusAxis": "z"`
+- every `category: "tablet"` device: `"radius": 9, "radiusAxis": "z"`
+- `airpods-pro-2-case`: `"radius": 20, "radiusAxis": "z"`
+
+Run `node scripts/build-catalog.mjs` to regenerate `public/devices.json`.
+
+- [ ] **Step 5: Demo + checks**
+
+Update `src/three/demo.html` items to include a radius cylinder and a rounded
+phone (copy dims/radius from the data above). Run `npm run validate && npm
+test && npm run typecheck && npx vite build` — all green. Controller performs
+browser verification (can renders as cylinder; phone corners rounded in front
+view; no console errors).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add -A && git commit -m "feat: per-axis corner radius for catalog devices"
+```
+
+---
+
 ### Task 7: Catalog hook + AddItemPanel (search combobox + custom form)
 
 **Files:**
@@ -1381,6 +1492,8 @@ export default function Viewer() {
       h: item.kind === 'device' ? item.device.h : item.h,
       w: item.kind === 'device' ? item.device.w : item.w,
       d: item.kind === 'device' ? item.device.d : item.d,
+      radius: item.kind === 'device' ? item.device.radius : undefined,
+      radiusAxis: item.kind === 'device' ? item.device.radiusAxis : undefined,
       color: colorFor(i),
     })));
   }, [state.items]);

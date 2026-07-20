@@ -87,6 +87,11 @@ later addition (deliberately out of v1).
 
 - Dimensions in mm, height × width × depth (sizeasy's convention).
 - `brand`, `year`, `aliases`, `source` optional; everything else required.
+- Optional `radius` (mm) + `radiusAxis` (`x`|`y`|`z`; x=width, y=height,
+  z=depth): fillets the four box edges parallel to that axis. `y` with
+  radius = width/2 renders a cylinder (cans, bottles); `z` gives phones
+  their rounded front corners. Validation: radius ≤ half of both
+  cross-axis dimensions. Custom items are always plain boxes (v1).
 - Categories (initial): `everyday`, `paper`, `phone`, `tablet`, `laptop`,
   `console`, `pc-case`, `audio`, `camera`.
 
