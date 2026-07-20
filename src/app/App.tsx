@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import EmptyState from './components/EmptyState';
 import ItemDialog, { type DialogState } from './components/ItemDialog';
 import ItemList from './components/ItemList';
 import LayoutToggle from './components/LayoutToggle';
@@ -25,8 +24,9 @@ function Shell() {
     <div className="relative flex min-h-screen flex-col bg-white text-stone-900 dark:bg-stone-900 dark:text-stone-100 md:flex-row">
       {/* Full-bleed canvas (md+): spans the whole row, behind the floating aside. Mounted only
           on desktop so the scene isn't created twice — the mobile viewer below is the other
-          (mutually exclusive) mount point. */}
-      {isDesktop && showViewer && (
+          (mutually exclusive) mount point. Always mounted (even when empty) so it can show the
+          placeholder cubes. */}
+      {isDesktop && (
         <div className="absolute inset-0 hidden md:block">
           <Viewer asideRef={asideRef} />
         </div>
@@ -68,8 +68,7 @@ function Shell() {
       <section className="relative z-0 order-1 h-[48vh] shrink-0 overflow-hidden md:order-2 md:h-screen md:flex-1 md:shrink md:pointer-events-none">
         <ViewTabs />
         <LayoutToggle />
-        {!showViewer && <EmptyState />}
-        {showViewer && !isDesktop && <Viewer />}
+        {!isDesktop && <Viewer />}
       </section>
       <ItemDialog state={dialog} onClose={() => setDialog(null)} />
     </div>

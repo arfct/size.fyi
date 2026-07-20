@@ -80,7 +80,7 @@ test('a my-item match appears after device results, labeled, and selecting it di
   const user = userEvent.setup();
   setup();
 
-  const input = await screen.findByPlaceholderText('iPhone 16, A4 paper…');
+  const input = await screen.findByPlaceholderText('Search');
   await user.type(input, 'sho');
 
   const options = await screen.findAllByRole('option');
@@ -105,14 +105,14 @@ test('disables the search input at MAX_ITEMS', async () => {
     </ComparisonProvider>,
   );
 
-  const input = await screen.findByPlaceholderText('iPhone 16, A4 paper…');
+  const input = await screen.findByPlaceholderText('Search');
   expect(input).toBeDisabled();
 });
 
 test('focusing the search box selects its current text', async () => {
   const user = userEvent.setup();
   setup();
-  const input = (await screen.findByPlaceholderText('iPhone 16, A4 paper…')) as HTMLInputElement;
+  const input = (await screen.findByPlaceholderText('Search')) as HTMLInputElement;
   await user.type(input, 'ipad');
   input.setSelectionRange(4, 4); // collapse to the end, as if the caret were resting there
   fireEvent.focus(input);
@@ -140,7 +140,7 @@ test('shows the top-ranked suggestions (max 4) when the query is empty', async (
   );
 
   setup();
-  await screen.findByPlaceholderText('iPhone 16, A4 paper…');
+  await screen.findByPlaceholderText('Search');
 
   const options = await screen.findAllByRole('option');
   const labels = options.map((o) => o.textContent ?? '');
@@ -170,7 +170,7 @@ test('empty-query suggestions are filtered to the categories already in the comp
 
   const user = userEvent.setup();
   setup();
-  const input = await screen.findByPlaceholderText('iPhone 16, A4 paper…');
+  const input = await screen.findByPlaceholderText('Search');
 
   // Add the phone via search, then clear the query so suggestions show.
   await user.type(input, 'Phone X');

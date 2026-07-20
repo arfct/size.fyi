@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { createScene, type SizeScene } from '../../three/scene';
-import { itemColor } from '../palette';
+import { colorFor, itemColor } from '../palette';
 import { useComparison } from '../store';
 import { useIsDesktop } from '../useIsDesktop';
+
+// Shown in the empty viewer as a size primer: three cubes at 6/9/12 cm. Display-only — not real
+// comparison items, so they never enter the sidebar list or the shareable URL.
+const PLACEHOLDER_CUBES = [
+  { name: '6 cm', h: 60, w: 60, d: 60 },
+  { name: '9 cm', h: 90, w: 90, d: 90 },
+  { name: '12 cm', h: 120, w: 120, d: 120 },
+];
 
 interface ViewerProps {
   // The floating sidebar's element, when one is floating above this canvas (md+ full-bleed
@@ -49,18 +57,21 @@ export default function Viewer({ asideRef }: ViewerProps) {
   }, [asideRef, isDesktop]);
 
   useEffect(() => {
-    sceneRef.current?.setItems(state.items.map((item, i) => ({
-      name: item.kind === 'device' ? item.device.name : item.name,
-      h: item.kind === 'device' ? item.device.h : item.h,
-      w: item.kind === 'device' ? item.device.w : item.w,
-      d: item.kind === 'device' ? item.device.d : item.d,
-      radius: item.kind === 'device' ? item.device.radius : undefined,
-      radiusAxis: item.kind === 'device' ? item.device.radiusAxis : undefined,
-      screen: item.kind === 'device' ? item.device.screen : undefined,
-      mesh: item.kind === 'device' ? item.device.mesh : undefined,
-      model3d: item.kind === 'device' ? item.device.model3d : undefined,
-      color: itemColor(item, i),
-    })));
+    const items = state.items.length > 0
+      ? state.items.map((item, i) => ({
+        name: item.kind === 'device' ? item.device.name : item.name,
+        h: item.kind === 'device' ? item.device.h : item.h,
+        w: item.kind === 'device' ? item.device.w : item.w,
+        d: item.kind === 'device' ? item.device.d : item.d,
+        radius: item.kind === 'device' ? item.device.radius : undefined,
+        radiusAxis: item.kind === 'device' ? item.device.radiusAxis : undefined,
+        screen: item.kind === 'device' ? item.device.screen : undefined,
+        mesh: item.kind === 'device' ? item.device.mesh : undefined,
+        model3d: item.kind === 'device' ? item.device.model3d : undefined,
+        color: itemColor(item, i),
+      }))
+      : PLACEHOLDER_CUBES.map((c, i) => ({ ...c, color: colorFor(i) }));
+    sceneRef.current?.setItems(items);
   }, [state.items]);
 
   useEffect(() => { sceneRef.current?.setView(state.view); }, [state.view]);

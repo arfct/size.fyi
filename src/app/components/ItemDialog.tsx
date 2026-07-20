@@ -87,20 +87,25 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
           onChange={(e) => setName(e.target.value)}
           onKeyDown={onEnter}
           placeholder="Name"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           className="mt-1 w-full border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
         />
-        <button type="button" onClick={searchGoogle} className="mt-2 text-[13px] text-blue-600 hover:underline dark:text-blue-400">
-          Search Google for dimensions ↗
-        </button>
 
-        <label htmlFor="dlg-dims" className="mt-4 block text-[13px] font-medium text-stone-500">Dimensions (height × width × depth)</label>
+        <div className="mt-4 flex items-baseline justify-between gap-2">
+          <label htmlFor="dlg-dims" className="text-[13px] font-medium text-stone-500">Dimensions</label>
+          <button type="button" onClick={searchGoogle} className="text-[13px] text-blue-600 hover:underline dark:text-blue-400">
+            search Google ↗
+          </button>
+        </div>
         <input
           id="dlg-dims"
           ref={dimsRef}
           value={dims}
           onChange={(e) => { setDims(e.target.value); setError(null); }}
           onKeyDown={onEnter}
-          placeholder="85×64×12 or 5×3×2in"
+          placeholder="85×64×12"
           className="mt-1 w-full border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
         />
         {error && <p className="mt-2 text-[13px] text-red-600" role="alert">{error}</p>}

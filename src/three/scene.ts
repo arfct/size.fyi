@@ -386,6 +386,8 @@ export function createScene(container: HTMLElement): SizeScene {
   const controls = new OrbitControls(persp, renderer.domElement);
   controls.enableDamping = true;
   controls.addEventListener('change', requestRender);
+  renderer.domElement.addEventListener('pointerdown', onPointerDown);
+  renderer.domElement.addEventListener('pointerup', onPointerUp);
 
   // --- view transition state ---
   interface CameraPose { position: THREE.Vector3; quaternion: THREE.Quaternion; projectionMatrix: THREE.Matrix4 }
@@ -526,11 +528,41 @@ export function createScene(container: HTMLElement): SizeScene {
   let layoutMode: LayoutMode = 'row';
   let firstItems = true;
 
+  // Selection: name labels are hidden until an item is tapped. A tap raycasts against the item
+  // meshes; hitting a new item selects it (shows only its label), tapping it again or tapping empty
+  // space deselects. Drags (orbit) are ignored via a small movement threshold.
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  let selectedKey: string | null = null;
+  let downX = 0, downY = 0;
+
+  function refreshLabels() {
+    for (const [key, h] of handles) h.label.visible = key === selectedKey;
+  }
+  function onPointerDown(e: PointerEvent) { downX = e.clientX; downY = e.clientY; }
+  function onPointerUp(e: PointerEvent) {
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return; // a drag, not a tap
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.set(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    raycaster.setFromCamera(pointer, camera);
+    let hitKey: string | null = null;
+    for (const hit of raycaster.intersectObjects(group.children, true)) {
+      for (let o: THREE.Object3D | null = hit.object; o; o = o.parent) {
+        if (typeof o.userData.key === 'string') { hitKey = o.userData.key; break; }
+      }
+      if (hitKey) break;
+    }
+    const next = hitKey && hitKey !== selectedKey ? hitKey : null;
+    if (next !== selectedKey) { selectedKey = next; refreshLabels(); requestRender(); }
+  }
+
   function applyOpacityFactor(handle: ItemHandle, factor: number) {
     (handle.mesh.material as THREE.Material).opacity = handle.meshBaseOpacity * factor;
     if (handle.edges) (handle.edges.material as THREE.Material).opacity = factor;
     if (handle.screenMesh) (handle.screenMesh.material as THREE.Material).opacity = SCREEN_OPACITY * factor;
-    handle.label.element.style.opacity = String(factor);
   }
 
   function currentOpacityFactor(handle: ItemHandle): number {
@@ -542,7 +574,7 @@ export function createScene(container: HTMLElement): SizeScene {
   // of snapping back to full/zero first).
   function tweenFadeTo(handle: ItemHandle, targetFactor: number, done?: () => void) {
     const from = currentOpacityFactor(handle);
-    if (Math.abs(from - targetFactor) < 0.001) return;
+    if (Math.abs(from - targetFactor) < 0.001) { done?.(); return; } // already there — still finish
     addTween(`${handle.keyId}:fade`, TWEEN_MS, (k) => {
       applyOpacityFactor(handle, from + (targetFactor - from) * k);
     }, done);
@@ -579,6 +611,7 @@ export function createScene(container: HTMLElement): SizeScene {
   }
 
   function disposeHandle(handle: ItemHandle) {
+    if (selectedKey === handle.keyId) selectedKey = null;
     cancelTweensFor(handle.keyId);
     handle.mesh.geometry.dispose();
     (handle.mesh.material as THREE.Material).dispose();
@@ -609,13 +642,15 @@ export function createScene(container: HTMLElement): SizeScene {
     mesh.position.copy(target.pos);
     mesh.renderOrder = target.renderOrder;
     mesh.scale.setScalar(0.01);
+    mesh.userData.key = keyId; // for tap-to-select raycasting
 
     const labelEl = document.createElement('div');
     labelEl.textContent = item.name;
     labelEl.style.cssText =
-      `font:12px ui-sans-serif,system-ui;padding:1px 6px;border-radius:4px;color:#fff;background:${item.color}cc;opacity:0`;
+      `font:12px ui-sans-serif,system-ui;padding:1px 6px;border-radius:4px;color:#fff;background:${item.color}cc`;
     const label = new CSS2DObject(labelEl);
     label.position.set(0, item.h / 2 + maxDim * 0.04, 0);
+    label.visible = keyId === selectedKey; // hidden unless this item is selected
     mesh.add(label);
 
     let edges: THREE.LineSegments | null = null;
@@ -671,15 +706,16 @@ export function createScene(container: HTMLElement): SizeScene {
     const targets = computeTargets(items, keys, layoutMode);
     const newKeySet = new Set(keys);
 
-    // Removals: fade out anything no longer present (unless it's already fading).
-    for (const [key, handle] of handles) {
-      if (!newKeySet.has(key) && !handle.fading) {
-        handle.fading = true;
-        tweenFadeTo(handle, 0, () => {
-          disposeHandle(handle);
-          handles.delete(key);
-        });
-      }
+    // Removals: fade out anything no longer present (unless it's already fading). Collect first —
+    // tweenFadeTo can invoke its done callback synchronously (when the item is already invisible,
+    // e.g. added then removed within the same tick), which deletes from `handles`.
+    const removing = [...handles].filter(([key, h]) => !newKeySet.has(key) && !h.fading);
+    for (const [key, handle] of removing) {
+      handle.fading = true;
+      tweenFadeTo(handle, 0, () => {
+        disposeHandle(handle);
+        handles.delete(key);
+      });
     }
 
     // Kept / new / resurrected (an item removed then re-added before its fade-out finished).
@@ -924,6 +960,8 @@ export function createScene(container: HTMLElement): SizeScene {
       activeTweens = [];
       handles.clear();
       ro.disconnect();
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
       controls.removeEventListener('change', requestRender);
       controls.dispose();
       clearGroup();

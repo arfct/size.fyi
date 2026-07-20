@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { searchDevices, suggestDevices } from '../../shared/search';
 import type { Device } from '../../shared/types';
 import { MAX_ITEMS } from '../../shared/types';
@@ -18,7 +18,17 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
   const { state, dispatch } = useComparison();
   const isDesktop = useIsDesktop();
   const sectionRef = useRef<HTMLElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const didFocus = useRef(false);
   const [query, setQuery] = useState('');
+
+  // Focus the search box on desktop load (skipped on mobile to avoid popping the keyboard).
+  useEffect(() => {
+    if (isDesktop && !didFocus.current && inputRef.current) {
+      inputRef.current.focus();
+      didFocus.current = true;
+    }
+  }, [isDesktop]);
   const full = state.items.length >= MAX_ITEMS;
   const trimmed = query.trim();
 
@@ -69,7 +79,6 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
 
   return (
     <section ref={sectionRef} aria-label="Search devices" className="space-y-2">
-      <label htmlFor="device-search" className="block text-[16px] font-medium">Search devices</label>
       {status === 'error' ? (
         <button onClick={retry} className="text-[13px] text-red-600 underline">
           Catalog failed to load — retry
@@ -77,16 +86,18 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
       ) : (
         <>
           <input
+            ref={inputRef}
             id="device-search"
             type="text"
             role="combobox"
+            aria-label="Search devices"
             aria-expanded={rows.length > 0}
             aria-controls="device-results"
             value={query}
             disabled={full}
             onChange={(e) => { setQuery(e.target.value); revealOnMobile(); }}
             onFocus={(e) => { e.currentTarget.select(); revealOnMobile(); }}
-            placeholder={status === 'loading' ? 'Loading catalog…' : 'iPhone 16, A4 paper…'}
+            placeholder={status === 'loading' ? 'Loading catalog…' : 'Search'}
             className="w-full border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
           />
           {rows.length === 0 ? (
