@@ -20,8 +20,8 @@ interface ViewerProps {
 }
 
 // Vertical breathing room (px) reserved at the top of the mobile canvas so the framed model
-// sits below the floating segmented control (ViewTabs / Stack toggle), which overlaps the
-// canvas near the top. Desktop reserves horizontal room for the sidebar instead, not this.
+// isn't crowded against the sticky top toolbar above it. Desktop reserves horizontal room for
+// the sidebar instead, not this.
 const MOBILE_TOP_INSET = 64;
 
 export default function Viewer({ asideRef }: ViewerProps) {

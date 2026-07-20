@@ -1,13 +1,10 @@
 import { useRef, useState } from 'react';
 import ItemDialog, { type DialogState } from './components/ItemDialog';
 import ItemList from './components/ItemList';
-import LayoutToggle from './components/LayoutToggle';
 import RecentComparisons from './components/RecentComparisons';
 import SearchDevices from './components/SearchDevices';
 import ShareButton from './components/ShareButton';
-import UnitsToggle from './components/UnitsToggle';
 import ViewMenu from './components/ViewMenu';
-import ViewTabs from './components/ViewTabs';
 import Viewer from './components/Viewer';
 import { ComparisonProvider, useComparison } from './store';
 import { useIsDesktop } from './useIsDesktop';
@@ -32,9 +29,9 @@ function Shell() {
           <Viewer asideRef={asideRef} />
         </div>
       )}
-      {/* Mobile top toolbar (md:hidden): sticks to the top and holds the logo, the view menu, the
-          units toggle, and Share — the controls that live in the sidebar header / float over the
-          canvas on desktop. */}
+      {/* Mobile top toolbar (md:hidden): sticks to the top and holds the logo, the display menu
+          (view / layout / units), and Share. On desktop those controls float over the canvas
+          (menu, top-right) and live in the sidebar header (Share). */}
       <div className="sticky top-0 z-40 order-first flex items-center justify-between gap-2 border-b border-stone-200 bg-white/85 px-4 py-2 backdrop-blur md:hidden dark:border-stone-800 dark:bg-stone-900/85">
         <a href="/" className="flex items-center gap-2 text-[16px] font-semibold tracking-tight">
           <img src="/logo.svg" alt="" className="h-5 w-5" />
@@ -42,7 +39,6 @@ function Shell() {
         </a>
         <div className="flex items-center gap-2">
           <ViewMenu />
-          <UnitsToggle />
           <ShareButton />
         </div>
       </div>
@@ -55,10 +51,7 @@ function Shell() {
             <img src="/logo.svg" alt="" className="h-5 w-5" />
             size.fyi
           </a>
-          <div className="flex items-center gap-2">
-            <UnitsToggle />
-            <ShareButton />
-          </div>
+          <ShareButton />
         </header>
         {state.missing.length > 0 && (
           <div className="flex items-center justify-between rounded-md bg-amber-100 px-4 py-2 text-[13px] text-amber-900" role="status">
@@ -76,8 +69,11 @@ function Shell() {
           pointer-events-auto. Mobile is untouched (no md: prefix) since the contained Viewer
           lives directly in this section there and needs normal event flow. */}
       <section className="relative z-0 order-1 h-[48vh] shrink-0 overflow-hidden md:order-2 md:h-screen md:flex-1 md:shrink md:pointer-events-none">
-        <ViewTabs />
-        <LayoutToggle />
+        {/* Desktop-only floating display menu (top-right). Opts back into pointer events since the
+            section is md:pointer-events-none so orbit drags reach the canvas behind it. */}
+        <div className="pointer-events-auto absolute right-3 top-3 z-10 hidden md:block">
+          <ViewMenu />
+        </div>
         {!isDesktop && <Viewer />}
       </section>
       <ItemDialog state={dialog} onClose={() => setDialog(null)} />

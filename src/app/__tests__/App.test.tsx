@@ -1,5 +1,6 @@
 import { beforeEach, test, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { __resetCatalogStore } from '../useCatalog';
 
@@ -22,21 +23,24 @@ test('renders the wordmark as a link home', () => {
   for (const w of wordmarks) expect(w).toHaveAttribute('href', '/');
 });
 
-test('the sidebar header holds the wordmark and the units toggle', () => {
+test('the display menu carries view, layout and units together', async () => {
   render(<App />);
-  const header = screen
-    .getAllByRole('link', { name: 'size.fyi' })
-    .map((l) => l.closest('header'))
-    .find((h): h is HTMLElement => h != null);
-  expect(header).toBeTruthy();
-  const unitsButton = within(header!).getByRole('button', { name: /units:/i });
-  expect(unitsButton).toHaveTextContent('mm');
+  // Two menu triggers render (mobile toolbar + desktop float); either exposes the same controls.
+  const trigger = screen.getAllByRole('button', { name: /view: 3d/i })[0]!;
+  await userEvent.setup().click(trigger);
+  const menu = screen.getAllByRole('menu')[0]!;
+  expect(within(menu).getByRole('menuitemradio', { name: /^Side-by-side/ })).toBeInTheDocument();
+  expect(within(menu).getByRole('menuitemradio', { name: /^Stack/ })).toBeInTheDocument();
+  expect(within(menu).getByRole('menuitemradio', { name: /^Metric/ })).toBeInTheDocument();
+  expect(within(menu).getByRole('menuitemradio', { name: /^Imperial/ })).toBeInTheDocument();
 });
 
 test('viewer column fills the full viewport height on desktop', () => {
-  render(<App />);
-  const tablist = screen.getByRole('tablist', { name: 'View' });
-  const section = tablist.closest('section');
-  expect(section).not.toBeNull();
+  const { container } = render(<App />);
+  // The viewer/canvas section is the one that grows to fill the row on desktop.
+  const section = [...container.querySelectorAll('section')].find((s) =>
+    /\bmd:flex-1\b/.test(s.className),
+  );
+  expect(section).toBeTruthy();
   expect(section!.className).toMatch(/\bmd:h-screen\b/);
 });
