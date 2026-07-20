@@ -33,7 +33,25 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
         || d.radius > Math.min(d[cross[0]], d[cross[1]]) / 2 + 0.01)
         errors.push(`${id}: radius out of range for its cross-section`);
     }
-    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'brand', 'year', 'aliases', 'source', 'radius', 'radiusAxis']);
+    if (d.screen !== undefined) {
+      if (typeof d.screen !== 'object' || d.screen === null || Array.isArray(d.screen)) {
+        errors.push(`${id}: screen must be an object`);
+      } else {
+        const screenAllowed = new Set(['h', 'w', 'radius']);
+        for (const k of Object.keys(d.screen)) if (!screenAllowed.has(k)) errors.push(`${id}: unknown key screen.${k}`);
+        const sh = d.screen.h, sw = d.screen.w;
+        if (typeof sh !== 'number' || sh <= 0) errors.push(`${id}: screen.h missing or invalid`);
+        else if (typeof d.h === 'number' && sh > d.h) errors.push(`${id}: screen.h=${sh} exceeds device h=${d.h}`);
+        if (typeof sw !== 'number' || sw <= 0) errors.push(`${id}: screen.w missing or invalid`);
+        else if (typeof d.w === 'number' && sw > d.w) errors.push(`${id}: screen.w=${sw} exceeds device w=${d.w}`);
+        if (d.screen.radius !== undefined) {
+          if (typeof d.screen.radius !== 'number' || d.screen.radius <= 0
+            || (typeof sh === 'number' && typeof sw === 'number' && d.screen.radius > Math.min(sh, sw) / 2 + 0.01))
+            errors.push(`${id}: screen.radius out of range`);
+        }
+      }
+    }
+    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'brand', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen']);
     for (const k of Object.keys(d)) if (!allowed.has(k)) errors.push(`${id}: unknown key ${k}`);
     devices.push(d);
   }

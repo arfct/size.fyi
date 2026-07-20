@@ -6,6 +6,7 @@ export type ViewName = '3d' | 'front' | 'side' | 'top';
 export interface SceneItem {
   name: string; h: number; w: number; d: number; color: string;
   radius?: number; radiusAxis?: 'x' | 'y' | 'z';
+  screen?: { h: number; w: number; radius?: number };
 }
 export interface SizeScene {
   setItems(items: SceneItem[]): void;
@@ -23,6 +24,10 @@ function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
   s.lineTo(-hx + rr, hy); s.absarc(-hx + rr, hy - rr, rr, Math.PI / 2, Math.PI, false);
   s.lineTo(-hx, -hy + rr); s.absarc(-hx + rr, -hy + rr, rr, Math.PI, Math.PI * 1.5, false);
   return s;
+}
+
+function darken(hex: string, amount: number): THREE.Color {
+  return new THREE.Color(hex).multiplyScalar(1 - amount);
 }
 
 function buildGeometry(item: SceneItem): THREE.BufferGeometry {
@@ -123,6 +128,20 @@ export function createScene(container: HTMLElement): SizeScene {
       label.position.set(0, item.h / 2 + maxDim * 0.04, 0);
       mesh.add(label);
       group.add(mesh, edges);
+      if (item.screen) {
+        const screenGeo = new THREE.ShapeGeometry(
+          roundedRectShape(item.screen.w, item.screen.h, item.screen.radius ?? 0),
+          12,
+        );
+        const screenMat = new THREE.MeshBasicMaterial({
+          color: darken(item.color, 0.35),
+          transparent: true,
+          opacity: 0.5,
+        });
+        const screenMesh = new THREE.Mesh(screenGeo, screenMat);
+        screenMesh.position.set(mesh.position.x, mesh.position.y, item.d / 2 + 0.4);
+        group.add(screenMesh);
+      }
       x += item.w + gap;
     }
     bounds = new THREE.Box3().setFromObject(group);

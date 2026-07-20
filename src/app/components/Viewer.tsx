@@ -24,6 +24,7 @@ export default function Viewer() {
       d: item.kind === 'device' ? item.device.d : item.d,
       radius: item.kind === 'device' ? item.device.radius : undefined,
       radiusAxis: item.kind === 'device' ? item.device.radiusAxis : undefined,
+      screen: item.kind === 'device' ? item.device.screen : undefined,
       color: colorFor(i),
     })));
   }, [state.items]);
