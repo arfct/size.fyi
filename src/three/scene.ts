@@ -12,8 +12,21 @@ export interface SceneItem {
 export interface SizeScene {
   setItems(items: SceneItem[]): void;
   setView(view: ViewName): void;
+  setInset(px: number): void;
   resize(): void;
   dispose(): void;
+}
+
+// Safe-area frame math shared by both cameras. The "virtual" frame the camera is fit to should
+// match what it'd be if the canvas were only the right-hand column (width - insetLeft); the
+// actual rendered region is the full canvas, reached via a negative-offset setViewOffset (see
+// applyViewOffset in createScene). Exported as a pure function so it's cheaply unit-testable
+// without spinning up WebGL/DOM.
+export function safeAreaFrame(width: number, height: number, insetLeft: number) {
+  const w = Math.max(width, 1);
+  const h = Math.max(height, 1);
+  const safeW = Math.max(w - Math.max(insetLeft, 0), 1);
+  return { width: w, height: h, safeW, aspect: safeW / h };
 }
 
 function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
@@ -136,6 +149,21 @@ export function createScene(container: HTMLElement): SizeScene {
   const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 1e6);
   let camera: THREE.Camera = persp;
   let view: ViewName = '3d';
+  let inset = 0; // left inset (px) reserved for the floating sidebar; 0 on mobile
+
+  // Extends the rendered region beyond the safe-area virtual frame so the sidebar area is
+  // still rendered into (and slides under the frosted sidebar), while framing/fit stays
+  // identical to what it'd be if the canvas were only the safe area.
+  function applyViewOffset(
+    cam: THREE.PerspectiveCamera | THREE.OrthographicCamera,
+    frame: ReturnType<typeof safeAreaFrame>,
+  ) {
+    if (inset > 0) {
+      cam.setViewOffset(frame.safeW, frame.height, -inset, 0, frame.width, frame.height);
+    } else {
+      cam.clearViewOffset();
+    }
+  }
 
   const controls = new OrbitControls(persp, renderer.domElement);
   controls.enableDamping = true;
@@ -264,13 +292,15 @@ export function createScene(container: HTMLElement): SizeScene {
     const c = bounds.getCenter(new THREE.Vector3());
     const s = bounds.getSize(new THREE.Vector3());
     const { width, height } = container.getBoundingClientRect();
-    const aspect = Math.max(width, 1) / Math.max(height, 1);
+    const frame = safeAreaFrame(width, height, inset);
+    const aspect = frame.aspect;
     let targetCam: THREE.Camera;
     if (next === '3d') {
       persp.aspect = aspect;
       const radius = Math.max(s.x, s.y, s.z, 1);
       persp.position.set(c.x + radius * 1.2, c.y + radius * 0.9, c.z + radius * 1.6);
       persp.lookAt(c);
+      applyViewOffset(persp, frame);
       persp.updateProjectionMatrix();
       targetCam = persp;
     } else {
@@ -287,6 +317,7 @@ export function createScene(container: HTMLElement): SizeScene {
       if (next === 'side') { fit(s.z, s.y); ortho.position.set(c.x + far / 2, c.y, c.z); }
       if (next === 'top') { fit(s.x, s.z); ortho.position.set(c.x, c.y + far / 2, c.z); }
       ortho.lookAt(c);
+      applyViewOffset(ortho, frame);
       ortho.updateProjectionMatrix();
       targetCam = ortho;
     }
@@ -347,7 +378,9 @@ export function createScene(container: HTMLElement): SizeScene {
       persp.position.copy(end.position);
       persp.quaternion.copy(end.quaternion);
       const { width, height } = container.getBoundingClientRect();
-      persp.aspect = Math.max(width, 1) / Math.max(height, 1);
+      const frame = safeAreaFrame(width, height, inset);
+      persp.aspect = frame.aspect;
+      applyViewOffset(persp, frame);
       persp.updateProjectionMatrix(); // restore auto (non-lerped) projection
       controls.target.copy(end.controlsTarget);
       controls.enabled = true;
@@ -417,6 +450,15 @@ export function createScene(container: HTMLElement): SizeScene {
     applyInstant(view);
   }
 
+  // Cancel-and-jump, same as resize(): an inset change mid-transition recomputes the end
+  // state for the new safe area and snaps to it rather than animating through a moving frame.
+  function setInset(px: number) {
+    const next = Math.max(0, px);
+    if (next === inset) return;
+    inset = next;
+    applyInstant(view);
+  }
+
   const ro = new ResizeObserver(resize);
   ro.observe(container);
   resize();
@@ -424,6 +466,7 @@ export function createScene(container: HTMLElement): SizeScene {
   return {
     setItems: (items) => { setItems(items); },
     setView,
+    setInset,
     resize,
     dispose() {
       disposed = true;
