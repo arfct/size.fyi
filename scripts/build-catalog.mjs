@@ -52,7 +52,11 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
         }
       }
     }
-    if (d.mesh !== undefined && !MESHES.includes(d.mesh)) errors.push(`${id}: unknown mesh ${d.mesh}`);
+    if (d.mesh !== undefined) {
+      if (!MESHES.includes(d.mesh)) errors.push(`${id}: unknown mesh ${d.mesh}`);
+      if (d.radius !== undefined || d.radiusAxis !== undefined || d.screen !== undefined)
+        errors.push(`${id}: mesh devices define their own geometry`);
+    }
     const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'brand', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh']);
     for (const k of Object.keys(d)) if (!allowed.has(k)) errors.push(`${id}: unknown key ${k}`);
     devices.push(d);

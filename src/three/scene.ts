@@ -34,7 +34,7 @@ function darken(hex: string, amount: number): THREE.Color {
 // Sweeps circular cross-section rings along a planar curved spine (bending upward through
 // ~110°) with a tapered radius profile, then rescales the result so its bounding box is
 // exactly w×h×d — matching how box/rounded geometry sits on the ground at those dimensions.
-function buildBananaGeometry(w: number, h: number, d: number): THREE.BufferGeometry {
+export function buildBananaGeometry(w: number, h: number, d: number): THREE.BufferGeometry {
   const N = 24; // rings along the spine
   const M = 12; // radial segments per ring
   const arcHalf = 0.96; // half-sweep, radians (~110° total)
