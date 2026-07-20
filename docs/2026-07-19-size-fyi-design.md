@@ -20,7 +20,10 @@ Cloudflare at effectively zero cost, no ads, no accounts, no server-side state.
 - No user accounts, no server-stored comparisons, no public "latest
   comparisons" feed (the old sizeasy feed was mostly junk).
 - No user-submitted catalog entries (catalog grows via git commits/PRs).
-- No non-box shapes (cylinders, meshes) — everything renders as a box.
+- No arbitrary meshes — items render as boxes, optionally with a per-axis
+  corner radius (which covers cylinders like cans and bottles; see Device
+  catalog). Added mid-build at the user's request, superseding the original
+  "boxes only" non-goal.
 
 ## Architecture
 
@@ -38,8 +41,9 @@ size.fyi/
 ```
 
 - Vite builds the client app.
-- A build step compiles `data/devices/*.json` into one minified, content-hashed
-  `devices.<hash>.json` asset.
+- A build step compiles `data/devices/*.json` into one minified
+  `public/devices.json` asset (stable name; freshness handled by the Worker's
+  ETag on `/api/devices`).
 - Wrangler deploys the Worker with the built assets; zone routes for
   `size.fyi/*` and `www.size.fyi/*` are already configured in `wrangler.jsonc`.
 - `src/shared/` is the future-proofing layer: the same URL/device code runs in
@@ -70,6 +74,12 @@ Twitter-card tags via HTMLRewriter, so shared links unfurl as e.g.
 "iPhone 16 Pro vs Paper: A4 — size.fyi". Generated OG images are a possible
 later addition (deliberately out of v1).
 
+**Accepted divergence:** URL sync uses `history.replaceState` only, never
+`pushState` — comparisons don't create in-app history entries, so the back
+button exits the site rather than stepping through prior comparisons. This is
+deliberate: it keeps the URL canonical to current state rather than growing an
+incidental browser-history trail.
+
 ## Device catalog
 
 ```json
@@ -87,6 +97,11 @@ later addition (deliberately out of v1).
 
 - Dimensions in mm, height × width × depth (sizeasy's convention).
 - `brand`, `year`, `aliases`, `source` optional; everything else required.
+- Optional `radius` (mm) + `radiusAxis` (`x`|`y`|`z`; x=width, y=height,
+  z=depth): fillets the four box edges parallel to that axis. `y` with
+  radius = width/2 renders a cylinder (cans, bottles); `z` gives phones
+  their rounded front corners. Validation: radius ≤ half of both
+  cross-axis dimensions. Custom items are always plain boxes (v1).
 - Categories (initial): `everyday`, `paper`, `phone`, `tablet`, `laptop`,
   `console`, `pc-case`, `audio`, `camera`.
 
@@ -113,6 +128,9 @@ later addition (deliberately out of v1).
 
 3. A curated ~150–200 popular devices: recent iPhones / Pixels / Galaxys,
    iPads, MacBooks, game consoles, common SFF PC cases — each with a `source`.
+
+**Accepted divergence:** v1 launched with 39 curated devices, not 150–200; the
+catalog grows incrementally via PRs against this same schema.
 
 **Size budget:** a minified entry is ~150–200 bytes; 200 devices ≈ 35 KB raw
 ≈ 10 KB brotli — negligible (three.js alone is ~150 KB gzipped). The client

@@ -1,0 +1,20 @@
+[
+  { "slug": "box-of-matches", "name": "Box of Matches", "category": "everyday", "h": 36, "w": 53, "d": 15 },
+  { "slug": "credit-card", "name": "Credit Card", "category": "everyday", "h": 54, "w": 85, "d": 1 },
+  { "slug": "playing-cards", "name": "Pack of Playing Cards", "category": "everyday", "h": 90, "w": 58, "d": 20 },
+  { "slug": "drinks-can", "name": "Drinks Can", "category": "everyday", "h": 115, "w": 65, "d": 65, "radius": 32.5, "radiusAxis": "y" },
+  { "slug": "cd-case", "name": "CD Case", "category": "everyday", "h": 124, "w": 142, "d": 10 },
+  { "slug": "wine-bottle", "name": "Wine Bottle", "category": "everyday", "h": 295, "w": 70, "d": 70, "radius": 35, "radiusAxis": "y" },
+  { "slug": "banana", "name": "Banana", "category": "everyday", "h": 35, "w": 190, "d": 35, "aliases": ["banana for scale"], "radius": 17.5, "radiusAxis": "x" },
+  { "slug": "19in-monitor", "name": "19″ TFT Monitor", "category": "everyday", "h": 360, "w": 425, "d": 50 },
+  { "slug": "32in-tv", "name": "32″ Widescreen TV", "category": "everyday", "h": 550, "w": 790, "d": 90 },
+  { "slug": "internal-door", "name": "Internal Door", "category": "everyday", "h": 1982, "w": 838, "d": 33 },
+  { "slug": "double-mattress", "name": "Double/Full Mattress", "category": "everyday", "h": 1905, "w": 1371.6, "d": 200 },
+  { "slug": "paper-letter", "name": "Paper: Letter", "category": "paper", "h": 279.4, "w": 215.9, "d": 1 },
+  { "slug": "paper-ledger", "name": "Paper: Ledger/Tabloid", "category": "paper", "h": 431.8, "w": 279.4, "d": 1 },
+  { "slug": "paper-a1", "name": "Paper: A1", "category": "paper", "h": 841, "w": 594, "d": 1 },
+  { "slug": "paper-a2", "name": "Paper: A2", "category": "paper", "h": 594, "w": 420, "d": 1 },
+  { "slug": "paper-a3", "name": "Paper: A3", "category": "paper", "h": 420, "w": 297, "d": 1 },
+  { "slug": "paper-a4", "name": "Paper: A4", "category": "paper", "h": 297, "w": 210, "d": 1 },
+  { "slug": "paper-a5", "name": "Paper: A5", "category": "paper", "h": 210, "w": 148, "d": 1 }
+]
