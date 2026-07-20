@@ -1,20 +1,38 @@
+import { useRef } from 'react';
 import CustomEntry from './components/CustomEntry';
 import EmptyState from './components/EmptyState';
 import ItemList from './components/ItemList';
+import LayoutToggle from './components/LayoutToggle';
 import SearchDevices from './components/SearchDevices';
 import ShareButton from './components/ShareButton';
 import ViewTabs from './components/ViewTabs';
 import Viewer from './components/Viewer';
 import { setStoredUnits } from './localStore';
 import { ComparisonProvider, useComparison } from './store';
+import { useIsDesktop } from './useIsDesktop';
 import { useUrlSync } from './useUrlSync';
 
 function Shell() {
   useUrlSync();
   const { state, dispatch } = useComparison();
+  const asideRef = useRef<HTMLDivElement>(null);
+  const isDesktop = useIsDesktop();
+  const showViewer = state.items.length > 0;
+
   return (
-    <div className="flex min-h-screen flex-col bg-white text-stone-900 dark:bg-stone-900 dark:text-stone-100 md:flex-row">
-      <div className="w-full space-y-4 p-4 md:h-screen md:w-80 md:shrink-0 md:overflow-y-auto">
+    <div className="relative flex min-h-screen flex-col bg-white text-stone-900 dark:bg-stone-900 dark:text-stone-100 md:flex-row">
+      {/* Full-bleed canvas (md+): spans the whole row, behind the floating aside. Mounted only
+          on desktop so the scene isn't created twice — the mobile viewer below is the other
+          (mutually exclusive) mount point. */}
+      {isDesktop && showViewer && (
+        <div className="absolute inset-0 hidden md:block">
+          <Viewer asideRef={asideRef} />
+        </div>
+      )}
+      <div
+        ref={asideRef}
+        className="relative z-10 w-full space-y-4 p-4 md:h-screen md:w-80 md:shrink-0 md:overflow-y-auto"
+      >
         <header className="flex items-center justify-between border-b border-stone-200 pb-3 dark:border-stone-800">
           <a href="/" className="text-lg font-semibold tracking-tight">size.fyi</a>
           <div className="flex items-center gap-2">
@@ -39,9 +57,16 @@ function Shell() {
         <CustomEntry />
         <SearchDevices />
       </div>
-      <section className="relative min-h-[360px] flex-1 overflow-hidden md:h-screen">
+      {/* Safe area: the pill and empty state stay centered here, not in the full-bleed canvas.
+          On desktop the section itself must be transparent to pointer events (md:pointer-events-none)
+          so orbit drags reach the canvas behind it; its interactive children opt back in with
+          pointer-events-auto. Mobile is untouched (no md: prefix) since the contained Viewer
+          lives directly in this section there and needs normal event flow. */}
+      <section className="relative z-0 min-h-[360px] flex-1 overflow-hidden md:h-screen md:pointer-events-none">
         <ViewTabs />
-        {state.items.length === 0 ? <EmptyState /> : <Viewer />}
+        <LayoutToggle />
+        {!showViewer && <EmptyState />}
+        {showViewer && !isDesktop && <Viewer />}
       </section>
     </div>
   );

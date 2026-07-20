@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import type { LayoutMode } from '../shared/types';
 
 export type ViewName = '3d' | 'front' | 'side' | 'top';
 export interface SceneItem {
@@ -12,8 +13,40 @@ export interface SceneItem {
 export interface SizeScene {
   setItems(items: SceneItem[]): void;
   setView(view: ViewName): void;
+  setLayout(mode: LayoutMode): void;
+  setInset(px: number): void;
   resize(): void;
   dispose(): void;
+}
+
+// Safe-area frame math shared by both cameras. The "virtual" frame the camera is fit to should
+// match what it'd be if the canvas were only the right-hand column (width - insetLeft); the
+// actual rendered region is the full canvas, reached via a negative-offset setViewOffset (see
+// applyViewOffset below). Exported as a pure function so it's cheaply unit-testable without
+// spinning up WebGL/DOM.
+export function safeAreaFrame(width: number, height: number, insetLeft: number) {
+  const w = Math.max(width, 1);
+  const h = Math.max(height, 1);
+  const safeW = Math.max(w - Math.max(insetLeft, 0), 1);
+  return { width: w, height: h, safeW, aspect: safeW / h };
+}
+
+// Extends the rendered region beyond the safe-area virtual frame so the sidebar area is still
+// rendered into (and slides under the frosted sidebar), while framing/fit stays identical to
+// what it'd be if the canvas were only the safe area. `cam.aspect`/ortho left-right-top-bottom
+// must already be set from `frame.aspect` before calling this; call `updateProjectionMatrix()`
+// after. Exported (rather than kept as a createScene closure) so the exact wiring used in
+// production — argument order and all — is directly testable.
+export function applyViewOffset(
+  cam: THREE.PerspectiveCamera | THREE.OrthographicCamera,
+  frame: ReturnType<typeof safeAreaFrame>,
+  insetLeft: number,
+) {
+  if (insetLeft > 0) {
+    cam.setViewOffset(frame.safeW, frame.height, -insetLeft, 0, frame.width, frame.height);
+  } else {
+    cam.clearViewOffset();
+  }
 }
 
 function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
@@ -117,6 +150,74 @@ function buildGeometry(item: SceneItem): THREE.BufferGeometry {
   return geo;
 }
 
+export interface LayoutTarget { pos: THREE.Vector3; renderOrder: number }
+
+function itemKey(item: SceneItem): string {
+  return `${item.name}|${item.h}x${item.w}x${item.d}|${item.mesh ?? ''}`;
+}
+
+// Disambiguates duplicate items (same name+dims+mesh added more than once) by suffixing an
+// occurrence index, so the diff in createScene never collides two distinct items onto one
+// handle. Pure and side-effect-free — exported for direct unit testing.
+export function computeKeys(items: SceneItem[]): string[] {
+  const counts = new Map<string, number>();
+  return items.map((item) => {
+    const base = itemKey(item);
+    const n = counts.get(base) ?? 0;
+    counts.set(base, n + 1);
+    return n === 0 ? base : `${base}#${n}`;
+  });
+}
+
+// Row = sequential x with an 8%-of-max-dimension gap, all at z=0. Stack = every item centered at
+// x=0,z=0 with its bottom on the ground (y=h/2); renderOrder assigned by footprint (w*d)
+// descending so larger items get a lower renderOrder (drawn first) and smaller nested items draw
+// later, staying visible through the larger ones' translucency (paired with depthWrite:false on
+// the transparent materials in createScene). Pure — exported for direct unit testing.
+export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutMode): Map<string, LayoutTarget> {
+  const targets = new Map<string, LayoutTarget>();
+  if (mode === 'stack') {
+    const byFootprintDesc = items
+      .map((item, i) => ({ key: keys[i]!, footprint: item.w * item.d }))
+      .sort((a, b) => b.footprint - a.footprint);
+    const renderOrderOf = new Map(byFootprintDesc.map((entry, i) => [entry.key, i]));
+    items.forEach((item, i) => {
+      const key = keys[i]!;
+      targets.set(key, { pos: new THREE.Vector3(0, item.h / 2, 0), renderOrder: renderOrderOf.get(key) ?? 0 });
+    });
+  } else {
+    const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
+    const gap = maxDim * 0.08;
+    let x = 0;
+    items.forEach((item, i) => {
+      targets.set(keys[i]!, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, 0), renderOrder: 0 });
+      x += item.w + gap;
+    });
+  }
+  return targets;
+}
+
+// Builds a Box3 from TARGET positions/dims (not the live, possibly mid-tween, group) — used both
+// for the camera refit and the grid recompute. Pure — exported for direct unit testing.
+export function computeTargetBounds(
+  items: SceneItem[],
+  keys: string[],
+  targets: Map<string, LayoutTarget>,
+): THREE.Box3 {
+  if (items.length === 0) {
+    return new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
+  }
+  const box = new THREE.Box3();
+  items.forEach((item, i) => {
+    const t = targets.get(keys[i]!)!;
+    const half = new THREE.Vector3(item.w / 2, item.h / 2, item.d / 2);
+    box.expandByPoint(t.pos.clone().sub(half));
+    box.expandByPoint(t.pos.clone().add(half));
+    if (item.screen) box.expandByPoint(t.pos.clone().add(new THREE.Vector3(0, 0, item.d / 2 + 0.5)));
+  });
+  return box;
+}
+
 export function createScene(container: HTMLElement): SizeScene {
   const scene = new THREE.Scene();
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -136,6 +237,7 @@ export function createScene(container: HTMLElement): SizeScene {
   const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 1e6);
   let camera: THREE.Camera = persp;
   let view: ViewName = '3d';
+  let inset = 0; // left inset (px) reserved for the floating sidebar; 0 on mobile
 
   const controls = new OrbitControls(persp, renderer.domElement);
   controls.enableDamping = true;
@@ -197,53 +299,234 @@ export function createScene(container: HTMLElement): SizeScene {
     if (grid) { scene.remove(grid); grid.geometry.dispose(); (grid.material as THREE.Material).dispose(); grid = null; }
   }
 
-  function setItems(items: SceneItem[]) {
-    clearGroup();
-    const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
-    const gap = maxDim * 0.08;
-    let x = 0;
-    for (const item of items) {
-      const geo = buildGeometry(item);
-      const isWireframe = item.mesh != null;
-      const mat = isWireframe
-        ? new THREE.MeshBasicMaterial({ color: item.color, wireframe: true })
-        : new THREE.MeshLambertMaterial({ color: item.color, transparent: true, opacity: 0.55 });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(x + item.w / 2, item.h / 2, 0);
-      const labelEl = document.createElement('div');
-      labelEl.textContent = item.name;
-      labelEl.style.cssText =
-        `font:12px ui-sans-serif,system-ui;padding:1px 6px;border-radius:4px;color:#fff;background:${item.color}cc`;
-      const label = new CSS2DObject(labelEl);
-      label.position.set(0, item.h / 2 + maxDim * 0.04, 0);
-      mesh.add(label);
-      group.add(mesh);
-      if (!isWireframe) {
-        const edges = new THREE.LineSegments(
-          new THREE.EdgesGeometry(geo, 30),
-          new THREE.LineBasicMaterial({ color: item.color }),
-        );
-        edges.position.copy(mesh.position);
-        group.add(edges);
-      }
-      if (item.screen) {
-        const screenGeo = new THREE.ShapeGeometry(
-          roundedRectShape(item.screen.w, item.screen.h, item.screen.radius ?? 0),
-          12,
-        );
-        const screenMat = new THREE.MeshBasicMaterial({
-          color: darken(item.color, 0.35),
-          transparent: true,
-          opacity: 0.5,
-        });
-        const screenMesh = new THREE.Mesh(screenGeo, screenMat);
-        screenMesh.position.set(mesh.position.x, mesh.position.y, item.d / 2 + 0.4);
-        group.add(screenMesh);
-      }
-      x += item.w + gap;
+  // --- item tween ticker ---------------------------------------------------------------
+  // A single rAF loop drives every in-flight item tween (position/color/scale/opacity). Tweens
+  // are keyed by an id so re-triggering the same kind of tween on the same item (e.g. a second
+  // setItems() call arriving mid-animation) *retargets* it — capturing the live current value as
+  // the new "from" — rather than stacking a competing animation on top.
+  const TWEEN_MS = 350;
+  interface ActiveTween { id: string; start: number; dur: number; update: (k: number) => void; done?: () => void }
+  let activeTweens: ActiveTween[] = [];
+  let tweenRaf = 0;
+
+  function addTween(id: string, dur: number, update: (k: number) => void, done?: () => void) {
+    activeTweens = activeTweens.filter((t) => t.id !== id);
+    activeTweens.push({ id, start: performance.now(), dur, update, done });
+    if (!tweenRaf) tweenRaf = requestAnimationFrame(tickTweens);
+  }
+
+  // Drops every tween belonging to a given item (id prefix `${key}:`) without invoking their
+  // `done` callbacks — used right before disposal so nothing keeps mutating a mesh that's about
+  // to be (or just got) removed from the scene and dispose()d.
+  function cancelTweensFor(keyId: string) {
+    const prefix = `${keyId}:`;
+    activeTweens = activeTweens.filter((t) => !t.id.startsWith(prefix));
+  }
+
+  function tickTweens(now: number) {
+    tweenRaf = 0;
+    if (disposed) return;
+    const finished: ActiveTween[] = [];
+    activeTweens = activeTweens.filter((t) => {
+      const k = Math.min(1, (now - t.start) / t.dur);
+      t.update(easeInOutCubic(k));
+      if (k >= 1) { finished.push(t); return false; }
+      return true;
+    });
+    requestRender();
+    for (const t of finished) t.done?.();
+    if (activeTweens.length) tweenRaf = requestAnimationFrame(tickTweens);
+  }
+
+  // --- item handles ---------------------------------------------------------------------
+  // mesh is the sole child of `group`; edges/screenMesh/label all hang off mesh as children (in
+  // its local, geometry-centered space) so a single mesh.position/scale tween carries all of them
+  // along for free. clearGroup()'s traverse() still finds and disposes every descendant.
+  const MESH_OPACITY = 0.55; // MeshLambertMaterial "solid" items
+  const WIREFRAME_OPACITY = 1; // banana/wireframe mesh — transparent is turned on unconditionally
+  // (rather than only while fading) so an opacity tween works uniformly across mesh kinds; at
+  // opacity 1 a transparent material renders identically to an opaque one.
+  const SCREEN_OPACITY = 0.5;
+
+  interface ItemHandle {
+    keyId: string;
+    mesh: THREE.Mesh;
+    edges: THREE.LineSegments | null;
+    screenMesh: THREE.Mesh | null;
+    label: CSS2DObject;
+    item: SceneItem;
+    meshBaseOpacity: number;
+    fading: boolean; // true while a fade-out (pending removal) is in flight
+  }
+  type Target = LayoutTarget;
+
+  const handles = new Map<string, ItemHandle>();
+  let lastItems: SceneItem[] = [];
+  let layoutMode: LayoutMode = 'row';
+  let firstItems = true;
+
+  function applyOpacityFactor(handle: ItemHandle, factor: number) {
+    (handle.mesh.material as THREE.Material).opacity = handle.meshBaseOpacity * factor;
+    if (handle.edges) (handle.edges.material as THREE.Material).opacity = factor;
+    if (handle.screenMesh) (handle.screenMesh.material as THREE.Material).opacity = SCREEN_OPACITY * factor;
+    handle.label.element.style.opacity = String(factor);
+  }
+
+  function currentOpacityFactor(handle: ItemHandle): number {
+    return (handle.mesh.material as THREE.Material).opacity / (handle.meshBaseOpacity || 1);
+  }
+
+  // Tweens opacity from wherever it currently is (live value, so a fade interrupted mid-flight —
+  // e.g. an item removed then re-added before its fade-out finished — reverses smoothly instead
+  // of snapping back to full/zero first).
+  function tweenFadeTo(handle: ItemHandle, targetFactor: number, done?: () => void) {
+    const from = currentOpacityFactor(handle);
+    if (Math.abs(from - targetFactor) < 0.001) return;
+    addTween(`${handle.keyId}:fade`, TWEEN_MS, (k) => {
+      applyOpacityFactor(handle, from + (targetFactor - from) * k);
+    }, done);
+  }
+
+  function tweenPosition(handle: ItemHandle, target: THREE.Vector3) {
+    const from = handle.mesh.position.clone();
+    if (from.equals(target)) return;
+    addTween(`${handle.keyId}:pos`, TWEEN_MS, (k) => {
+      handle.mesh.position.lerpVectors(from, target, k);
+    });
+  }
+
+  function tweenColor(handle: ItemHandle, fromColorHex: string, toColorHex: string) {
+    if (fromColorHex === toColorHex) return;
+    const meshMat = handle.mesh.material as THREE.MeshLambertMaterial | THREE.MeshBasicMaterial;
+    const fromMesh = meshMat.color.clone();
+    const toMesh = new THREE.Color(toColorHex);
+    const edgesMat = handle.edges?.material as THREE.LineBasicMaterial | undefined;
+    const fromEdges = edgesMat?.color.clone();
+    const toEdges = new THREE.Color(toColorHex);
+    const screenMat = handle.screenMesh?.material as THREE.MeshBasicMaterial | undefined;
+    const fromScreen = screenMat?.color.clone();
+    const toScreen = darken(toColorHex, 0.35);
+    addTween(`${handle.keyId}:color`, TWEEN_MS, (k) => {
+      meshMat.color.copy(fromMesh).lerp(toMesh, k);
+      if (edgesMat && fromEdges) edgesMat.color.copy(fromEdges).lerp(toEdges, k);
+      if (screenMat && fromScreen) screenMat.color.copy(fromScreen).lerp(toScreen, k);
+    }, () => {
+      // Label background isn't tweened frame-by-frame (a CSS color string, not a THREE.Color) —
+      // it swaps once the material tween settles.
+      handle.label.element.style.background = `${toColorHex}cc`;
+    });
+  }
+
+  function disposeHandle(handle: ItemHandle) {
+    cancelTweensFor(handle.keyId);
+    handle.mesh.geometry.dispose();
+    (handle.mesh.material as THREE.Material).dispose();
+    if (handle.edges) { handle.edges.geometry.dispose(); (handle.edges.material as THREE.Material).dispose(); }
+    if (handle.screenMesh) { handle.screenMesh.geometry.dispose(); (handle.screenMesh.material as THREE.Material).dispose(); }
+    handle.label.element.remove();
+    handle.mesh.removeFromParent();
+  }
+
+  function createHandle(item: SceneItem, keyId: string, target: Target, maxDim: number): ItemHandle {
+    const geo = buildGeometry(item);
+    const isWireframe = item.mesh != null;
+    const meshBaseOpacity = isWireframe ? WIREFRAME_OPACITY : MESH_OPACITY;
+    // depthWrite: false — renderOrder alone only sequences the transparent-object render queue; the
+    // depth *test* still runs against whatever's already in the depth buffer, so without this a
+    // larger item drawn first (renderOrder 0) would still occlude a smaller nested one behind it
+    // in stack mode (visible head-on in front/side views). With depthWrite off, translucent items
+    // never write depth, so renderOrder is the sole arbiter of draw/blend order. In row mode items
+    // don't overlap on screen, so this is inert there; the opaque grid still writes/tests depth
+    // normally since it's a separate (non-transparent) draw.
+    const mat = isWireframe
+      ? new THREE.MeshBasicMaterial({ color: item.color, wireframe: true, transparent: true, opacity: 0, depthWrite: false })
+      : new THREE.MeshLambertMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(target.pos);
+    mesh.renderOrder = target.renderOrder;
+    mesh.scale.setScalar(0.01);
+
+    const labelEl = document.createElement('div');
+    labelEl.textContent = item.name;
+    labelEl.style.cssText =
+      `font:12px ui-sans-serif,system-ui;padding:1px 6px;border-radius:4px;color:#fff;background:${item.color}cc;opacity:0`;
+    const label = new CSS2DObject(labelEl);
+    label.position.set(0, item.h / 2 + maxDim * 0.04, 0);
+    mesh.add(label);
+
+    let edges: THREE.LineSegments | null = null;
+    if (!isWireframe) {
+      edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geo, 30),
+        new THREE.LineBasicMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false }),
+      );
+      edges.renderOrder = target.renderOrder;
+      mesh.add(edges);
     }
-    bounds = new THREE.Box3().setFromObject(group);
-    if (items.length === 0) bounds.set(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
+
+    let screenMesh: THREE.Mesh | null = null;
+    if (item.screen) {
+      const screenGeo = new THREE.ShapeGeometry(
+        roundedRectShape(item.screen.w, item.screen.h, item.screen.radius ?? 0),
+        12,
+      );
+      const screenMat = new THREE.MeshBasicMaterial({
+        color: darken(item.color, 0.35),
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      });
+      screenMesh = new THREE.Mesh(screenGeo, screenMat);
+      screenMesh.position.set(0, 0, item.d / 2 + 0.4); // local offset — moves with mesh
+      screenMesh.renderOrder = target.renderOrder;
+      mesh.add(screenMesh);
+    }
+
+    group.add(mesh);
+    return { keyId, mesh, edges, screenMesh, label, item, meshBaseOpacity, fading: false };
+  }
+
+  function applyDiff(items: SceneItem[]) {
+    lastItems = items;
+    const keys = computeKeys(items);
+    const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
+    const targets = computeTargets(items, keys, layoutMode);
+    const newKeySet = new Set(keys);
+
+    // Removals: fade out anything no longer present (unless it's already fading).
+    for (const [key, handle] of handles) {
+      if (!newKeySet.has(key) && !handle.fading) {
+        handle.fading = true;
+        tweenFadeTo(handle, 0, () => {
+          disposeHandle(handle);
+          handles.delete(key);
+        });
+      }
+    }
+
+    // Kept / new / resurrected (an item removed then re-added before its fade-out finished).
+    items.forEach((item, i) => {
+      const key = keys[i]!;
+      const target = targets.get(key)!;
+      const existing = handles.get(key);
+      if (!existing) {
+        const handle = createHandle(item, key, target, maxDim);
+        handles.set(key, handle);
+        tweenFadeTo(handle, 1);
+        addTween(`${key}:scale`, TWEEN_MS, (k) => handle.mesh.scale.setScalar(0.01 + 0.99 * k));
+        return;
+      }
+      existing.fading = false;
+      tweenPosition(existing, target.pos);
+      tweenColor(existing, existing.item.color, item.color);
+      existing.mesh.renderOrder = target.renderOrder;
+      if (existing.edges) existing.edges.renderOrder = target.renderOrder;
+      if (existing.screenMesh) existing.screenMesh.renderOrder = target.renderOrder;
+      existing.item = item;
+      if (currentOpacityFactor(existing) < 0.999) tweenFadeTo(existing, 1);
+    });
+
+    bounds = computeTargetBounds(items, keys, targets);
 
     removeGrid();
     const span = Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, 1);
@@ -253,8 +536,21 @@ export function createScene(container: HTMLElement): SizeScene {
     const c = bounds.getCenter(new THREE.Vector3());
     grid.position.set(c.x, 0, c.z);
     scene.add(grid);
-    // Refit is always instant (never animated), even mid-flight: cancel any transition and jump.
-    applyInstant(view);
+
+    // The very first item placement (initial mount) jumps instantly, like setView's firstView
+    // guard; every subsequent change (add/remove/recolor/layout switch) animates the refit.
+    if (firstItems) {
+      firstItems = false;
+      applyInstant(view);
+    } else {
+      beginTransition(view);
+    }
+  }
+
+  function setLayout(mode: LayoutMode) {
+    if (layoutMode === mode) return;
+    layoutMode = mode;
+    applyDiff(lastItems);
   }
 
   // Computes the target camera pose for `next` (mutating the real persp/ortho camera objects,
@@ -264,13 +560,15 @@ export function createScene(container: HTMLElement): SizeScene {
     const c = bounds.getCenter(new THREE.Vector3());
     const s = bounds.getSize(new THREE.Vector3());
     const { width, height } = container.getBoundingClientRect();
-    const aspect = Math.max(width, 1) / Math.max(height, 1);
+    const frame = safeAreaFrame(width, height, inset);
+    const aspect = frame.aspect;
     let targetCam: THREE.Camera;
     if (next === '3d') {
       persp.aspect = aspect;
       const radius = Math.max(s.x, s.y, s.z, 1);
       persp.position.set(c.x + radius * 1.2, c.y + radius * 0.9, c.z + radius * 1.6);
       persp.lookAt(c);
+      applyViewOffset(persp, frame, inset);
       persp.updateProjectionMatrix();
       targetCam = persp;
     } else {
@@ -287,6 +585,7 @@ export function createScene(container: HTMLElement): SizeScene {
       if (next === 'side') { fit(s.z, s.y); ortho.position.set(c.x + far / 2, c.y, c.z); }
       if (next === 'top') { fit(s.x, s.z); ortho.position.set(c.x, c.y + far / 2, c.z); }
       ortho.lookAt(c);
+      applyViewOffset(ortho, frame, inset);
       ortho.updateProjectionMatrix();
       targetCam = ortho;
     }
@@ -347,7 +646,9 @@ export function createScene(container: HTMLElement): SizeScene {
       persp.position.copy(end.position);
       persp.quaternion.copy(end.quaternion);
       const { width, height } = container.getBoundingClientRect();
-      persp.aspect = Math.max(width, 1) / Math.max(height, 1);
+      const frame = safeAreaFrame(width, height, inset);
+      persp.aspect = frame.aspect;
+      applyViewOffset(persp, frame, inset);
       persp.updateProjectionMatrix(); // restore auto (non-lerped) projection
       controls.target.copy(end.controlsTarget);
       controls.enabled = true;
@@ -417,18 +718,32 @@ export function createScene(container: HTMLElement): SizeScene {
     applyInstant(view);
   }
 
+  // Cancel-and-jump, same as resize(): an inset change mid-transition recomputes the end
+  // state for the new safe area and snaps to it rather than animating through a moving frame.
+  function setInset(px: number) {
+    const next = Math.max(0, px);
+    if (next === inset) return;
+    inset = next;
+    applyInstant(view);
+  }
+
   const ro = new ResizeObserver(resize);
   ro.observe(container);
   resize();
 
   return {
-    setItems: (items) => { setItems(items); },
+    setItems: (items) => { applyDiff(items); },
     setView,
+    setLayout,
+    setInset,
     resize,
     dispose() {
       disposed = true;
       cancelAnimationFrame(rafHandle);
       cancelAnimationFrame(animRaf);
+      cancelAnimationFrame(tweenRaf);
+      activeTweens = [];
+      handles.clear();
       ro.disconnect();
       controls.removeEventListener('change', requestRender);
       controls.dispose();

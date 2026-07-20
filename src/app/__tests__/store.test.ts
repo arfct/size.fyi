@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { reducer, type ComparisonState } from '../store';
 import type { ComparisonItem } from '../../shared/types';
 
-const empty: ComparisonState = { items: [], view: '3d', units: 'metric', missing: [] };
+const empty: ComparisonState = { items: [], view: '3d', units: 'metric', missing: [], layoutMode: 'row' };
 const item = (name: string): ComparisonItem => ({ kind: 'custom', name, h: 10, w: 10, d: 10 });
 
 test('add appends', () =>
@@ -30,4 +30,14 @@ test('dismissMissing clears notices', () => {
 test('setView / setUnits', () => {
   expect(reducer(empty, { type: 'setView', view: 'top' }).view).toBe('top');
   expect(reducer(empty, { type: 'setUnits', units: 'imperial' }).units).toBe('imperial');
+});
+test('setLayout switches to stack', () =>
+  expect(reducer(empty, { type: 'setLayout', mode: 'stack' }).layoutMode).toBe('stack'));
+test('setLayout switches back to row', () => {
+  const stacked = reducer(empty, { type: 'setLayout', mode: 'stack' });
+  expect(reducer(stacked, { type: 'setLayout', mode: 'row' }).layoutMode).toBe('row');
+});
+test('layoutMode survives unrelated actions', () => {
+  const stacked = reducer(empty, { type: 'setLayout', mode: 'stack' });
+  expect(reducer(stacked, { type: 'setView', view: 'top' }).layoutMode).toBe('stack');
 });

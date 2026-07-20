@@ -1,15 +1,18 @@
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from 'react';
-import type { ComparisonItem, Units, View } from '../shared/types';
+import type { ComparisonItem, LayoutMode, Units, View } from '../shared/types';
 import { MAX_ITEMS } from '../shared/types';
 import { getStoredUnits } from './localStore';
 
-export interface ComparisonState { items: ComparisonItem[]; view: View; units: Units; missing: string[]; }
+export interface ComparisonState {
+  items: ComparisonItem[]; view: View; units: Units; missing: string[]; layoutMode: LayoutMode;
+}
 export type Action =
   | { type: 'add'; item: ComparisonItem }
   | { type: 'remove'; index: number }
   | { type: 'clear' }
   | { type: 'setView'; view: View }
   | { type: 'setUnits'; units: Units }
+  | { type: 'setLayout'; mode: LayoutMode }
   | { type: 'load'; items: ComparisonItem[]; missing: string[] }
   | { type: 'dismissMissing' };
 
@@ -26,6 +29,8 @@ export function reducer(state: ComparisonState, action: Action): ComparisonState
       return { ...state, view: action.view };
     case 'setUnits':
       return { ...state, units: action.units };
+    case 'setLayout':
+      return { ...state, layoutMode: action.mode };
     case 'load':
       return { ...state, items: action.items.slice(0, MAX_ITEMS), missing: action.missing };
     case 'dismissMissing':
@@ -38,6 +43,7 @@ const Ctx = createContext<{ state: ComparisonState; dispatch: Dispatch<Action> }
 export function ComparisonProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => ({
     items: [], view: '3d' as View, units: getStoredUnits() ?? 'metric', missing: [],
+    layoutMode: 'row' as LayoutMode,
   }));
   return <Ctx.Provider value={{ state, dispatch }}>{children}</Ctx.Provider>;
 }

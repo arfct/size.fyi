@@ -2009,6 +2009,17 @@ Requirements:
 5. CSS2D labels must remain correctly positioned across the full canvas (labelRenderer full size; projection includes the offset).
 6. Orbit/drag events over the sidebar area: sidebar is above the canvas, so pointer events on it stay UI-only (no accidental orbit).
 
+### Task 17: Transparent sidebar, item transitions, stack layout (user-requested, 2026-07-19)
+
+**Files:** Modify `src/app/App.tsx`, `src/app/store.tsx`, `src/app/components/ViewTabs.tsx` (or new `LayoutToggle.tsx`), `Viewer.tsx`, `src/three/scene.ts`, tests.
+
+Requirements:
+1. **Sidebar fully transparent:** remove the frosted `md:bg-*/85 md:backdrop-blur` classes — no background at all; the canvas shows through cleanly behind the sidebar content.
+2. **Animated item changes (scene.ts):** `setItems` diffs against current meshes by stable key (`name|h×w×d`); kept items tween position AND material/edge/label color (~350 ms easeInOutCubic — colors shift when indices change); new items appear at their target spot scaling in (0.01→1) with opacity fade; removed items fade out then dispose. A lightweight tween ticker (single rAF while tweens active, requestRender per frame, disposed-safe, cancelled in dispose()) drives it. Camera refit on item change uses the existing animated transition (beginTransition to the current view with bounds computed from TARGET positions) instead of the instant jump; initial mount stays instant.
+3. **Stack layout:** store gains `layoutMode: 'row' | 'stack'` (+ `setLayout` action, default 'row', reducer-tested). Scene gains `setLayout(mode)`: 'row' = current side-by-side; 'stack' = all items concentric — centered at the same x/z, bottoms on the ground (position y = h/2), `renderOrder` by footprint descending so nested translucent items stay visible. Switching modes tweens items to their new positions and animates the camera refit. Grid recomputes for the new bounds.
+4. **UI toggle:** a second floating pill next to the view tabs ("Stack" / "Row", aria-pressed) sharing the same top-center overlay container; dispatches setLayout; Viewer passes layoutMode via `scene.setLayout`.
+5. URL codec/worker untouched; layout mode is session state (not in URL, not persisted).
+
 ## Self-Review Notes
 
 - **Spec coverage:** URL scheme (T3), catalog+validation+lazy load (T4, T7), localStorage myItems/recents/units (T5, T7, T8), three.js views + on-demand render (T6), combobox search + custom entry + errors (T7), share + native share (T8), missing-slug notice + fail-open (T3, T8, T9), Worker /api/devices + OG + SPA fallback (T9), CI + manual deploy (T10), WebGL-unavailable fallback (T8 Viewer try/catch; dimension chips always render). Covered.
