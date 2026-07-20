@@ -14,6 +14,9 @@ function loadCatalog(env: Env, origin: string): Promise<Map<string, Device>> {
   return catalogCache;
 }
 
+// Sets ETag/Cache-Control here; conditional-request handling (If-None-Match
+// → 304) is left to Cloudflare's edge cache in front of the Worker rather
+// than implemented locally.
 async function apiDevices(env: Env, origin: string): Promise<Response> {
   const res = await env.ASSETS.fetch(`${origin}/devices.json`);
   if (!res.ok) return new Response('catalog unavailable', { status: 503 });
@@ -51,10 +54,16 @@ export default {
         .on('head', {
           element(e) {
             const meta = (attrs: string) => e.append(`<meta ${attrs}>`, { html: true });
-            const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-            meta(`property="og:title" content="${esc(title)}"`);
-            meta(`property="og:description" content="${esc(desc)}"`);
-            meta(`property="og:url" content="${esc(canonical)}"`);
+            // For interpolation into double-quoted HTML attribute values only.
+            const escAttr = (s: string) => s
+              .replace(/&/g, '&amp;')
+              .replace(/"/g, '&quot;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/'/g, '&#39;');
+            meta(`property="og:title" content="${escAttr(title)}"`);
+            meta(`property="og:description" content="${escAttr(desc)}"`);
+            meta(`property="og:url" content="${escAttr(canonical)}"`);
             meta(`property="og:type" content="website"`);
             meta(`name="twitter:card" content="summary"`);
           },

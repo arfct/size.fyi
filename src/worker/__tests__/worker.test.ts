@@ -11,6 +11,22 @@ describe('/api/devices', () => {
     expect(body.version).toBe(1);
     expect(body.devices.length).toBeGreaterThan(10);
   });
+
+  test('cache-control is exactly the documented contract', async () => {
+    const res = await SELF.fetch('https://size.fyi/api/devices');
+    expect(res.headers.get('cache-control')).toBe('public, max-age=3600, stale-while-revalidate=86400');
+  });
+
+  test('etag is stable across requests', async () => {
+    const first = await SELF.fetch('https://size.fyi/api/devices');
+    const second = await SELF.fetch('https://size.fyi/api/devices');
+    expect(first.headers.get('etag')).toBe(second.headers.get('etag'));
+  });
+
+  test('other /api/* paths 404', async () => {
+    const res = await SELF.fetch('https://size.fyi/api/other-thing');
+    expect(res.status).toBe(404);
+  });
 });
 
 describe('OG injection', () => {
@@ -30,5 +46,37 @@ describe('OG injection', () => {
     const res = await SELF.fetch('https://size.fyi/totally-unknown-thing');
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('size.fyi — compare the size of anything');
+  });
+});
+
+describe('OG injection security', () => {
+  test('a hostile custom-token payload is dropped, not reflected', async () => {
+    const res = await SELF.fetch('https://size.fyi/x%22%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E~10x10x10');
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).not.toContain('<script>alert');
+  });
+
+  test('a hostile token alongside a valid one cannot break out of an og: meta attribute', async () => {
+    const res = await SELF.fetch('https://size.fyi/foo%22onmouseover%3dalert(1)~10x10x10-vs-drinks-can');
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    const ogTags = html.match(/<meta[^>]*property="og:[^>]*>/g) ?? [];
+    expect(ogTags.length).toBeGreaterThan(0);
+    // The hostile token fails both the custom-dimension and slug grammars,
+    // so it's dropped during decode; only "drinks-can" survives. Each og:
+    // tag must stay a single well-formed `content="..."` attribute — no
+    // unescaped `"` that could break out and turn `onmouseover=...` into a
+    // live attribute (og:url's `%22`/`%3d` stay percent-encoded by the URL
+    // parser and are additionally escAttr()-escaped, so this can't happen).
+    for (const tag of ogTags) {
+      expect(tag).toMatch(/^<meta property="og:[a-z]+" content="[^"]*">$/);
+    }
+    // og:title/og:description are built solely from catalog device names,
+    // so the payload text must never surface there at all.
+    const titleTag = ogTags.find((t) => t.includes('og:title'));
+    const descTag = ogTags.find((t) => t.includes('og:description'));
+    expect(titleTag).not.toContain('onmouseover');
+    expect(descTag).not.toContain('onmouseover');
   });
 });

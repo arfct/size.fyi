@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "lib": ["ES2022"],
     "types": ["vite/client", "@cloudflare/workers-types"]
   },
   "include": [".", "../shared"]
