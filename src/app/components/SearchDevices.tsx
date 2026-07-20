@@ -1,7 +1,9 @@
+import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { searchDevices, suggestDevices } from '../../shared/search';
 import type { Device } from '../../shared/types';
 import { MAX_ITEMS } from '../../shared/types';
+import { CATEGORY_ICON, MY_ITEM_ICON } from '../categoryIcon';
 import { useCatalog } from '../useCatalog';
 import { useComparison } from '../store';
 import { useIsDesktop } from '../useIsDesktop';
@@ -118,37 +120,44 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
             <p className="px-4 py-1.5 text-[13px] text-stone-500">{trimmed ? 'No matches.' : 'No suggestions.'}</p>
           )}
           <ul id="device-results" role="listbox" aria-label="Results" className="space-y-0.5">
-            {rows.map((row) => (
-              <li key={row.kind === 'device' ? `d-${row.device.slug}` : `m-${row.item.name}`}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  disabled={full}
-                  onClick={() => addRow(row)}
-                  className="block w-full truncate rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
-                >
-                  {row.kind === 'mine' ? (
-                    <>
-                      {row.item.name} <span className="text-[13px] text-stone-400">(my item)</span>
-                    </>
-                  ) : (
-                    <>
-                      {row.device.name}
-                      {row.device.make ? <span className="text-[13px] text-stone-400"> — {row.device.make}</span> : null}
-                    </>
-                  )}
-                </button>
-              </li>
-            ))}
+            {rows.map((row) => {
+              const { Icon, color } = row.kind === 'device' ? CATEGORY_ICON[row.device.category] : MY_ITEM_ICON;
+              return (
+                <li key={row.kind === 'device' ? `d-${row.device.slug}` : `m-${row.item.name}`}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={false}
+                    disabled={full}
+                    onClick={() => addRow(row)}
+                    className="flex w-full items-center gap-2.5 rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
+                  >
+                    <Icon size={18} style={{ color }} aria-hidden className="shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">
+                      {row.kind === 'mine' ? (
+                        <>
+                          {row.item.name} <span className="text-[13px] text-stone-400">(my item)</span>
+                        </>
+                      ) : (
+                        <>
+                          {row.device.name}
+                          {row.device.make ? <span className="text-[13px] text-stone-400"> — {row.device.make}</span> : null}
+                        </>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
             <li>
               <button
                 type="button"
                 disabled={full}
                 onClick={() => onAddCustom(trimmed)}
-                className="block w-full truncate rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
+                className="flex w-full items-center gap-2.5 rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
               >
-                {trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}
+                <Plus size={18} aria-hidden className="shrink-0 text-stone-400" />
+                <span className="min-w-0 flex-1 truncate">{trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}</span>
               </button>
             </li>
           </ul>
