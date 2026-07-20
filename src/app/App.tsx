@@ -29,12 +29,10 @@ function Shell() {
           <Viewer asideRef={asideRef} />
         </div>
       )}
-      {/* Mobile top toolbar (md:hidden): floats over the top of the 4:3 canvas (transparent, out of
-          flow) holding the logo, the display menu (view / layout / units), and Share. The canvas
-          renders underneath it; the Viewer's MOBILE_TOP_INSET reserves matching headroom so the
-          framed model clears this bar (its safe area). On desktop these controls float over the
-          canvas (menu, top-right) and live in the sidebar header (Share). */}
-      <div className="absolute inset-x-0 top-0 z-40 flex items-center justify-between gap-2 px-4 py-2 md:hidden">
+      {/* Mobile top toolbar (md:hidden): sticks to the top (solid background, in flow) holding the
+          logo, the display menu (view / layout / units), and Share. On desktop these controls float
+          over the canvas (menu, top-right) and live in the sidebar header (Share). */}
+      <div className="sticky top-0 z-40 order-first flex items-center justify-between gap-2 bg-white px-4 py-2 md:hidden dark:bg-stone-900">
         <a href="/" className="flex items-center gap-2 text-[16px] font-semibold tracking-tight">
           <img src="/logo.svg" alt="" className="h-5 w-auto" />
           size.fyi
@@ -70,7 +68,7 @@ function Shell() {
           so orbit drags reach the canvas behind it; its interactive children opt back in with
           pointer-events-auto. Mobile is untouched (no md: prefix) since the contained Viewer
           lives directly in this section there and needs normal event flow. */}
-      <section className="relative z-0 order-1 aspect-[4/3] shrink-0 overflow-hidden md:order-2 md:aspect-auto md:h-screen md:flex-1 md:shrink md:pointer-events-none">
+      <section className="relative z-0 order-1 aspect-square shrink-0 overflow-hidden md:order-2 md:aspect-auto md:h-screen md:flex-1 md:shrink md:pointer-events-none">
         {/* Desktop-only floating display menu (top-right). Opts back into pointer events since the
             section is md:pointer-events-none so orbit drags reach the canvas behind it. */}
         <div className="pointer-events-auto absolute right-3 top-3 z-10 hidden md:block">
