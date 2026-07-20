@@ -101,11 +101,12 @@ test('popup shows a my-item match above device results, labeled, and selecting i
 test('rejects invalid dimensions with an inline error and does not add an item', () => {
   setup();
   fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Thing' } });
-  fireEvent.change(screen.getByPlaceholderText('85x64x12mm or 5x3x2in'), { target: { value: 'foo' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+  const dimsInput = screen.getByPlaceholderText('85×64×12 or 5×3×2in');
+  fireEvent.change(dimsInput, { target: { value: 'foo' } });
+  fireEvent.keyDown(dimsInput, { key: 'Enter' });
 
   expect(screen.getByRole('alert')).toHaveTextContent(
-    'Use height x width x depth, e.g. 85x64x12mm or 5x3x2in',
+    'Use height × width × depth, e.g. 85×64×12mm or 5×3×2in',
   );
   expect(screen.getByTestId('items').children).toHaveLength(0);
 });
@@ -113,35 +114,48 @@ test('rejects invalid dimensions with an inline error and does not add an item',
 test('accepts valid dimensions, adds the item, and clears the form', () => {
   setup();
   fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Widget' } });
-  fireEvent.change(screen.getByPlaceholderText('85x64x12mm or 5x3x2in'), { target: { value: '85x64x12mm' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+  const dimsInput = screen.getByPlaceholderText('85×64×12 or 5×3×2in');
+  fireEvent.change(dimsInput, { target: { value: '85x64x12mm' } });
+  fireEvent.keyDown(dimsInput, { key: 'Enter' });
 
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(screen.getByTestId('items')).toHaveTextContent('Widget');
   expect(screen.getByPlaceholderText('Name')).toHaveValue('');
-  expect(screen.getByPlaceholderText('85x64x12mm or 5x3x2in')).toHaveValue('');
+  expect(screen.getByPlaceholderText('85×64×12 or 5×3×2in')).toHaveValue('');
 });
 
 test('pressing Enter in the dimensions field submits the custom item', () => {
   setup();
   fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Gadget' } });
-  const dimsInput = screen.getByPlaceholderText('85x64x12mm or 5x3x2in');
+  const dimsInput = screen.getByPlaceholderText('85×64×12 or 5×3×2in');
   fireEvent.change(dimsInput, { target: { value: '5x3x2in' } });
   fireEvent.keyDown(dimsInput, { key: 'Enter' });
 
   expect(screen.getByTestId('items')).toHaveTextContent('Gadget');
 });
 
+test('pressing Enter in the name field also submits the custom item', () => {
+  setup();
+  const nameInput = screen.getByPlaceholderText('Name');
+  fireEvent.change(nameInput, { target: { value: 'Doohickey' } });
+  fireEvent.change(screen.getByPlaceholderText('85×64×12 or 5×3×2in'), { target: { value: '5x3x2in' } });
+  fireEvent.keyDown(nameInput, { key: 'Enter' });
+
+  expect(screen.getByTestId('items')).toHaveTextContent('Doohickey');
+  expect(nameInput).toHaveValue('');
+});
+
 test('missing a name reports an inline error and does not add an item', () => {
   setup();
-  fireEvent.change(screen.getByPlaceholderText('85x64x12mm or 5x3x2in'), { target: { value: '85x64x12mm' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+  const dimsInput = screen.getByPlaceholderText('85×64×12 or 5×3×2in');
+  fireEvent.change(dimsInput, { target: { value: '85x64x12mm' } });
+  fireEvent.keyDown(dimsInput, { key: 'Enter' });
 
   expect(screen.getByRole('alert')).toHaveTextContent('Give it a name');
   expect(screen.getByTestId('items').children).toHaveLength(0);
 });
 
-test('disables the combobox and add-item button, and shows the full notice, at MAX_ITEMS', async () => {
+test('disables the combobox and custom-entry fields, and shows the full notice, at MAX_ITEMS', async () => {
   render(
     <ComparisonProvider>
       <FullHarness />
@@ -151,7 +165,37 @@ test('disables the combobox and add-item button, and shows the full notice, at M
   const input = await screen.findByPlaceholderText('iPhone 16, A4 paper…');
   expect(input).toBeDisabled();
   expect(screen.getByPlaceholderText('Name')).toBeDisabled();
-  expect(screen.getByPlaceholderText('85x64x12mm or 5x3x2in')).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Add item' })).toBeDisabled();
+  expect(screen.getByPlaceholderText('85×64×12 or 5×3×2in')).toBeDisabled();
   expect(screen.getByText(`Comparison is full (${MAX_ITEMS} items)`)).toBeInTheDocument();
+});
+
+test('shows curated default devices as options when the popup opens with an empty query', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          version: 1,
+          devices: [
+            { slug: 'iphone-16-pro', name: 'iPhone 16 Pro', category: 'phone', h: 163, w: 78, d: 8.3 },
+            { slug: 'drinks-can', name: 'Drinks Can', category: 'everyday', h: 122, w: 66, d: 66 },
+            { slug: 'random-other', name: 'Random Other Thing', category: 'everyday', h: 10, w: 10, d: 10 },
+          ],
+        }),
+    }),
+  );
+
+  const user = userEvent.setup();
+  setup();
+
+  const input = await screen.findByPlaceholderText('iPhone 16, A4 paper…');
+  await user.click(input);
+
+  const options = await screen.findAllByRole('option');
+  const labels = options.map((o) => o.textContent ?? '');
+  expect(labels.some((l) => l.includes('iPhone 16 Pro'))).toBe(true);
+  expect(labels.some((l) => l.includes('Drinks Can'))).toBe(true);
+  // Not in the curated defaults list, so it shouldn't show up before typing.
+  expect(labels.some((l) => l.includes('Random Other Thing'))).toBe(false);
 });

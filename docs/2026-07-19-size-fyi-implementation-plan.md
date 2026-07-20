@@ -1975,6 +1975,17 @@ Requirements:
 4. Rendering override: banana is ALWAYS banana-yellow (`#FFE135`) regardless of palette index — `MeshBasicMaterial({ wireframe: true, color })`, no separate edge lines, label background yellow. The Viewer also overrides the item's chip color to the same yellow so UI and scene agree (export a `BANANA_YELLOW` const from palette.ts).
 5. Existing box/rounded items unchanged; disposal flows through clearGroup.
 
+### Task 14: Viewer-first layout + animated view transitions (user-requested, 2026-07-19)
+
+**Files:** Modify `src/app/App.tsx`, `src/app/components/ViewTabs.tsx`, `Viewer.tsx`, `EmptyState.tsx` (if needed), `src/three/scene.ts`, related tests.
+
+Requirements:
+1. **Layout:** the 3D viewer fills the entire right column — full height under the header, edge to edge (no rounded panel, no outer padding on that side). Left column (fixed width as today) contains, top to bottom: a compact row with the mm/in toggle and Share button (top-left), then device search, custom entry row, item list. Header shrinks to just the wordmark (hairline bottom border stays). Missing-slug notice unchanged. Mobile: left column stacks above the viewer; viewer keeps a sane min-height.
+2. **View switcher overlays the canvas:** ViewTabs renders inside the viewer area, floating (absolute, top center) as a translucent pill (`bg-white/70 dark:bg-stone-900/70 backdrop-blur` style), above the canvas but not blocking orbit drags outside its bounds. EmptyState still fills the viewer region when there are no items.
+3. **Animated view transitions (scene.ts):** `setView(view)` animates instead of snapping — duration ~450 ms, easeInOutCubic. Tween the camera pose (position + quaternion or lookAt target) AND cross-fade projection by lerping projection matrices between the outgoing and incoming camera states (the three.js camera-transition technique: drive a camera whose `projectionMatrix`/`matrixWorld` are set manually each frame, or lerp persp→ortho matrices with `Matrix4` element interpolation). During the transition: OrbitControls disabled and the on-demand renderer runs a temporary rAF loop; at the end, exact target camera becomes active, controls re-enabled only for `3d`, single final render. Rapid re-clicks: retarget the in-flight animation from the current interpolated state (no queueing, no snap). `setItems` during an animation may cancel it and jump to the final state of the current target view. Grid visibility (hidden in front/side) switches at the transition midpoint. `dispose()` cancels any in-flight animation rAF.
+4. `resize()` during animation must not crash (recompute end states or cancel-and-jump — implementer's choice, documented).
+5. Tests: layout assertions where cheap (ViewTabs renders within the viewer container); scene animation excluded from unit tests (controller verifies visually).
+
 ## Self-Review Notes
 
 - **Spec coverage:** URL scheme (T3), catalog+validation+lazy load (T4, T7), localStorage myItems/recents/units (T5, T7, T8), three.js views + on-demand render (T6), combobox search + custom entry + errors (T7), share + native share (T8), missing-slug notice + fail-open (T3, T8, T9), Worker /api/devices + OG + SPA fallback (T9), CI + manual deploy (T10), WebGL-unavailable fallback (T8 Viewer try/catch; dimension chips always render). Covered.

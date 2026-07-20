@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createScene, type SizeScene } from '../../three/scene';
-import { colorFor } from '../palette';
+import { itemColor } from '../palette';
 import { useComparison } from '../store';
 
 export default function Viewer() {
@@ -24,7 +24,9 @@ export default function Viewer() {
       d: item.kind === 'device' ? item.device.d : item.d,
       radius: item.kind === 'device' ? item.device.radius : undefined,
       radiusAxis: item.kind === 'device' ? item.device.radiusAxis : undefined,
-      color: colorFor(i),
+      screen: item.kind === 'device' ? item.device.screen : undefined,
+      mesh: item.kind === 'device' ? item.device.mesh : undefined,
+      color: itemColor(item, i),
     })));
   }, [state.items]);
 

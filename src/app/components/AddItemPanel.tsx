@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import { Combobox } from '@base-ui/react/combobox';
 import { searchDevices } from '../../shared/search';
 import { parseDimensions } from '../../shared/dimensions';
@@ -14,6 +14,15 @@ type ComboItem = { kind: 'device'; device: Device } | { kind: 'mine'; item: MyIt
 const itemLabel = (ci: ComboItem): string => (ci.kind === 'device' ? ci.device.name : ci.item.name);
 const itemKey = (ci: ComboItem): string =>
   ci.kind === 'device' ? `device-${ci.device.slug}` : `mine-${ci.item.name}`;
+
+// Curated slugs shown as defaults when the popup opens with an empty query,
+// in priority order. Filtered to whatever's actually in the loaded catalog
+// and capped at 8.
+const DEFAULT_SLUGS = [
+  'iphone-16-pro', 'galaxy-s24-ultra', 'ipad-pro-11-m4', 'macbook-air-13-m3',
+  'ps5', 'nintendo-switch-2', 'drinks-can', 'banana', 'paper-a4', 'credit-card',
+];
+const MAX_DEFAULTS = 8;
 
 export default function AddItemPanel() {
   const { devices, status, retry } = useCatalog();
@@ -34,18 +43,31 @@ export default function AddItemPanel() {
       .slice(0, 3);
   }, [trimmedQuery]);
 
-  const comboItems: ComboItem[] = useMemo(
-    () => [
+  const defaultDevices = useMemo(() => {
+    const bySlug = new Map(devices.map((d) => [d.slug, d]));
+    const found: Device[] = [];
+    for (const slug of DEFAULT_SLUGS) {
+      const d = bySlug.get(slug);
+      if (d) found.push(d);
+      if (found.length >= MAX_DEFAULTS) break;
+    }
+    return found;
+  }, [devices]);
+
+  const comboItems: ComboItem[] = useMemo(() => {
+    if (!trimmedQuery) {
+      return defaultDevices.map((device): ComboItem => ({ kind: 'device', device }));
+    }
+    return [
       ...myMatches.map((item): ComboItem => ({ kind: 'mine', item })),
       ...results.map((device): ComboItem => ({ kind: 'device', device })),
-    ],
-    [myMatches, results],
-  );
+    ];
+  }, [trimmedQuery, defaultDevices, myMatches, results]);
 
   const addCustom = () => {
     const parsed = parseDimensions(dims);
     if (!parsed) {
-      setDimsError('Use height x width x depth, e.g. 85x64x12mm or 5x3x2in');
+      setDimsError('Use height × width × depth, e.g. 85×64×12mm or 5×3×2in');
       return;
     }
     if (!name.trim()) {
@@ -58,6 +80,10 @@ export default function AddItemPanel() {
     setName('');
     setDims('');
     setDimsError(null);
+  };
+
+  const onCustomKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') addCustom();
   };
 
   return (
@@ -92,7 +118,7 @@ export default function AddItemPanel() {
           >
             <Combobox.Input
               placeholder={status === 'loading' ? 'Loading catalog…' : 'iPhone 16, A4 paper…'}
-              className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm dark:border-stone-700 dark:bg-stone-900"
+              className="w-full border-b border-stone-300 bg-transparent px-1 py-2 text-sm outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
             />
             <Combobox.Portal>
               <Combobox.Positioner sideOffset={4} className="outline-none">
@@ -127,38 +153,34 @@ export default function AddItemPanel() {
         )}
       </div>
 
-      <div className="space-y-2 rounded-md border border-stone-200 p-3 dark:border-stone-800">
+      <div className="space-y-2">
         <p className="text-sm font-medium">Or add your own</p>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Name"
-          disabled={full}
-          className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm dark:border-stone-700 dark:bg-stone-900"
-        />
-        <input
-          value={dims}
-          onChange={(e) => {
-            setDims(e.target.value);
-            setDimsError(null);
-          }}
-          placeholder="85x64x12mm or 5x3x2in"
-          disabled={full}
-          onKeyDown={(e) => e.key === 'Enter' && addCustom()}
-          className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm dark:border-stone-700 dark:bg-stone-900"
-        />
+        <div className="flex gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={onCustomKeyDown}
+            placeholder="Name"
+            disabled={full}
+            className="min-w-0 flex-[2] border-b border-stone-300 bg-transparent px-1 py-2 text-sm outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
+          />
+          <input
+            value={dims}
+            onChange={(e) => {
+              setDims(e.target.value);
+              setDimsError(null);
+            }}
+            onKeyDown={onCustomKeyDown}
+            placeholder="85×64×12 or 5×3×2in"
+            disabled={full}
+            className="min-w-0 flex-1 border-b border-stone-300 bg-transparent px-1 py-2 text-sm outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
+          />
+        </div>
         {dimsError && (
           <p className="text-sm text-red-600" role="alert">
             {dimsError}
           </p>
         )}
-        <button
-          onClick={addCustom}
-          disabled={full}
-          className="rounded-md bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-stone-100 dark:text-stone-900"
-        >
-          Add item
-        </button>
         {full && <p className="text-xs text-stone-500">Comparison is full ({MAX_ITEMS} items)</p>}
       </div>
     </section>

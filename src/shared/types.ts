@@ -7,6 +7,8 @@ export interface Device {
   brand?: string; year?: number; aliases?: string[]; source?: string;
   radius?: number;            // mm; fillets edges parallel to radiusAxis
   radiusAxis?: RadiusAxis;    // x=width, y=height, z=depth
+  screen?: { h: number; w: number; radius?: number }; // mm; inset rect on the +z front face
+  mesh?: 'banana';            // procedural mesh override; always renders yellow wireframe
 }
 export interface Catalog { version: number; devices: Device[]; }
 export type ComparisonItem =
