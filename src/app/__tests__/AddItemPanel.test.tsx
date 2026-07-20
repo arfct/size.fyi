@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import AddItemPanel from '../components/AddItemPanel';
 import { ComparisonProvider, useComparison } from '../store';
 import { addMyItem } from '../localStore';
+import { __resetCatalogStore } from '../useCatalog';
 import { MAX_ITEMS } from '../../shared/types';
 
 function Harness() {
@@ -52,6 +53,7 @@ function setup() {
 
 beforeEach(() => {
   localStorage.clear();
+  __resetCatalogStore();
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({
@@ -61,11 +63,6 @@ beforeEach(() => {
   );
 });
 
-// NOTE: this test is intentionally first in the file. `useCatalog`'s `cache` is
-// module-level state that is only populated once (it never refetches while
-// `cache` is non-null), so it must observe the catalog fetch response from its
-// own `vi.stubGlobal('fetch', ...)` call before any other test in this file
-// causes `useCatalog` to mount and cache an (empty) catalog first.
 test('popup shows a my-item match above device results, labeled, and selecting it dispatches a custom add', async () => {
   addMyItem({ name: 'Shoebox', h: 350, w: 250, d: 130 });
   vi.stubGlobal(

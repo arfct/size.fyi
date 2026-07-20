@@ -1,8 +1,10 @@
 import { beforeEach, test, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import App from '../App';
+import { __resetCatalogStore } from '../useCatalog';
 
 beforeEach(() => {
+  __resetCatalogStore();
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({

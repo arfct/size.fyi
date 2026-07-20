@@ -11,11 +11,14 @@ export default function ShareButton() {
     const url = location.origin + encodeComparison(state.items);
     const title = comparisonTitle(state.items);
     if (navigator.share) {
-      try { await navigator.share({ title, url }); return; } catch { /* cancelled */ }
+      try { await navigator.share({ title, url }); } catch { /* cancelled */ }
+      return; // never fall through to clipboard after attempting the native share sheet
     }
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard unavailable or permission denied; fail silently */ }
   };
 
   return (
