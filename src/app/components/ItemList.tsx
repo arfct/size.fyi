@@ -1,3 +1,4 @@
+import { Ellipsis } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ComparisonItem } from '../../shared/types';
 import { formatDims } from '../../shared/dimensions';
@@ -10,9 +11,10 @@ const volumeOf = (item: ComparisonItem) => {
   return d.h * d.w * d.d;
 };
 
-// The colored dot doubles as a menu trigger. Self-contained dropdown: a ref-scoped
-// mousedown-outside listener and Escape close it; the trigger and menu live inside the ref so
-// clicking them never counts as "outside".
+// The colored ellipsis doubles as a menu trigger — tinted with the item's swatch color so it
+// still keys the model on the canvas. Self-contained dropdown: a ref-scoped mousedown-outside
+// listener and Escape close it; the trigger and menu live inside the ref so clicking them never
+// counts as "outside".
 function ItemMenu({ color, name, ar, onEdit, onRemove }: { color: string; name: string; ar?: ARTarget; onEdit: () => void; onRemove: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -39,7 +41,7 @@ function ItemMenu({ color, name, ar, onEdit, onRemove }: { color: string; name: 
         onClick={() => setOpen((o) => !o)}
         className="flex h-6 w-6 items-center justify-center rounded-full outline-none hover:bg-stone-200 focus-visible:bg-stone-200 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700"
       >
-        <span className="h-3 w-3 rounded-full" style={{ background: color }} />
+        <Ellipsis size={18} style={{ color }} aria-hidden />
       </button>
       {open && (
         <div role="menu" className="absolute right-0 top-full z-30 mt-1 min-w-32 rounded-md border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900">

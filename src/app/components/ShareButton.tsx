@@ -1,3 +1,4 @@
+import { Share } from 'lucide-react';
 import { useState } from 'react';
 import { comparisonTitle, encodeComparison } from '../../shared/urlCodec';
 import { useComparison } from '../store';
@@ -22,8 +23,9 @@ export default function ShareButton() {
   };
 
   return (
-    <button onClick={share}
-      className="flex h-9 items-center rounded-full border border-stone-300 px-3 text-[13px] dark:border-stone-700">
+    <button onClick={share} aria-label="Share"
+      className="flex h-9 items-center gap-1.5 rounded-full border border-stone-300 px-3 text-[13px] dark:border-stone-700">
+      <Share size={15} aria-hidden />
       {copied ? 'Copied!' : 'Share'}
     </button>
   );
