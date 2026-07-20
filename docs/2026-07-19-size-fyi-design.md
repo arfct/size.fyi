@@ -70,6 +70,12 @@ Twitter-card tags via HTMLRewriter, so shared links unfurl as e.g.
 "iPhone 16 Pro vs Paper: A4 — size.fyi". Generated OG images are a possible
 later addition (deliberately out of v1).
 
+**Accepted divergence:** URL sync uses `history.replaceState` only, never
+`pushState` — comparisons don't create in-app history entries, so the back
+button exits the site rather than stepping through prior comparisons. This is
+deliberate: it keeps the URL canonical to current state rather than growing an
+incidental browser-history trail.
+
 ## Device catalog
 
 ```json
@@ -118,6 +124,9 @@ later addition (deliberately out of v1).
 
 3. A curated ~150–200 popular devices: recent iPhones / Pixels / Galaxys,
    iPads, MacBooks, game consoles, common SFF PC cases — each with a `source`.
+
+**Accepted divergence:** v1 launched with 39 curated devices, not 150–200; the
+catalog grows incrementally via PRs against this same schema.
 
 **Size budget:** a minified entry is ~150–200 bytes; 200 devices ≈ 35 KB raw
 ≈ 10 KB brotli — negligible (three.js alone is ~150 KB gzipped). The client

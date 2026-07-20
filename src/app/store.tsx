@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from 'react';
 import type { ComparisonItem, Units, View } from '../shared/types';
 import { MAX_ITEMS } from '../shared/types';
-import { getStoredUnits, setStoredUnits } from './localStore';
+import { getStoredUnits } from './localStore';
 
 export interface ComparisonState { items: ComparisonItem[]; view: View; units: Units; missing: string[]; }
 export type Action =
@@ -25,7 +25,6 @@ export function reducer(state: ComparisonState, action: Action): ComparisonState
     case 'setView':
       return { ...state, view: action.view };
     case 'setUnits':
-      setStoredUnits(action.units);
       return { ...state, units: action.units };
     case 'load':
       return { ...state, items: action.items.slice(0, MAX_ITEMS), missing: action.missing };

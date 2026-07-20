@@ -8,7 +8,11 @@ let catalogCache: Promise<Map<string, Device>> | null = null;
 
 function loadCatalog(env: Env, origin: string): Promise<Map<string, Device>> {
   catalogCache ??= env.ASSETS.fetch(`${origin}/devices.json`)
-    .then((r) => (r.ok ? (r.json() as Promise<Catalog>) : { version: 1, devices: [] }))
+    .then((r) => {
+      if (r.ok) return r.json() as Promise<Catalog>;
+      catalogCache = null; // don't cache a transient failure for the isolate's lifetime
+      return { version: 1, devices: [] };
+    })
     .then((c) => new Map(c.devices.map((d) => [d.slug, d])))
     .catch(() => { catalogCache = null; return new Map(); });
   return catalogCache;

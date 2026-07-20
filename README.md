@@ -87,6 +87,7 @@ Comparisons are encoded in the URL path. The home path (`/`) shows an empty stat
 
 Combine catalog devices with custom dimensions using the `name~HxWxD` syntax:
 - Dimensions are in millimeters as decimal numbers (e.g., `100.5`)
+- At most one decimal place is supported per dimension (`100.5` is valid, `100.55` is not)
 - Names use underscores instead of spaces: `my_item` renders as "My Item"
 
 Examples:

@@ -4,6 +4,7 @@ import ItemList from './components/ItemList';
 import ShareButton from './components/ShareButton';
 import ViewTabs from './components/ViewTabs';
 import Viewer from './components/Viewer';
+import { setStoredUnits } from './localStore';
 import { ComparisonProvider, useComparison } from './store';
 import { useUrlSync } from './useUrlSync';
 
@@ -15,7 +16,11 @@ function Shell() {
       <header className="flex items-center justify-between border-b border-stone-200 px-4 py-3 dark:border-stone-800">
         <a href="/" className="text-lg font-semibold tracking-tight">size.fyi</a>
         <div className="flex items-center gap-2">
-          <button onClick={() => dispatch({ type: 'setUnits', units: state.units === 'metric' ? 'imperial' : 'metric' })}
+          <button onClick={() => {
+            const next = state.units === 'metric' ? 'imperial' : 'metric';
+            setStoredUnits(next);
+            dispatch({ type: 'setUnits', units: next });
+          }}
             className="rounded-md border border-stone-300 px-3 py-1 text-sm dark:border-stone-700">
             {state.units === 'metric' ? 'mm' : 'in'}
           </button>
