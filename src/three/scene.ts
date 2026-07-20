@@ -150,6 +150,74 @@ function buildGeometry(item: SceneItem): THREE.BufferGeometry {
   return geo;
 }
 
+export interface LayoutTarget { pos: THREE.Vector3; renderOrder: number }
+
+function itemKey(item: SceneItem): string {
+  return `${item.name}|${item.h}x${item.w}x${item.d}|${item.mesh ?? ''}`;
+}
+
+// Disambiguates duplicate items (same name+dims+mesh added more than once) by suffixing an
+// occurrence index, so the diff in createScene never collides two distinct items onto one
+// handle. Pure and side-effect-free — exported for direct unit testing.
+export function computeKeys(items: SceneItem[]): string[] {
+  const counts = new Map<string, number>();
+  return items.map((item) => {
+    const base = itemKey(item);
+    const n = counts.get(base) ?? 0;
+    counts.set(base, n + 1);
+    return n === 0 ? base : `${base}#${n}`;
+  });
+}
+
+// Row = sequential x with an 8%-of-max-dimension gap, all at z=0. Stack = every item centered at
+// x=0,z=0 with its bottom on the ground (y=h/2); renderOrder assigned by footprint (w*d)
+// descending so larger items get a lower renderOrder (drawn first) and smaller nested items draw
+// later, staying visible through the larger ones' translucency (paired with depthWrite:false on
+// the transparent materials in createScene). Pure — exported for direct unit testing.
+export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutMode): Map<string, LayoutTarget> {
+  const targets = new Map<string, LayoutTarget>();
+  if (mode === 'stack') {
+    const byFootprintDesc = items
+      .map((item, i) => ({ key: keys[i]!, footprint: item.w * item.d }))
+      .sort((a, b) => b.footprint - a.footprint);
+    const renderOrderOf = new Map(byFootprintDesc.map((entry, i) => [entry.key, i]));
+    items.forEach((item, i) => {
+      const key = keys[i]!;
+      targets.set(key, { pos: new THREE.Vector3(0, item.h / 2, 0), renderOrder: renderOrderOf.get(key) ?? 0 });
+    });
+  } else {
+    const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
+    const gap = maxDim * 0.08;
+    let x = 0;
+    items.forEach((item, i) => {
+      targets.set(keys[i]!, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, 0), renderOrder: 0 });
+      x += item.w + gap;
+    });
+  }
+  return targets;
+}
+
+// Builds a Box3 from TARGET positions/dims (not the live, possibly mid-tween, group) — used both
+// for the camera refit and the grid recompute. Pure — exported for direct unit testing.
+export function computeTargetBounds(
+  items: SceneItem[],
+  keys: string[],
+  targets: Map<string, LayoutTarget>,
+): THREE.Box3 {
+  if (items.length === 0) {
+    return new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
+  }
+  const box = new THREE.Box3();
+  items.forEach((item, i) => {
+    const t = targets.get(keys[i]!)!;
+    const half = new THREE.Vector3(item.w / 2, item.h / 2, item.d / 2);
+    box.expandByPoint(t.pos.clone().sub(half));
+    box.expandByPoint(t.pos.clone().add(half));
+    if (item.screen) box.expandByPoint(t.pos.clone().add(new THREE.Vector3(0, 0, item.d / 2 + 0.5)));
+  });
+  return box;
+}
+
 export function createScene(container: HTMLElement): SizeScene {
   const scene = new THREE.Scene();
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -247,6 +315,14 @@ export function createScene(container: HTMLElement): SizeScene {
     if (!tweenRaf) tweenRaf = requestAnimationFrame(tickTweens);
   }
 
+  // Drops every tween belonging to a given item (id prefix `${key}:`) without invoking their
+  // `done` callbacks — used right before disposal so nothing keeps mutating a mesh that's about
+  // to be (or just got) removed from the scene and dispose()d.
+  function cancelTweensFor(keyId: string) {
+    const prefix = `${keyId}:`;
+    activeTweens = activeTweens.filter((t) => !t.id.startsWith(prefix));
+  }
+
   function tickTweens(now: number) {
     tweenRaf = 0;
     if (disposed) return;
@@ -282,69 +358,12 @@ export function createScene(container: HTMLElement): SizeScene {
     meshBaseOpacity: number;
     fading: boolean; // true while a fade-out (pending removal) is in flight
   }
-  interface Target { pos: THREE.Vector3; renderOrder: number }
+  type Target = LayoutTarget;
 
   const handles = new Map<string, ItemHandle>();
   let lastItems: SceneItem[] = [];
   let layoutMode: LayoutMode = 'row';
   let firstItems = true;
-
-  function itemKey(item: SceneItem): string {
-    return `${item.name}|${item.h}x${item.w}x${item.d}|${item.mesh ?? ''}`;
-  }
-
-  // Disambiguates duplicate items (same name+dims+mesh added more than once) by suffixing
-  // occurrence index, so the diff below never collides two distinct items onto one handle.
-  function computeKeys(items: SceneItem[]): string[] {
-    const counts = new Map<string, number>();
-    return items.map((item) => {
-      const base = itemKey(item);
-      const n = counts.get(base) ?? 0;
-      counts.set(base, n + 1);
-      return n === 0 ? base : `${base}#${n}`;
-    });
-  }
-
-  function computeTargets(items: SceneItem[], keys: string[], mode: LayoutMode): Map<string, Target> {
-    const targets = new Map<string, Target>();
-    if (mode === 'stack') {
-      // Every item centered at x=0,z=0, bottoms on the ground. renderOrder sorted by footprint
-      // descending (largest first) so smaller, nested items draw later and stay visible through
-      // the larger ones' translucency.
-      const byFootprintDesc = items
-        .map((item, i) => ({ key: keys[i]!, footprint: item.w * item.d }))
-        .sort((a, b) => b.footprint - a.footprint);
-      const renderOrderOf = new Map(byFootprintDesc.map((entry, i) => [entry.key, i]));
-      items.forEach((item, i) => {
-        const key = keys[i]!;
-        targets.set(key, { pos: new THREE.Vector3(0, item.h / 2, 0), renderOrder: renderOrderOf.get(key) ?? 0 });
-      });
-    } else {
-      const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
-      const gap = maxDim * 0.08;
-      let x = 0;
-      items.forEach((item, i) => {
-        targets.set(keys[i]!, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, 0), renderOrder: 0 });
-        x += item.w + gap;
-      });
-    }
-    return targets;
-  }
-
-  function computeTargetBounds(items: SceneItem[], keys: string[], targets: Map<string, Target>): THREE.Box3 {
-    if (items.length === 0) {
-      return new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
-    }
-    const box = new THREE.Box3();
-    items.forEach((item, i) => {
-      const t = targets.get(keys[i]!)!;
-      const half = new THREE.Vector3(item.w / 2, item.h / 2, item.d / 2);
-      box.expandByPoint(t.pos.clone().sub(half));
-      box.expandByPoint(t.pos.clone().add(half));
-      if (item.screen) box.expandByPoint(t.pos.clone().add(new THREE.Vector3(0, 0, item.d / 2 + 0.5)));
-    });
-    return box;
-  }
 
   function applyOpacityFactor(handle: ItemHandle, factor: number) {
     (handle.mesh.material as THREE.Material).opacity = handle.meshBaseOpacity * factor;
@@ -399,6 +418,7 @@ export function createScene(container: HTMLElement): SizeScene {
   }
 
   function disposeHandle(handle: ItemHandle) {
+    cancelTweensFor(handle.keyId);
     handle.mesh.geometry.dispose();
     (handle.mesh.material as THREE.Material).dispose();
     if (handle.edges) { handle.edges.geometry.dispose(); (handle.edges.material as THREE.Material).dispose(); }
@@ -411,9 +431,16 @@ export function createScene(container: HTMLElement): SizeScene {
     const geo = buildGeometry(item);
     const isWireframe = item.mesh != null;
     const meshBaseOpacity = isWireframe ? WIREFRAME_OPACITY : MESH_OPACITY;
+    // depthWrite: false — renderOrder alone only sequences the transparent-object render queue; the
+    // depth *test* still runs against whatever's already in the depth buffer, so without this a
+    // larger item drawn first (renderOrder 0) would still occlude a smaller nested one behind it
+    // in stack mode (visible head-on in front/side views). With depthWrite off, translucent items
+    // never write depth, so renderOrder is the sole arbiter of draw/blend order. In row mode items
+    // don't overlap on screen, so this is inert there; the opaque grid still writes/tests depth
+    // normally since it's a separate (non-transparent) draw.
     const mat = isWireframe
-      ? new THREE.MeshBasicMaterial({ color: item.color, wireframe: true, transparent: true, opacity: 0 })
-      : new THREE.MeshLambertMaterial({ color: item.color, transparent: true, opacity: 0 });
+      ? new THREE.MeshBasicMaterial({ color: item.color, wireframe: true, transparent: true, opacity: 0, depthWrite: false })
+      : new THREE.MeshLambertMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(target.pos);
     mesh.renderOrder = target.renderOrder;
@@ -431,7 +458,7 @@ export function createScene(container: HTMLElement): SizeScene {
     if (!isWireframe) {
       edges = new THREE.LineSegments(
         new THREE.EdgesGeometry(geo, 30),
-        new THREE.LineBasicMaterial({ color: item.color, transparent: true, opacity: 0 }),
+        new THREE.LineBasicMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false }),
       );
       edges.renderOrder = target.renderOrder;
       mesh.add(edges);
@@ -447,6 +474,7 @@ export function createScene(container: HTMLElement): SizeScene {
         color: darken(item.color, 0.35),
         transparent: true,
         opacity: 0,
+        depthWrite: false,
       });
       screenMesh = new THREE.Mesh(screenGeo, screenMat);
       screenMesh.position.set(0, 0, item.d / 2 + 0.4); // local offset — moves with mesh
