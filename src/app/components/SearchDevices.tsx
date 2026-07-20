@@ -62,7 +62,7 @@ export default function SearchDevices() {
 
   return (
     <section aria-label="Search devices">
-      <label className="mb-1 block text-sm font-medium">Search devices</label>
+      <label className="mb-1 block text-[16px] font-medium">Search devices</label>
       {status === 'error' ? (
         <button onClick={retry} className="text-sm text-red-600 underline">
           Catalog failed to load — retry
@@ -91,12 +91,12 @@ export default function SearchDevices() {
         >
           <Combobox.Input
             placeholder={status === 'loading' ? 'Loading catalog…' : 'iPhone 16, A4 paper…'}
-            className="w-full border-b border-stone-300 bg-transparent px-1 py-2 text-sm outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
+            className="w-full border-b border-stone-300 bg-transparent px-1 py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
           />
           <Combobox.Portal>
             <Combobox.Positioner sideOffset={4} className="outline-none">
               <Combobox.Popup className="max-h-72 w-[var(--anchor-width)] overflow-auto rounded-md border border-stone-200 bg-white shadow-lg dark:border-stone-700 dark:bg-stone-900">
-                <Combobox.Empty className="px-3 py-2 text-sm text-stone-500">
+                <Combobox.Empty className="px-3 py-2 text-[13px] text-stone-500">
                   No matches.
                 </Combobox.Empty>
                 <Combobox.List>
@@ -104,7 +104,7 @@ export default function SearchDevices() {
                     <Combobox.Item
                       key={itemKey(ci)}
                       value={ci}
-                      className="cursor-pointer px-3 py-2 text-sm data-[highlighted]:bg-stone-100 dark:data-[highlighted]:bg-stone-800"
+                      className="cursor-pointer px-3 py-2 text-[16px] data-[highlighted]:bg-stone-100 dark:data-[highlighted]:bg-stone-800"
                     >
                       {ci.kind === 'mine' ? (
                         <>

@@ -43,27 +43,38 @@ test('row targets: sequential x with an 8%-of-max-dimension gap, all at z=0, ren
   expect(tb.renderOrder).toBe(0);
 });
 
-test('stack targets: every item centered at x=0,z=0 with y=h/2, renderOrder strictly increasing as footprint decreases', () => {
-  const big = item({ name: 'Big', h: 30, w: 100, d: 100 }); // footprint 10000
-  const mid = item({ name: 'Mid', h: 20, w: 50, d: 50 }); // footprint 2500
-  const small = item({ name: 'Small', h: 10, w: 10, d: 10 }); // footprint 100
-  const items = [small, big, mid]; // deliberately out of footprint order
+test('stack targets: sequential z (front-to-back) with an 8%-of-max gap, centered on x=0, no overlap', () => {
+  const a = item({ name: 'A', h: 10, w: 10, d: 10 });
+  const b = item({ name: 'B', h: 20, w: 20, d: 30 });
+  const c = item({ name: 'C', h: 5, w: 5, d: 5 });
+  const items = [a, b, c];
   const keys = computeKeys(items);
   const targets = computeTargets(items, keys, 'stack');
 
-  for (const [it, key] of [[small, keys[0]!], [big, keys[1]!], [mid, keys[2]!]] as const) {
-    const t = targets.get(key)!;
-    expect(t.pos.x).toBe(0);
-    expect(t.pos.z).toBe(0);
-    expect(t.pos.y).toBeCloseTo(it.h / 2);
-  }
+  const maxDim = 30; // max of all dims
+  const gap = maxDim * 0.08; // 2.4
 
-  const bigOrder = targets.get(keys[1]!)!.renderOrder;
-  const midOrder = targets.get(keys[2]!)!.renderOrder;
-  const smallOrder = targets.get(keys[0]!)!.renderOrder;
-  // Largest footprint drawn first (lowest renderOrder), smallest drawn last (highest).
-  expect(bigOrder).toBeLessThan(midOrder);
-  expect(midOrder).toBeLessThan(smallOrder);
+  const ta = targets.get(keys[0]!)!;
+  expect(ta.pos.x).toBe(0);
+  expect(ta.pos.y).toBeCloseTo(a.h / 2);
+  expect(ta.pos.z).toBeCloseTo(a.d / 2); // 5
+
+  const tb = targets.get(keys[1]!)!;
+  expect(tb.pos.x).toBe(0);
+  expect(tb.pos.y).toBeCloseTo(b.h / 2);
+  expect(tb.pos.z).toBeCloseTo(a.d + gap + b.d / 2); // 10 + 2.4 + 15 = 27.4
+
+  const tc = targets.get(keys[2]!)!;
+  expect(tc.pos.z).toBeCloseTo(a.d + gap + b.d + gap + c.d / 2); // 10 + 2.4 + 30 + 2.4 + 2.5 = 47.3
+
+  // renderOrder increases front-to-back so nearer items draw last (correct translucent blending).
+  expect(ta.renderOrder).toBe(0);
+  expect(tb.renderOrder).toBe(1);
+  expect(tc.renderOrder).toBe(2);
+
+  // No overlap in depth: each item's near face sits beyond the previous item's far face.
+  expect(tb.pos.z - b.d / 2).toBeGreaterThanOrEqual(ta.pos.z + a.d / 2 - 1e-9);
+  expect(tc.pos.z - c.d / 2).toBeGreaterThanOrEqual(tb.pos.z + b.d / 2 - 1e-9);
 });
 
 test('row layout resets renderOrder to 0 regardless of footprint', () => {

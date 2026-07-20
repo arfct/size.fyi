@@ -4,7 +4,7 @@ import { applyViewOffset, safeAreaFrame } from '../scene';
 
 test('with no inset, the safe area is the full frame', () => {
   const frame = safeAreaFrame(1200, 800, 0);
-  expect(frame).toEqual({ width: 1200, height: 800, safeW: 1200, aspect: 1200 / 800 });
+  expect(frame).toEqual({ width: 1200, height: 800, safeW: 1200, safeH: 800, aspect: 1200 / 800 });
 });
 
 test('a left inset shrinks the safe-area width and aspect, not the full width', () => {
@@ -14,10 +14,18 @@ test('a left inset shrinks the safe-area width and aspect, not the full width', 
   expect(frame.aspect).toBeCloseTo(880 / 800);
 });
 
+test('a top inset shrinks the safe-area height and aspect, not the full height', () => {
+  const frame = safeAreaFrame(1200, 800, 0, 64);
+  expect(frame.height).toBe(800);
+  expect(frame.safeH).toBe(736);
+  expect(frame.aspect).toBeCloseTo(1200 / 736);
+});
+
 test('degenerate inputs are clamped to stay at least 1px', () => {
-  expect(safeAreaFrame(0, 0, 0)).toEqual({ width: 1, height: 1, safeW: 1, aspect: 1 });
+  expect(safeAreaFrame(0, 0, 0)).toEqual({ width: 1, height: 1, safeW: 1, safeH: 1, aspect: 1 });
   expect(safeAreaFrame(100, 100, -50)).toMatchObject({ safeW: 100 }); // negative inset ignored
   expect(safeAreaFrame(100, 100, 500)).toMatchObject({ safeW: 1 }); // inset larger than width
+  expect(safeAreaFrame(100, 100, 0, 500)).toMatchObject({ safeH: 1 }); // top inset larger than height
 });
 
 // --- Projection wiring: does the real applyViewOffset()/setViewOffset() call actually keep the
@@ -62,6 +70,31 @@ test('perspective: setViewOffset keeps the right edge fixed and extends the left
   const refWidth = rightRef.x - leftRef.x;
   const expectedLeftOffsetX = leftRef.x - (INSET / FRAME.safeW) * refWidth;
   expect(leftOffset.x).toBeCloseTo(expectedLeftOffsetX, 10);
+});
+
+test('perspective: a top inset keeps the bottom edge fixed and extends the top edge upward', () => {
+  // The control strip sits at the top, so the safe area anchors to the bottom of the canvas and
+  // the rendered region extends upward into the strip — the vertical mirror of the left-inset case.
+  const TOP = 160;
+  const topFrame = safeAreaFrame(FULL_W, HEIGHT, 0, TOP); // safeH = 640
+  const reference = new THREE.PerspectiveCamera(40, topFrame.aspect, 1, 1e6);
+  reference.updateProjectionMatrix();
+
+  const offset = new THREE.PerspectiveCamera(40, topFrame.aspect, 1, 1e6);
+  applyViewOffset(offset, topFrame, 0, TOP);
+  offset.updateProjectionMatrix();
+
+  const topRef = new THREE.Vector3(0, 1, 0.5).unproject(reference);
+  const topOffset = new THREE.Vector3(0, 1, 0.5).unproject(offset);
+  const bottomRef = new THREE.Vector3(0, -1, 0.5).unproject(reference);
+  const bottomOffset = new THREE.Vector3(0, -1, 0.5).unproject(offset);
+
+  // Bottom edge unchanged — the safe-area content stays anchored to the bottom of the canvas.
+  expect(bottomOffset.y).toBeCloseTo(bottomRef.y, 10);
+  // Top edge extends further up by exactly insetTop/safeH of the reference frustum's height.
+  const refHeight = topRef.y - bottomRef.y;
+  const expectedTopY = topRef.y + (TOP / topFrame.safeH) * refHeight;
+  expect(topOffset.y).toBeCloseTo(expectedTopY, 10);
 });
 
 test('orthographic: setViewOffset keeps the right edge fixed for a fit frustum', () => {

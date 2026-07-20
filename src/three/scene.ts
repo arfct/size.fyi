@@ -14,7 +14,7 @@ export interface SizeScene {
   setItems(items: SceneItem[]): void;
   setView(view: ViewName): void;
   setLayout(mode: LayoutMode): void;
-  setInset(px: number): void;
+  setInset(px: number, top?: number): void;
   resize(): void;
   dispose(): void;
 }
@@ -24,11 +24,12 @@ export interface SizeScene {
 // actual rendered region is the full canvas, reached via a negative-offset setViewOffset (see
 // applyViewOffset below). Exported as a pure function so it's cheaply unit-testable without
 // spinning up WebGL/DOM.
-export function safeAreaFrame(width: number, height: number, insetLeft: number) {
+export function safeAreaFrame(width: number, height: number, insetLeft: number, insetTop = 0) {
   const w = Math.max(width, 1);
   const h = Math.max(height, 1);
   const safeW = Math.max(w - Math.max(insetLeft, 0), 1);
-  return { width: w, height: h, safeW, aspect: safeW / h };
+  const safeH = Math.max(h - Math.max(insetTop, 0), 1);
+  return { width: w, height: h, safeW, safeH, aspect: safeW / safeH };
 }
 
 // Extends the rendered region beyond the safe-area virtual frame so the sidebar area is still
@@ -41,9 +42,10 @@ export function applyViewOffset(
   cam: THREE.PerspectiveCamera | THREE.OrthographicCamera,
   frame: ReturnType<typeof safeAreaFrame>,
   insetLeft: number,
+  insetTop = 0,
 ) {
-  if (insetLeft > 0) {
-    cam.setViewOffset(frame.safeW, frame.height, -insetLeft, 0, frame.width, frame.height);
+  if (insetLeft > 0 || insetTop > 0) {
+    cam.setViewOffset(frame.safeW, frame.safeH, -insetLeft, -insetTop, frame.width, frame.height);
   } else {
     cam.clearViewOffset();
   }
@@ -169,21 +171,21 @@ export function computeKeys(items: SceneItem[]): string[] {
   });
 }
 
-// Row = sequential x with an 8%-of-max-dimension gap, all at z=0. Stack = every item centered at
-// x=0,z=0 with its bottom on the ground (y=h/2); renderOrder assigned by footprint (w*d)
-// descending so larger items get a lower renderOrder (drawn first) and smaller nested items draw
-// later, staying visible through the larger ones' translucency (paired with depthWrite:false on
-// the transparent materials in createScene). Pure — exported for direct unit testing.
+// Row = sequential x with an 8%-of-max-dimension gap, all at z=0. Stack = sequential z (front-to-
+// back) with the same gap, every item centered on x=0 with its bottom on the ground (y=h/2), so
+// items line up in depth without overlapping. renderOrder increases along z (nearer items drawn
+// later) so the translucent items blend back-to-front correctly from the default/front/side views
+// (paired with depthWrite:false on the transparent materials in createScene). Pure — exported for
+// direct unit testing.
 export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutMode): Map<string, LayoutTarget> {
   const targets = new Map<string, LayoutTarget>();
   if (mode === 'stack') {
-    const byFootprintDesc = items
-      .map((item, i) => ({ key: keys[i]!, footprint: item.w * item.d }))
-      .sort((a, b) => b.footprint - a.footprint);
-    const renderOrderOf = new Map(byFootprintDesc.map((entry, i) => [entry.key, i]));
+    const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
+    const gap = maxDim * 0.08;
+    let z = 0;
     items.forEach((item, i) => {
-      const key = keys[i]!;
-      targets.set(key, { pos: new THREE.Vector3(0, item.h / 2, 0), renderOrder: renderOrderOf.get(key) ?? 0 });
+      targets.set(keys[i]!, { pos: new THREE.Vector3(0, item.h / 2, z + item.d / 2), renderOrder: i });
+      z += item.d + gap;
     });
   } else {
     const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
@@ -238,6 +240,7 @@ export function createScene(container: HTMLElement): SizeScene {
   let camera: THREE.Camera = persp;
   let view: ViewName = '3d';
   let inset = 0; // left inset (px) reserved for the floating sidebar; 0 on mobile
+  let insetTop = 0; // top inset (px) reserved for the overlapping segmented control; used on mobile
 
   const controls = new OrbitControls(persp, renderer.domElement);
   controls.enableDamping = true;
@@ -433,11 +436,11 @@ export function createScene(container: HTMLElement): SizeScene {
     const meshBaseOpacity = isWireframe ? WIREFRAME_OPACITY : MESH_OPACITY;
     // depthWrite: false — renderOrder alone only sequences the transparent-object render queue; the
     // depth *test* still runs against whatever's already in the depth buffer, so without this a
-    // larger item drawn first (renderOrder 0) would still occlude a smaller nested one behind it
-    // in stack mode (visible head-on in front/side views). With depthWrite off, translucent items
-    // never write depth, so renderOrder is the sole arbiter of draw/blend order. In row mode items
-    // don't overlap on screen, so this is inert there; the opaque grid still writes/tests depth
-    // normally since it's a separate (non-transparent) draw.
+    // nearer item drawn first would occlude one behind it in stack mode, where items line up in
+    // depth and overlap heavily on screen (visible head-on in front/side views). With depthWrite
+    // off, translucent items never write depth, so renderOrder is the sole arbiter of draw/blend
+    // order. In row mode items don't overlap on screen, so this is inert there; the opaque grid
+    // still writes/tests depth normally since it's a separate (non-transparent) draw.
     const mat = isWireframe
       ? new THREE.MeshBasicMaterial({ color: item.color, wireframe: true, transparent: true, opacity: 0, depthWrite: false })
       : new THREE.MeshLambertMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false });
@@ -560,7 +563,7 @@ export function createScene(container: HTMLElement): SizeScene {
     const c = bounds.getCenter(new THREE.Vector3());
     const s = bounds.getSize(new THREE.Vector3());
     const { width, height } = container.getBoundingClientRect();
-    const frame = safeAreaFrame(width, height, inset);
+    const frame = safeAreaFrame(width, height, inset, insetTop);
     const aspect = frame.aspect;
     let targetCam: THREE.Camera;
     if (next === '3d') {
@@ -568,7 +571,7 @@ export function createScene(container: HTMLElement): SizeScene {
       const radius = Math.max(s.x, s.y, s.z, 1);
       persp.position.set(c.x + radius * 1.2, c.y + radius * 0.9, c.z + radius * 1.6);
       persp.lookAt(c);
-      applyViewOffset(persp, frame, inset);
+      applyViewOffset(persp, frame, inset, insetTop);
       persp.updateProjectionMatrix();
       targetCam = persp;
     } else {
@@ -585,7 +588,7 @@ export function createScene(container: HTMLElement): SizeScene {
       if (next === 'side') { fit(s.z, s.y); ortho.position.set(c.x + far / 2, c.y, c.z); }
       if (next === 'top') { fit(s.x, s.z); ortho.position.set(c.x, c.y + far / 2, c.z); }
       ortho.lookAt(c);
-      applyViewOffset(ortho, frame, inset);
+      applyViewOffset(ortho, frame, inset, insetTop);
       ortho.updateProjectionMatrix();
       targetCam = ortho;
     }
@@ -646,9 +649,9 @@ export function createScene(container: HTMLElement): SizeScene {
       persp.position.copy(end.position);
       persp.quaternion.copy(end.quaternion);
       const { width, height } = container.getBoundingClientRect();
-      const frame = safeAreaFrame(width, height, inset);
+      const frame = safeAreaFrame(width, height, inset, insetTop);
       persp.aspect = frame.aspect;
-      applyViewOffset(persp, frame, inset);
+      applyViewOffset(persp, frame, inset, insetTop);
       persp.updateProjectionMatrix(); // restore auto (non-lerped) projection
       controls.target.copy(end.controlsTarget);
       controls.enabled = true;
@@ -720,10 +723,12 @@ export function createScene(container: HTMLElement): SizeScene {
 
   // Cancel-and-jump, same as resize(): an inset change mid-transition recomputes the end
   // state for the new safe area and snaps to it rather than animating through a moving frame.
-  function setInset(px: number) {
-    const next = Math.max(0, px);
-    if (next === inset) return;
-    inset = next;
+  function setInset(px: number, top = 0) {
+    const nextLeft = Math.max(0, px);
+    const nextTop = Math.max(0, top);
+    if (nextLeft === inset && nextTop === insetTop) return;
+    inset = nextLeft;
+    insetTop = nextTop;
     applyInstant(view);
   }
 

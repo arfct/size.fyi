@@ -11,6 +11,11 @@ interface ViewerProps {
   asideRef?: RefObject<HTMLElement | null>;
 }
 
+// Vertical breathing room (px) reserved at the top of the mobile canvas so the framed model
+// sits below the floating segmented control (ViewTabs / Stack toggle), which overlaps the
+// canvas near the top. Desktop reserves horizontal room for the sidebar instead, not this.
+const MOBILE_TOP_INSET = 64;
+
 export default function Viewer({ asideRef }: ViewerProps) {
   const ref = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SizeScene | null>(null);
@@ -33,8 +38,10 @@ export default function Viewer({ asideRef }: ViewerProps) {
     const scene = sceneRef.current;
     if (!scene) return;
     const aside = asideRef?.current;
-    if (!aside || !isDesktop) { scene.setInset(0); return; }
-    const update = () => scene.setInset(aside.getBoundingClientRect().width);
+    // Mobile: no horizontal inset (canvas is full-width), but reserve vertical room at the top
+    // for the overlapping segmented control. Desktop-without-aside: no inset at all.
+    if (!aside || !isDesktop) { scene.setInset(0, isDesktop ? 0 : MOBILE_TOP_INSET); return; }
+    const update = () => scene.setInset(aside.getBoundingClientRect().width, 0);
     update();
     const ro = new ResizeObserver(update);
     ro.observe(aside);

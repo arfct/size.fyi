@@ -35,7 +35,7 @@ export default function CustomEntry() {
 
   return (
     <section className="space-y-2" aria-label="Add your own">
-      <p className="text-sm font-medium">Or add your own</p>
+      <p className="text-[16px] font-medium">Or add your own</p>
       <div className="flex gap-2">
         <input
           value={name}
@@ -43,7 +43,7 @@ export default function CustomEntry() {
           onKeyDown={onCustomKeyDown}
           placeholder="Name"
           disabled={full}
-          className="min-w-0 flex-[2] border-b border-stone-300 bg-transparent px-1 py-2 text-sm outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
+          className="min-w-0 flex-[2] border-b border-stone-300 bg-transparent px-1 py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
         />
         <input
           value={dims}
@@ -54,15 +54,15 @@ export default function CustomEntry() {
           onKeyDown={onCustomKeyDown}
           placeholder="85×64×12 or 5×3×2in"
           disabled={full}
-          className="min-w-0 flex-1 border-b border-stone-300 bg-transparent px-1 py-2 text-sm outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
+          className="min-w-0 flex-1 border-b border-stone-300 bg-transparent px-1 py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
         />
       </div>
       {dimsError && (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-[13px] text-red-600" role="alert">
           {dimsError}
         </p>
       )}
-      {full && <p className="text-xs text-stone-500">Comparison is full ({MAX_ITEMS} items)</p>}
+      {full && <p className="text-[13px] text-stone-500">Comparison is full ({MAX_ITEMS} items)</p>}
     </section>
   );
 }

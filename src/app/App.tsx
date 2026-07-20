@@ -31,24 +31,25 @@ function Shell() {
       )}
       <div
         ref={asideRef}
-        className="relative z-10 w-full space-y-4 p-4 md:h-screen md:w-80 md:shrink-0 md:overflow-y-auto"
+        className="relative z-10 order-2 w-full space-y-4 p-4 md:order-1 md:h-screen md:w-80 md:shrink-0 md:overflow-y-auto"
       >
         <header className="flex items-center justify-between border-b border-stone-200 pb-3 dark:border-stone-800">
-          <a href="/" className="text-lg font-semibold tracking-tight">size.fyi</a>
+          <a href="/" className="text-[16px] font-semibold tracking-tight">size.fyi</a>
           <div className="flex items-center gap-2">
             <button onClick={() => {
               const next = state.units === 'metric' ? 'imperial' : 'metric';
               setStoredUnits(next);
               dispatch({ type: 'setUnits', units: next });
             }}
-              className="rounded-md border border-stone-300 px-3 py-1 text-sm dark:border-stone-700">
+              aria-label={`Units: ${state.units === 'metric' ? 'millimeters' : 'inches'}`}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-300 text-[13px] dark:border-stone-700">
               {state.units === 'metric' ? 'mm' : 'in'}
             </button>
             <ShareButton />
           </div>
         </header>
         {state.missing.length > 0 && (
-          <div className="flex items-center justify-between rounded-md bg-amber-100 px-4 py-2 text-sm text-amber-900" role="status">
+          <div className="flex items-center justify-between rounded-md bg-amber-100 px-4 py-2 text-[13px] text-amber-900" role="status">
             <span>Couldn’t find: {state.missing.join(', ')}</span>
             <button onClick={() => dispatch({ type: 'dismissMissing' })} aria-label="Dismiss">✕</button>
           </div>
@@ -62,7 +63,7 @@ function Shell() {
           so orbit drags reach the canvas behind it; its interactive children opt back in with
           pointer-events-auto. Mobile is untouched (no md: prefix) since the contained Viewer
           lives directly in this section there and needs normal event flow. */}
-      <section className="relative z-0 min-h-[360px] flex-1 overflow-hidden md:h-screen md:pointer-events-none">
+      <section className="relative z-0 order-1 h-[48vh] shrink-0 overflow-hidden md:order-2 md:h-screen md:flex-1 md:shrink md:pointer-events-none">
         <ViewTabs />
         <LayoutToggle />
         {!showViewer && <EmptyState />}

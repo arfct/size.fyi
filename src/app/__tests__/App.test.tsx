@@ -25,7 +25,8 @@ test('header row holds the wordmark on the left and the units toggle on the righ
   render(<App />);
   const header = screen.getByRole('link', { name: 'size.fyi' }).closest('header');
   expect(header).not.toBeNull();
-  const unitsButton = screen.getByRole('button', { name: 'mm' });
+  const unitsButton = screen.getByRole('button', { name: /units:/i });
+  expect(unitsButton).toHaveTextContent('mm');
   expect(header!.contains(unitsButton)).toBe(true);
 });
 
