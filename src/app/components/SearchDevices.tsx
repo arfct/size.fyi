@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { searchDevices, suggestDevices } from '../../shared/search';
 import type { Device } from '../../shared/types';
 import { MAX_ITEMS } from '../../shared/types';
-import { CATEGORY_ICON, MY_ITEM_ICON } from '../categoryIcon';
+import { MY_ITEM_ICON, deviceIcon } from '../categoryIcon';
 import { useCatalog } from '../useCatalog';
 import { useComparison } from '../store';
 import { useIsDesktop } from '../useIsDesktop';
@@ -124,7 +124,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
           )}
           <ul id="device-results" role="listbox" aria-label="Results" className="space-y-0.5">
             {rows.map((row) => {
-              const Icon = row.kind === 'device' ? CATEGORY_ICON[row.device.category] : MY_ITEM_ICON;
+              const Icon = row.kind === 'device' ? deviceIcon(row.device) : MY_ITEM_ICON;
               return (
                 <li key={row.kind === 'device' ? `d-${row.device.slug}` : `m-${row.item.name}`}>
                   <button

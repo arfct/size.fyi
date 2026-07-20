@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ComparisonItem } from '../../shared/types';
 import { formatDims } from '../../shared/dimensions';
 import { type ARTarget, canLaunchAR, launchAR } from '../ar';
-import { CATEGORY_ICON, MY_ITEM_ICON } from '../categoryIcon';
+import { MY_ITEM_ICON, deviceIcon } from '../categoryIcon';
 import { itemColor } from '../palette';
 import { useComparison } from '../store';
 
@@ -95,7 +95,7 @@ export default function ItemList({ onEdit }: { onEdit: (index: number, name: str
         const ar: ARTarget | undefined = item.kind === 'device' && item.device.model3d
           ? { usdzUrl: `/models/${item.device.slug}.usdz`, glbUrl: `/models/${item.device.model3d.url}`, title: name }
           : undefined;
-        const Icon = item.kind === 'device' ? CATEGORY_ICON[item.device.category] : MY_ITEM_ICON;
+        const Icon = item.kind === 'device' ? deviceIcon(item.device) : MY_ITEM_ICON;
         return (
           <li key={`${name}-${i}`} className="flex items-center gap-2.5 rounded-md px-4 py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
             <Icon size={18} style={{ color: itemColor(item, i) }} className="shrink-0" aria-hidden />
