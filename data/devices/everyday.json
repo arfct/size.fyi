@@ -5,7 +5,7 @@
   { "slug": "drinks-can", "name": "Drinks Can", "category": "everyday", "h": 115, "w": 65, "d": 65, "radius": 32.5, "radiusAxis": "y" },
   { "slug": "cd-case", "name": "CD Case", "category": "everyday", "h": 124, "w": 142, "d": 10 },
   { "slug": "wine-bottle", "name": "Wine Bottle", "category": "everyday", "h": 295, "w": 70, "d": 70, "radius": 35, "radiusAxis": "y" },
-  { "slug": "banana", "name": "Banana", "category": "everyday", "h": 35, "w": 190, "d": 35, "aliases": ["banana for scale"], "radius": 17.5, "radiusAxis": "x" },
+  { "slug": "banana", "name": "Banana", "category": "everyday", "h": 80, "w": 190, "d": 35, "aliases": ["banana for scale"], "mesh": "banana" },
   { "slug": "19in-monitor", "name": "19″ TFT Monitor", "category": "everyday", "h": 360, "w": 425, "d": 50, "screen": { "h": 301.5, "w": 376.8 } },
   { "slug": "32in-tv", "name": "32″ Widescreen TV", "category": "everyday", "h": 550, "w": 790, "d": 90, "screen": { "h": 398.5, "w": 708.4 } },
   { "slug": "internal-door", "name": "Internal Door", "category": "everyday", "h": 1982, "w": 838, "d": 33 },

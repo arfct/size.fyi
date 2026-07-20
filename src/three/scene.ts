@@ -7,6 +7,7 @@ export interface SceneItem {
   name: string; h: number; w: number; d: number; color: string;
   radius?: number; radiusAxis?: 'x' | 'y' | 'z';
   screen?: { h: number; w: number; radius?: number };
+  mesh?: 'banana';
 }
 export interface SizeScene {
   setItems(items: SceneItem[]): void;
@@ -30,7 +31,75 @@ function darken(hex: string, amount: number): THREE.Color {
   return new THREE.Color(hex).multiplyScalar(1 - amount);
 }
 
+// Sweeps circular cross-section rings along a planar curved spine (bending upward through
+// ~110°) with a tapered radius profile, then rescales the result so its bounding box is
+// exactly w×h×d — matching how box/rounded geometry sits on the ground at those dimensions.
+function buildBananaGeometry(w: number, h: number, d: number): THREE.BufferGeometry {
+  const N = 24; // rings along the spine
+  const M = 12; // radial segments per ring
+  const arcHalf = 0.96; // half-sweep, radians (~110° total)
+  const R = 1; // arbitrary spine arc radius; shape is rescaled to w×h×d below
+  const rMax = 0.5; // arbitrary cross-section scale; rescaled below too
+
+  const rings: THREE.Vector3[][] = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    const theta = (t - 0.5) * arcHalf * 2;
+    const center = new THREE.Vector3(R * Math.sin(theta), R * (1 - Math.cos(theta)), 0);
+    const n1 = new THREE.Vector3(-Math.sin(theta), Math.cos(theta), 0); // in-plane normal
+    const n2 = new THREE.Vector3(0, 0, 1); // binormal (spine is planar in XY)
+    const r = rMax * (0.30 + 0.70 * Math.sin(Math.PI * t) ** 0.6);
+
+    const ring: THREE.Vector3[] = [];
+    for (let j = 0; j < M; j++) {
+      const phi = (j / M) * Math.PI * 2;
+      ring.push(center.clone()
+        .addScaledVector(n1, Math.cos(phi) * r)
+        .addScaledVector(n2, Math.sin(phi) * r));
+    }
+    rings.push(ring);
+  }
+
+  // spine endpoints, used to cap the tube with triangle fans
+  const startSpine = new THREE.Vector3(R * Math.sin(-arcHalf), R * (1 - Math.cos(-arcHalf)), 0);
+  const endSpine = new THREE.Vector3(R * Math.sin(arcHalf), R * (1 - Math.cos(arcHalf)), 0);
+
+  const positions: number[] = [];
+  for (const ring of rings) for (const v of ring) positions.push(v.x, v.y, v.z);
+  const startCenterIdx = N * M;
+  const endCenterIdx = N * M + 1;
+  positions.push(startSpine.x, startSpine.y, startSpine.z);
+  positions.push(endSpine.x, endSpine.y, endSpine.z);
+
+  const indices: number[] = [];
+  for (let i = 0; i < N - 1; i++) {
+    for (let j = 0; j < M; j++) {
+      const jNext = (j + 1) % M;
+      const a = i * M + j, b = i * M + jNext, c = (i + 1) * M + j, dIdx = (i + 1) * M + jNext;
+      indices.push(a, c, b, b, c, dIdx);
+    }
+  }
+  for (let j = 0; j < M; j++) {
+    const jNext = (j + 1) % M;
+    indices.push(startCenterIdx, j, jNext); // start cap
+    const base = (N - 1) * M;
+    indices.push(endCenterIdx, base + jNext, base + j); // end cap
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+
+  geo.computeBoundingBox();
+  const size = geo.boundingBox!.getSize(new THREE.Vector3());
+  geo.scale(w / (size.x || 1), h / (size.y || 1), d / (size.z || 1));
+  geo.center();
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function buildGeometry(item: SceneItem): THREE.BufferGeometry {
+  if (item.mesh === 'banana') return buildBananaGeometry(item.w, item.h, item.d);
   if (!item.radius || !item.radiusAxis)
     return new THREE.BoxGeometry(item.w, item.h, item.d);
   const opts = { bevelEnabled: false, curveSegments: 12 };
@@ -112,14 +181,12 @@ export function createScene(container: HTMLElement): SizeScene {
     let x = 0;
     for (const item of items) {
       const geo = buildGeometry(item);
-      const mat = new THREE.MeshLambertMaterial({ color: item.color, transparent: true, opacity: 0.55 });
+      const isWireframe = item.mesh != null;
+      const mat = isWireframe
+        ? new THREE.MeshBasicMaterial({ color: item.color, wireframe: true })
+        : new THREE.MeshLambertMaterial({ color: item.color, transparent: true, opacity: 0.55 });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(x + item.w / 2, item.h / 2, 0);
-      const edges = new THREE.LineSegments(
-        new THREE.EdgesGeometry(geo, 30),
-        new THREE.LineBasicMaterial({ color: item.color }),
-      );
-      edges.position.copy(mesh.position);
       const labelEl = document.createElement('div');
       labelEl.textContent = item.name;
       labelEl.style.cssText =
@@ -127,7 +194,15 @@ export function createScene(container: HTMLElement): SizeScene {
       const label = new CSS2DObject(labelEl);
       label.position.set(0, item.h / 2 + maxDim * 0.04, 0);
       mesh.add(label);
-      group.add(mesh, edges);
+      group.add(mesh);
+      if (!isWireframe) {
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(geo, 30),
+          new THREE.LineBasicMaterial({ color: item.color }),
+        );
+        edges.position.copy(mesh.position);
+        group.add(edges);
+      }
       if (item.screen) {
         const screenGeo = new THREE.ShapeGeometry(
           roundedRectShape(item.screen.w, item.screen.h, item.screen.radius ?? 0),

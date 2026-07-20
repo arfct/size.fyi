@@ -1,5 +1,5 @@
 import { formatDims } from '../../shared/dimensions';
-import { colorFor } from '../palette';
+import { itemColor } from '../palette';
 import { useComparison } from '../store';
 
 export default function ItemList() {
@@ -12,7 +12,7 @@ export default function ItemList() {
         const dims = item.kind === 'device' ? item.device : item;
         return (
           <li key={`${name}-${i}`} className="group flex items-center gap-2 rounded-md px-3 py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
-            <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: colorFor(i) }} />
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: itemColor(item, i) }} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{name}</p>
               <p className="text-xs text-stone-500">{formatDims(dims, state.units)}</p>

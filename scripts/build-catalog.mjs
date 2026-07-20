@@ -4,6 +4,7 @@ import path from 'node:path';
 const DATA_DIR = 'data/devices';
 const OUT = 'public/devices.json';
 const CATEGORIES = ['everyday', 'paper', 'phone', 'tablet', 'laptop', 'console', 'pc-case', 'audio', 'camera'];
+const MESHES = ['banana'];
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const checkOnly = process.argv.includes('--check');
 
@@ -51,7 +52,8 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
         }
       }
     }
-    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'brand', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen']);
+    if (d.mesh !== undefined && !MESHES.includes(d.mesh)) errors.push(`${id}: unknown mesh ${d.mesh}`);
+    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'brand', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh']);
     for (const k of Object.keys(d)) if (!allowed.has(k)) errors.push(`${id}: unknown key ${k}`);
     devices.push(d);
   }
