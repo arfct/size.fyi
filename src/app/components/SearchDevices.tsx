@@ -121,7 +121,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
           )}
           <ul id="device-results" role="listbox" aria-label="Results" className="space-y-0.5">
             {rows.map((row) => {
-              const { Icon, color } = row.kind === 'device' ? CATEGORY_ICON[row.device.category] : MY_ITEM_ICON;
+              const Icon = row.kind === 'device' ? CATEGORY_ICON[row.device.category] : MY_ITEM_ICON;
               return (
                 <li key={row.kind === 'device' ? `d-${row.device.slug}` : `m-${row.item.name}`}>
                   <button
@@ -132,7 +132,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
                     onClick={() => addRow(row)}
                     className="flex w-full items-center gap-2.5 rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
                   >
-                    <Icon size={18} style={{ color }} aria-hidden className="shrink-0" />
+                    <Icon size={18} aria-hidden className="shrink-0 text-stone-500 dark:text-stone-400" />
                     <span className="min-w-0 flex-1 truncate">
                       {row.kind === 'mine' ? (
                         <>
