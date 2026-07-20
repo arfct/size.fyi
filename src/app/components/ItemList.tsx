@@ -1,13 +1,24 @@
+import type { ComparisonItem } from '../../shared/types';
 import { formatDims } from '../../shared/dimensions';
 import { itemColor } from '../palette';
 import { useComparison } from '../store';
 
+const volumeOf = (item: ComparisonItem) => {
+  const d = item.kind === 'device' ? item.device : item;
+  return d.h * d.w * d.d;
+};
+
 export default function ItemList() {
   const { state, dispatch } = useComparison();
   if (state.items.length === 0) return null;
+  // Display smallest-to-largest by volume; keep each item's original index for its (stable) color
+  // and for the remove dispatch, which indexes into the unsorted state.
+  const ordered = state.items
+    .map((item, i) => ({ item, i }))
+    .sort((a, b) => volumeOf(a.item) - volumeOf(b.item));
   return (
     <ul className="space-y-2" aria-label="Items">
-      {state.items.map((item, i) => {
+      {ordered.map(({ item, i }) => {
         const name = item.kind === 'device' ? item.device.name : item.name;
         const dims = item.kind === 'device' ? item.device : item;
         const url = item.kind === 'device' ? item.device.url : undefined;

@@ -252,29 +252,35 @@ export function computeKeys(items: SceneItem[]): string[] {
   });
 }
 
-// Row = sequential x with an 8%-of-max-dimension gap, all at z=0. Stack = sequential z (front-to-
-// back) with the same gap, every item centered on x=0 with its bottom on the ground (y=h/2), so
-// items line up in depth without overlapping. renderOrder increases along z (nearer items drawn
-// later) so the translucent items blend back-to-front correctly from the default/front/side views
-// (paired with depthWrite:false on the transparent materials in createScene). Pure — exported for
-// direct unit testing.
+const volumeOf = (i: SceneItem) => i.h * i.w * i.d;
+const minDimOf = (i: SceneItem) => Math.min(i.h, i.w, i.d);
+
+// Items are always laid out smallest-to-largest by volume. Row = sequential along x (all at z=0);
+// Stack = sequential along z (front-to-back), every item centered on x=0. Either way each item
+// sits with its bottom on the ground (y=h/2) and the gap between two neighbours equals the smaller
+// of their smallest dimensions. Stack renderOrder increases along z (nearer items drawn later) so
+// the translucent items blend back-to-front from the default/front/side views (paired with
+// depthWrite:false on the transparent materials in createScene). Pure — exported for direct testing.
 export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutMode): Map<string, LayoutTarget> {
   const targets = new Map<string, LayoutTarget>();
+  const order = items
+    .map((item, i) => ({ item, key: keys[i]! }))
+    .sort((a, b) => volumeOf(a.item) - volumeOf(b.item));
+  const gapAfter = (idx: number) => {
+    const next = order[idx + 1];
+    return next ? Math.min(minDimOf(order[idx]!.item), minDimOf(next.item)) : 0;
+  };
   if (mode === 'stack') {
-    const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
-    const gap = maxDim * 0.08;
     let z = 0;
-    items.forEach((item, i) => {
-      targets.set(keys[i]!, { pos: new THREE.Vector3(0, item.h / 2, z + item.d / 2), renderOrder: i });
-      z += item.d + gap;
+    order.forEach(({ item, key }, idx) => {
+      targets.set(key, { pos: new THREE.Vector3(0, item.h / 2, z + item.d / 2), renderOrder: idx });
+      z += item.d + gapAfter(idx);
     });
   } else {
-    const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
-    const gap = maxDim * 0.08;
     let x = 0;
-    items.forEach((item, i) => {
-      targets.set(keys[i]!, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, 0), renderOrder: 0 });
-      x += item.w + gap;
+    order.forEach(({ item, key }, idx) => {
+      targets.set(key, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, 0), renderOrder: 0 });
+      x += item.w + gapAfter(idx);
     });
   }
   return targets;

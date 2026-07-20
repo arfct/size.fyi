@@ -5,7 +5,7 @@ describe('/api/devices', () => {
   test('returns catalog with cache headers', async () => {
     const res = await SELF.fetch('https://size.fyi/api/devices');
     expect(res.status).toBe(200);
-    expect(res.headers.get('cache-control')).toContain('max-age=3600');
+    expect(res.headers.get('cache-control')).toContain('no-cache');
     expect(res.headers.get('etag')).toBeTruthy();
     const body = await res.json() as { version: number; devices: unknown[] };
     expect(body.version).toBe(1);
@@ -14,7 +14,8 @@ describe('/api/devices', () => {
 
   test('cache-control is exactly the documented contract', async () => {
     const res = await SELF.fetch('https://size.fyi/api/devices');
-    expect(res.headers.get('cache-control')).toBe('public, max-age=3600, stale-while-revalidate=86400');
+    // Temporarily no-cache (revalidate every load) while the catalog stabilizes.
+    expect(res.headers.get('cache-control')).toBe('no-cache');
   });
 
   test('etag is stable across requests', async () => {

@@ -20,7 +20,9 @@ function loadCatalog(env: Env, origin: string): Promise<Map<string, Device>> {
 
 // Sets ETag/Cache-Control here; conditional-request handling (If-None-Match
 // → 304) is left to Cloudflare's edge cache in front of the Worker rather
-// than implemented locally.
+// than implemented locally. Cache-control is `no-cache` for now (revalidate
+// every load via the ETag) so catalog changes appear immediately while we
+// stabilize; reinstate a max-age once the catalog settles.
 async function apiDevices(env: Env, origin: string): Promise<Response> {
   const res = await env.ASSETS.fetch(`${origin}/devices.json`);
   if (!res.ok) return new Response('catalog unavailable', { status: 503 });
@@ -30,7 +32,7 @@ async function apiDevices(env: Env, origin: string): Promise<Response> {
   return new Response(body, {
     headers: {
       'content-type': 'application/json',
-      'cache-control': 'public, max-age=3600, stale-while-revalidate=86400',
+      'cache-control': 'no-cache',
       etag,
     },
   });

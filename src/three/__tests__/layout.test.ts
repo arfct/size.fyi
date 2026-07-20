@@ -20,14 +20,13 @@ test('computeKeys keeps distinct items (different dims or mesh) unsuffixed', () 
   expect(computeKeys([a, b, c])).toEqual(['Phone|150x75x8|', 'Phone|160x75x8|', 'Banana|20x40x20|banana']);
 });
 
-test('row targets: sequential x with an 8%-of-max-dimension gap, all at z=0, renderOrder 0', () => {
-  const a = item({ name: 'A', h: 10, w: 10, d: 10 });
-  const b = item({ name: 'B', h: 10, w: 20, d: 10 });
+test('row targets: sequential x, gap = smaller neighbour min-dimension, all at z=0, renderOrder 0', () => {
+  const a = item({ name: 'A', h: 10, w: 10, d: 10 }); // vol 1000, minDim 10
+  const b = item({ name: 'B', h: 10, w: 20, d: 10 }); // vol 2000, minDim 10
   const keys = computeKeys([a, b]);
   const targets = computeTargets([a, b], keys, 'row');
 
-  const maxDim = 20;
-  const gap = maxDim * 0.08; // 1.6
+  const gap = Math.min(10, 10); // min-dim of the a/b pair
 
   const ta = targets.get(keys[0]!)!;
   expect(ta.pos.x).toBeCloseTo(0 + a.w / 2); // 5
@@ -35,7 +34,7 @@ test('row targets: sequential x with an 8%-of-max-dimension gap, all at z=0, ren
   expect(ta.pos.z).toBe(0);
   expect(ta.renderOrder).toBe(0);
 
-  const expectedBx = a.w + gap + b.w / 2; // 10 + 1.6 + 10 = 21.6
+  const expectedBx = a.w + gap + b.w / 2; // 10 + 10 + 10 = 30
   const tb = targets.get(keys[1]!)!;
   expect(tb.pos.x).toBeCloseTo(expectedBx);
   expect(tb.pos.y).toBeCloseTo(b.h / 2);
@@ -43,41 +42,48 @@ test('row targets: sequential x with an 8%-of-max-dimension gap, all at z=0, ren
   expect(tb.renderOrder).toBe(0);
 });
 
-test('stack targets: sequential z (front-to-back) with an 8%-of-max gap, centered on x=0, no overlap', () => {
-  const a = item({ name: 'A', h: 10, w: 10, d: 10 });
-  const b = item({ name: 'B', h: 20, w: 20, d: 30 });
-  const c = item({ name: 'C', h: 5, w: 5, d: 5 });
-  const items = [a, b, c];
-  const keys = computeKeys(items);
-  const targets = computeTargets(items, keys, 'stack');
-
-  const maxDim = 30; // max of all dims
-  const gap = maxDim * 0.08; // 2.4
-
-  const ta = targets.get(keys[0]!)!;
-  expect(ta.pos.x).toBe(0);
-  expect(ta.pos.y).toBeCloseTo(a.h / 2);
-  expect(ta.pos.z).toBeCloseTo(a.d / 2); // 5
-
-  const tb = targets.get(keys[1]!)!;
-  expect(tb.pos.x).toBe(0);
-  expect(tb.pos.y).toBeCloseTo(b.h / 2);
-  expect(tb.pos.z).toBeCloseTo(a.d + gap + b.d / 2); // 10 + 2.4 + 15 = 27.4
-
-  const tc = targets.get(keys[2]!)!;
-  expect(tc.pos.z).toBeCloseTo(a.d + gap + b.d + gap + c.d / 2); // 10 + 2.4 + 30 + 2.4 + 2.5 = 47.3
-
-  // renderOrder increases front-to-back so nearer items draw last (correct translucent blending).
-  expect(ta.renderOrder).toBe(0);
-  expect(tb.renderOrder).toBe(1);
-  expect(tc.renderOrder).toBe(2);
-
-  // No overlap in depth: each item's near face sits beyond the previous item's far face.
-  expect(tb.pos.z - b.d / 2).toBeGreaterThanOrEqual(ta.pos.z + a.d / 2 - 1e-9);
-  expect(tc.pos.z - c.d / 2).toBeGreaterThanOrEqual(tb.pos.z + b.d / 2 - 1e-9);
+test('layout sorts smallest-to-largest by volume regardless of input order', () => {
+  const big = item({ name: 'Big', h: 30, w: 30, d: 30 }); // vol 27000
+  const small = item({ name: 'Small', h: 5, w: 5, d: 5 }); // vol 125
+  const mid = item({ name: 'Mid', h: 10, w: 10, d: 10 }); // vol 1000
+  const keys = computeKeys([big, small, mid]); // deliberately out of order
+  const targets = computeTargets([big, small, mid], keys, 'row');
+  // x increases smallest → largest, so small sits leftmost, big rightmost.
+  const xs = keys.map((k) => targets.get(k)!.pos.x);
+  const [xBig, xSmall, xMid] = xs;
+  expect(xSmall!).toBeLessThan(xMid!);
+  expect(xMid!).toBeLessThan(xBig!);
 });
 
-test('row layout resets renderOrder to 0 regardless of footprint', () => {
+test('stack targets: volume-sorted z (front-to-back), per-pair min-dim gap, centered on x=0, no overlap', () => {
+  const a = item({ name: 'A', h: 10, w: 10, d: 10 }); // vol 1000, minDim 10
+  const b = item({ name: 'B', h: 20, w: 20, d: 30 }); // vol 12000, minDim 20
+  const c = item({ name: 'C', h: 5, w: 5, d: 5 }); // vol 125, minDim 5
+  const items = [a, b, c];
+  const keys = computeKeys(items); // keys[0]=a, keys[1]=b, keys[2]=c
+  const targets = computeTargets(items, keys, 'stack');
+
+  // Sorted smallest→largest: c, a, b. Gaps: c→a = min(5,10)=5, a→b = min(10,20)=10.
+  const tc = targets.get(keys[2]!)!;
+  expect(tc.pos.x).toBe(0);
+  expect(tc.pos.y).toBeCloseTo(c.h / 2);
+  expect(tc.pos.z).toBeCloseTo(c.d / 2); // 2.5
+  expect(tc.renderOrder).toBe(0);
+
+  const ta = targets.get(keys[0]!)!;
+  expect(ta.pos.z).toBeCloseTo(c.d + 5 + a.d / 2); // 5 + 5 + 5 = 15
+  expect(ta.renderOrder).toBe(1);
+
+  const tb = targets.get(keys[1]!)!;
+  expect(tb.pos.z).toBeCloseTo(c.d + 5 + a.d + 10 + b.d / 2); // 5 + 5 + 10 + 10 + 15 = 45
+  expect(tb.renderOrder).toBe(2);
+
+  // No overlap in depth along the sorted order c → a → b.
+  expect(ta.pos.z - a.d / 2).toBeGreaterThanOrEqual(tc.pos.z + c.d / 2 - 1e-9);
+  expect(tb.pos.z - b.d / 2).toBeGreaterThanOrEqual(ta.pos.z + a.d / 2 - 1e-9);
+});
+
+test('row layout keeps renderOrder 0 for all items', () => {
   const big = item({ name: 'Big', h: 30, w: 100, d: 100 });
   const small = item({ name: 'Small', h: 10, w: 10, d: 10 });
   const keys = computeKeys([big, small]);
@@ -87,15 +93,15 @@ test('row layout resets renderOrder to 0 regardless of footprint', () => {
 });
 
 test('computeTargetBounds matches the expected Box3 for a known row fixture', () => {
-  const a = item({ name: 'A', h: 10, w: 10, d: 10 }); // centered at x=5, y=5, z=0
-  const b = item({ name: 'B', h: 10, w: 20, d: 10 }); // centered at x=21.6, y=5, z=0
+  const a = item({ name: 'A', h: 10, w: 10, d: 10 }); // sorted first: x=5, gap 10
+  const b = item({ name: 'B', h: 10, w: 20, d: 10 }); // sorted second: x=30
   const keys = computeKeys([a, b]);
   const targets = computeTargets([a, b], keys, 'row');
   const box = computeTargetBounds([a, b], keys, targets);
 
   const expected = new THREE.Box3(
     new THREE.Vector3(0, 0, -5),
-    new THREE.Vector3(31.6, 10, 5),
+    new THREE.Vector3(40, 10, 5),
   );
   expect(box.min.x).toBeCloseTo(expected.min.x);
   expect(box.min.y).toBeCloseTo(expected.min.y);
