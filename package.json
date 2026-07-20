@@ -12,6 +12,7 @@
     "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
+    "@base-ui-components/react": "^1.0.0-rc.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
