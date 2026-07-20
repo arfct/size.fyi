@@ -23,7 +23,7 @@ export default function ShareButton() {
 
   return (
     <button onClick={share}
-      className="rounded-md border border-stone-300 px-3 py-1 text-sm dark:border-stone-700">
+      className="flex h-9 items-center rounded-full border border-stone-300 px-3 text-[13px] dark:border-stone-700">
       {copied ? 'Copied!' : 'Share'}
     </button>
   );

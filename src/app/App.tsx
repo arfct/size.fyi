@@ -38,8 +38,8 @@ function Shell() {
           size.fyi
         </a>
         <div className="flex items-center gap-2">
-          <ViewMenu />
           <ShareButton />
+          <ViewMenu />
         </div>
       </div>
       <div
