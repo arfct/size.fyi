@@ -38,6 +38,20 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
     if (!isDesktop) sectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
 
+  // The on-screen keyboard appearing shrinks the visual viewport after focus fires, so re-scroll
+  // the search to the top of the now-smaller view whenever it resizes while the box is focused.
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (isDesktop || !vv) return;
+    const onResize = () => {
+      if (document.activeElement === inputRef.current) {
+        sectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, [isDesktop]);
+
   // Categories (size class / type) and slugs already in the comparison — the former narrows
   // empty-query suggestions to peers, the latter drops anything already added.
   const activeCategories = useMemo(
@@ -100,43 +114,44 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
             placeholder={status === 'loading' ? 'Loading catalog…' : 'Search'}
             className="w-full border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
           />
-          {rows.length === 0 ? (
+          {rows.length === 0 && (
             <p className="py-1.5 text-[13px] text-stone-500">{trimmed ? 'No matches.' : 'No suggestions.'}</p>
-          ) : (
-            <ul id="device-results" role="listbox" aria-label="Results" className="space-y-0.5">
-              {rows.map((row) => (
-                <li key={row.kind === 'device' ? `d-${row.device.slug}` : `m-${row.item.name}`}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={false}
-                    disabled={full}
-                    onClick={() => addRow(row)}
-                    className="block w-full truncate rounded-md py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
-                  >
-                    {row.kind === 'mine' ? (
-                      <>
-                        {row.item.name} <span className="text-[13px] text-stone-400">(my item)</span>
-                      </>
-                    ) : (
-                      <>
-                        {row.device.name}
-                        {row.device.make ? <span className="text-[13px] text-stone-400"> — {row.device.make}</span> : null}
-                      </>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
           )}
-          <button
-            type="button"
-            disabled={full}
-            onClick={() => onAddCustom(trimmed)}
-            className="mt-1 block w-full truncate rounded-md py-1.5 text-left text-[16px] text-blue-600 hover:bg-stone-200/60 disabled:opacity-40 dark:text-blue-400 dark:hover:bg-stone-800/60"
-          >
-            {trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}
-          </button>
+          <ul id="device-results" role="listbox" aria-label="Results" className="space-y-0.5">
+            {rows.map((row) => (
+              <li key={row.kind === 'device' ? `d-${row.device.slug}` : `m-${row.item.name}`}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  disabled={full}
+                  onClick={() => addRow(row)}
+                  className="block w-full truncate rounded-md py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
+                >
+                  {row.kind === 'mine' ? (
+                    <>
+                      {row.item.name} <span className="text-[13px] text-stone-400">(my item)</span>
+                    </>
+                  ) : (
+                    <>
+                      {row.device.name}
+                      {row.device.make ? <span className="text-[13px] text-stone-400"> — {row.device.make}</span> : null}
+                    </>
+                  )}
+                </button>
+              </li>
+            ))}
+            <li>
+              <button
+                type="button"
+                disabled={full}
+                onClick={() => onAddCustom(trimmed)}
+                className="block w-full truncate rounded-md py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
+              >
+                {trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}
+              </button>
+            </li>
+          </ul>
         </>
       )}
     </section>

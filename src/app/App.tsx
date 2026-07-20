@@ -36,7 +36,10 @@ function Shell() {
         className="relative z-10 order-2 w-full space-y-4 p-4 md:order-1 md:h-screen md:w-80 md:shrink-0 md:overflow-y-auto"
       >
         <header className="flex items-center justify-between border-b border-stone-200 pb-3 dark:border-stone-800">
-          <a href="/" className="text-[16px] font-semibold tracking-tight">size.fyi</a>
+          <a href="/" className="flex items-center gap-2 text-[16px] font-semibold tracking-tight">
+            <img src="/logo.svg" alt="" className="h-5 w-5" />
+            size.fyi
+          </a>
           <div className="flex items-center gap-2">
             <button onClick={() => {
               const next = state.units === 'metric' ? 'imperial' : 'metric';

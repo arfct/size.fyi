@@ -17,13 +17,22 @@ export type Action =
   | { type: 'load'; items: ComparisonItem[]; missing: string[] }
   | { type: 'dismissMissing' };
 
+// Items are always kept sorted smallest-to-largest by volume, so a given set of devices produces
+// one canonical order (and one canonical URL) regardless of the order they were added — which is
+// what keeps recent comparisons free of add-order "inversion" duplicates.
+const volumeOf = (item: ComparisonItem) => {
+  const d = item.kind === 'device' ? item.device : item;
+  return d.h * d.w * d.d;
+};
+const byVolume = (items: ComparisonItem[]) => [...items].sort((a, b) => volumeOf(a) - volumeOf(b));
+
 export function reducer(state: ComparisonState, action: Action): ComparisonState {
   switch (action.type) {
     case 'add':
       if (state.items.length >= MAX_ITEMS) return state;
-      return { ...state, items: [...state.items, action.item] };
+      return { ...state, items: byVolume([...state.items, action.item]) };
     case 'update':
-      return { ...state, items: state.items.map((it, i) => (i === action.index ? action.item : it)) };
+      return { ...state, items: byVolume(state.items.map((it, i) => (i === action.index ? action.item : it))) };
     case 'remove':
       return { ...state, items: state.items.filter((_, i) => i !== action.index) };
     case 'clear':
@@ -35,7 +44,7 @@ export function reducer(state: ComparisonState, action: Action): ComparisonState
     case 'setLayout':
       return { ...state, layoutMode: action.mode };
     case 'load':
-      return { ...state, items: action.items.slice(0, MAX_ITEMS), missing: action.missing };
+      return { ...state, items: byVolume(action.items.slice(0, MAX_ITEMS)), missing: action.missing };
     case 'dismissMissing':
       return { ...state, missing: [] };
   }

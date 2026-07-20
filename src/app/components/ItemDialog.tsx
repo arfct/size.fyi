@@ -40,10 +40,13 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
 
   if (!state) return null;
 
+  const unit = comparison.units === 'imperial' ? 'in' : 'mm';
+
   const submit = () => {
     const trimmed = name.trim();
     if (!trimmed) { setError('Give it a name'); return; }
-    const parsed = parseDimensions(dims);
+    // Interpret bare numbers in the current unit; an explicit unit in the text still wins.
+    const parsed = parseDimensions(/[a-z]/i.test(dims) ? dims : `${dims}${unit}`);
     if (!parsed) { setError(DIMS_HELP); return; }
     if (state.mode === 'add' && comparison.items.length >= MAX_ITEMS) {
       setError(`Comparison is full (${MAX_ITEMS} items)`);
@@ -94,7 +97,9 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
         />
 
         <div className="mt-4 flex items-baseline justify-between gap-2">
-          <label htmlFor="dlg-dims" className="text-[13px] font-medium text-stone-500">Dimensions</label>
+          <label htmlFor="dlg-dims" className="text-[13px] font-medium text-stone-500">
+            Dimensions <span className="text-stone-400">{unit}</span>
+          </label>
           <button type="button" onClick={searchGoogle} className="text-[13px] text-blue-600 hover:underline dark:text-blue-400">
             search Google ↗
           </button>
@@ -105,7 +110,7 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
           value={dims}
           onChange={(e) => { setDims(e.target.value); setError(null); }}
           onKeyDown={onEnter}
-          placeholder="85×64×12"
+          placeholder={unit === 'in' ? '3.3×2.5×0.5' : '85×64×12'}
           className="mt-1 w-full border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
         />
         {error && <p className="mt-2 text-[13px] text-red-600" role="alert">{error}</p>}
