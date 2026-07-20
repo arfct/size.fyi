@@ -43,7 +43,7 @@ export default function CustomEntry() {
           onKeyDown={onCustomKeyDown}
           placeholder="Name"
           disabled={full}
-          className="min-w-0 flex-[2] border-b border-stone-300 bg-transparent px-1 py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
+          className="min-w-0 flex-[2] border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
         />
         <input
           value={dims}
@@ -54,7 +54,7 @@ export default function CustomEntry() {
           onKeyDown={onCustomKeyDown}
           placeholder="85×64×12 or 5×3×2in"
           disabled={full}
-          className="min-w-0 flex-1 border-b border-stone-300 bg-transparent px-1 py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
+          className="min-w-0 flex-1 border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
         />
       </div>
       {dimsError && (

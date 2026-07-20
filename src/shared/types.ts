@@ -6,6 +6,7 @@ export interface Device {
   h: number; w: number; d: number;            // mm
   make?: string;              // manufacturer, e.g. "Apple"
   model?: string;             // model designation, e.g. "iPhone 17 Pro Max"
+  rank?: number;              // suggestion weight; higher surfaces sooner (default 0)
   year?: number; aliases?: string[]; source?: string;
   radius?: number;            // mm; fillets edges parallel to radiusAxis
   radiusAxis?: RadiusAxis;    // x=width, y=height, z=depth

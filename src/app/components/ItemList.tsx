@@ -11,7 +11,7 @@ export default function ItemList() {
         const name = item.kind === 'device' ? item.device.name : item.name;
         const dims = item.kind === 'device' ? item.device : item;
         return (
-          <li key={`${name}-${i}`} className="group flex items-center gap-2 rounded-md px-3 py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
+          <li key={`${name}-${i}`} className="group flex items-center gap-2 rounded-md py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="min-w-0 truncate text-[16px] font-medium">{name}</p>

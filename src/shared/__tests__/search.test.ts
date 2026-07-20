@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { searchDevices } from '../search';
+import { searchDevices, suggestDevices } from '../search';
 import type { Device } from '../types';
 
 const D = (slug: string, name: string, extra: Partial<Device> = {}): Device =>
@@ -29,3 +29,26 @@ test('no match → empty; empty query → empty', () => {
 });
 test('respects limit', () =>
   expect(searchDevices(devices, 'a', 2)).toHaveLength(2));
+
+const suggestFixture = [
+  D('phone-hi', 'Phone Hi', { make: 'A', rank: 90 }),
+  D('phone-lo', 'Phone Lo', { make: 'A', rank: 40 }),
+  D('phone-mid', 'Phone Mid', { make: 'A', rank: 60 }),
+  D('tablet-hi', 'Tablet Hi', { category: 'tablet', rank: 95 }),
+  D('everyday-hi', 'Everyday Hi', { category: 'everyday', rank: 99 }),
+];
+
+test('suggestDevices ranks by rank descending and caps at the limit', () => {
+  const out = suggestDevices(suggestFixture, new Set(), new Set(), 3);
+  expect(out.map((d) => d.slug)).toEqual(['everyday-hi', 'tablet-hi', 'phone-hi']);
+});
+
+test('suggestDevices filters to the given categories when any are provided', () => {
+  const out = suggestDevices(suggestFixture, new Set(['phone']), new Set(), 4);
+  expect(out.map((d) => d.slug)).toEqual(['phone-hi', 'phone-mid', 'phone-lo']);
+});
+
+test('suggestDevices excludes already-added slugs', () => {
+  const out = suggestDevices(suggestFixture, new Set(['phone']), new Set(['phone-hi']), 4);
+  expect(out.map((d) => d.slug)).toEqual(['phone-mid', 'phone-lo']);
+});

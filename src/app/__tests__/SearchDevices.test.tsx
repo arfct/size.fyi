@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SearchDevices from '../components/SearchDevices';
 import { ComparisonProvider, useComparison } from '../store';
@@ -63,7 +63,7 @@ beforeEach(() => {
   );
 });
 
-test('popup shows a my-item match above device results, labeled, and selecting it dispatches a custom add', async () => {
+test('a my-item match appears above device results, labeled, and selecting it dispatches a custom add', async () => {
   addMyItem({ name: 'Shoebox', h: 350, w: 250, d: 130 });
   vi.stubGlobal(
     'fetch',
@@ -81,7 +81,6 @@ test('popup shows a my-item match above device results, labeled, and selecting i
   setup();
 
   const input = await screen.findByPlaceholderText('iPhone 16, A4 paper…');
-  await user.click(input);
   await user.type(input, 'sho');
 
   const options = await screen.findAllByRole('option');
@@ -98,7 +97,7 @@ test('popup shows a my-item match above device results, labeled, and selecting i
   expect(input).toHaveValue('');
 });
 
-test('disables the combobox at MAX_ITEMS', async () => {
+test('disables the search input at MAX_ITEMS', async () => {
   render(
     <ComparisonProvider>
       <FullHarness />
@@ -109,7 +108,18 @@ test('disables the combobox at MAX_ITEMS', async () => {
   expect(input).toBeDisabled();
 });
 
-test('shows curated default devices as options when the popup opens with an empty query', async () => {
+test('focusing the search box selects its current text', async () => {
+  const user = userEvent.setup();
+  setup();
+  const input = (await screen.findByPlaceholderText('iPhone 16, A4 paper…')) as HTMLInputElement;
+  await user.type(input, 'ipad');
+  input.setSelectionRange(4, 4); // collapse to the end, as if the caret were resting there
+  fireEvent.focus(input);
+  expect(input.selectionStart).toBe(0);
+  expect(input.selectionEnd).toBe('ipad'.length);
+});
+
+test('shows the top-ranked suggestions (max 4) when the query is empty', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({
@@ -118,9 +128,40 @@ test('shows curated default devices as options when the popup opens with an empt
         Promise.resolve({
           version: 1,
           devices: [
-            { slug: 'iphone-16-pro', name: 'iPhone 16 Pro', category: 'phone', h: 163, w: 78, d: 8.3 },
-            { slug: 'drinks-can', name: 'Drinks Can', category: 'everyday', h: 122, w: 66, d: 66 },
-            { slug: 'random-other', name: 'Random Other Thing', category: 'everyday', h: 10, w: 10, d: 10 },
+            { slug: 'a', name: 'Alpha', category: 'phone', h: 1, w: 1, d: 1, rank: 90 },
+            { slug: 'b', name: 'Bravo', category: 'phone', h: 1, w: 1, d: 1, rank: 80 },
+            { slug: 'c', name: 'Charlie', category: 'phone', h: 1, w: 1, d: 1, rank: 70 },
+            { slug: 'd', name: 'Delta', category: 'phone', h: 1, w: 1, d: 1, rank: 60 },
+            { slug: 'e', name: 'Echo', category: 'phone', h: 1, w: 1, d: 1, rank: 10 },
+          ],
+        }),
+    }),
+  );
+
+  setup();
+  await screen.findByPlaceholderText('iPhone 16, A4 paper…');
+
+  const options = await screen.findAllByRole('option');
+  const labels = options.map((o) => o.textContent ?? '');
+  expect(options).toHaveLength(4);
+  expect(labels.some((l) => l.includes('Alpha'))).toBe(true);
+  expect(labels.some((l) => l.includes('Delta'))).toBe(true);
+  // 5th by rank falls outside the 4-suggestion cap.
+  expect(labels.some((l) => l.includes('Echo'))).toBe(false);
+});
+
+test('empty-query suggestions are filtered to the categories already in the comparison', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          version: 1,
+          devices: [
+            { slug: 'phone-x', name: 'Phone X', category: 'phone', h: 150, w: 70, d: 8, rank: 90 },
+            { slug: 'phone-y', name: 'Phone Y', category: 'phone', h: 150, w: 70, d: 8, rank: 50 },
+            { slug: 'laptop-z', name: 'Laptop Z', category: 'laptop', h: 200, w: 300, d: 12, rank: 95 },
           ],
         }),
     }),
@@ -128,14 +169,16 @@ test('shows curated default devices as options when the popup opens with an empt
 
   const user = userEvent.setup();
   setup();
-
   const input = await screen.findByPlaceholderText('iPhone 16, A4 paper…');
-  await user.click(input);
 
-  const options = await screen.findAllByRole('option');
-  const labels = options.map((o) => o.textContent ?? '');
-  expect(labels.some((l) => l.includes('iPhone 16 Pro'))).toBe(true);
-  expect(labels.some((l) => l.includes('Drinks Can'))).toBe(true);
-  // Not in the curated defaults list, so it shouldn't show up before typing.
-  expect(labels.some((l) => l.includes('Random Other Thing'))).toBe(false);
+  // Add the phone via search, then clear the query so suggestions show.
+  await user.type(input, 'Phone X');
+  await user.click((await screen.findAllByRole('option'))[0]!);
+
+  const labels = (await screen.findAllByRole('option')).map((o) => o.textContent ?? '');
+  // Comparison now holds a phone, so only the other phone is suggested — not the higher-ranked laptop.
+  expect(labels.some((l) => l.includes('Phone Y'))).toBe(true);
+  expect(labels.some((l) => l.includes('Laptop Z'))).toBe(false);
+  // And the already-added phone isn't re-suggested.
+  expect(labels.some((l) => l.includes('Phone X'))).toBe(false);
 });

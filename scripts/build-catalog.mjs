@@ -60,7 +60,8 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
     for (const k of ['make', 'model']) {
       if (d[k] !== undefined && (typeof d[k] !== 'string' || !d[k].trim())) errors.push(`${id}: ${k} must be a non-empty string`);
     }
-    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'make', 'model', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh']);
+    if (d.rank !== undefined && (typeof d.rank !== 'number' || d.rank < 0 || !Number.isFinite(d.rank))) errors.push(`${id}: rank must be a non-negative number`);
+    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'make', 'model', 'rank', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh']);
     for (const k of Object.keys(d)) if (!allowed.has(k)) errors.push(`${id}: unknown key ${k}`);
     devices.push(d);
   }
