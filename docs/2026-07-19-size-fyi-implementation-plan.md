@@ -1941,6 +1941,40 @@ git push
 
 ---
 
+### Task 11: UI design pass (user-requested, 2026-07-19)
+
+**Files:** Modify `src/app/styles.css`, `src/app/App.tsx`, `src/app/components/AddItemPanel.tsx`, `ItemList.tsx`, `ViewTabs.tsx`, `EmptyState.tsx`, related tests, README (input examples).
+
+Requirements:
+1. **Font:** explicit system-ui. Tailwind v4: add `@theme { --font-sans: system-ui, sans-serif; }` to styles.css.
+2. **Fewer boxes:** remove the bordered card around the custom-entry form; ItemList chips lose their borders (color dot + name + dims + remove, subtle hover bg only); viewer pane keeps bg but drops its border; header keeps only its bottom hairline. The page should read as one surface, not nested cards.
+3. **Search defaults:** when the combobox is focused/opened with an empty query, show a curated set of base devices (try these slugs in order, keep the ones that exist, cap 8: iphone-16-pro, galaxy-s24-ultra, ipad-pro-11-m4, macbook-air-13-m3, ps5, nintendo-switch-2, drinks-can, banana, paper-a4, credit-card). Typing replaces them with search results. Selecting works identically.
+4. **Custom entry, one row:** name field + dimension field side by side (name wider), NO "Add item" button — Enter in either field submits. Keep the my-items behavior and inline error below the row. Comparison-full note unchanged.
+5. **× character:** dimension placeholder becomes `85×64×12 or 5×3×2in`; error copy uses `height × width × depth`; any other user-visible `HxW` copy (incl. README input examples) uses ×. Parser already accepts both; URL grammar stays `x`.
+6. Update affected tests (button-submit test → Enter-submit; error copy; add a defaults-on-focus test).
+
+### Task 12: Screen property (user-requested, 2026-07-19)
+
+**Files:** Modify `src/shared/types.ts`, `scripts/build-catalog.mjs`, `src/three/scene.ts`, `src/app/components/Viewer.tsx`, `data/devices/*.json`, worker untouched.
+
+Requirements:
+1. `Device.screen?: { h: number; w: number; radius?: number }` (mm), same on `SceneItem`.
+2. Validation: screen requires h/w numbers with `screen.h ≤ h` and `screen.w ≤ w` (must fit the front face); optional radius ≤ half of min(screen.h, screen.w); unknown keys inside screen rejected.
+3. Scene: for items with screen, draw an inset rounded-rect (`THREE.ShapeGeometry` from the existing roundedRectShape helper) parallel to the front (+z) face at `z = d/2 + 0.4`mm, centered; material = item color darkened ~35%, transparent opacity ~0.5, double-side off. Disposed via the existing clearGroup path (it's a Mesh child of group).
+4. Data: add `screen` to devices with displays — phones, tablets, laptops, 19″ monitor, 32″ TV, Switch/Switch 2, Steam Deck OLED — using published active-area dims where findable, else derive from published diagonal + aspect ratio (that's a visual approximation: verify diagonal/aspect from the manufacturer, compute h/w, radius small: phones ~8, tablets/laptops ~4, monitors 0).
+5. Viewer passes screen through for device items (custom items never have screens).
+
+### Task 13: Banana mesh (user-requested, 2026-07-19)
+
+**Files:** Modify `src/shared/types.ts`, `scripts/build-catalog.mjs`, `src/three/scene.ts`, `src/app/components/Viewer.tsx`, `src/app/palette.ts` (if needed), `data/devices/everyday.json`.
+
+Requirements:
+1. `Device.mesh?: 'banana'` (string literal union, extensible later); same on SceneItem. Validation: mesh value must be in the known set.
+2. Banana data entry: add `"mesh": "banana"`, remove radius/radiusAxis, dims become `h: 80, w: 190, d: 35` (curved banana bounding box).
+3. Scene: when `mesh === 'banana'`, build a procedural banana: sweep ~24 circular cross-section rings along a curved arc (CatmullRom or manual cosine arc in the XY plane, bend upward), radius profile tapering toward both ends (e.g. `r(t) = rMax * (0.35 + 0.65 * sin(πt)^0.5)` with rMax = d/2), small tip/stem stubs optional; normalize and scale the geometry so its bounding box is exactly w×h×d, sitting on the ground like other items.
+4. Rendering override: banana is ALWAYS banana-yellow (`#FFE135`) regardless of palette index — `MeshBasicMaterial({ wireframe: true, color })`, no separate edge lines, label background yellow. The Viewer also overrides the item's chip color to the same yellow so UI and scene agree (export a `BANANA_YELLOW` const from palette.ts).
+5. Existing box/rounded items unchanged; disposal flows through clearGroup.
+
 ## Self-Review Notes
 
 - **Spec coverage:** URL scheme (T3), catalog+validation+lazy load (T4, T7), localStorage myItems/recents/units (T5, T7, T8), three.js views + on-demand render (T6), combobox search + custom entry + errors (T7), share + native share (T8), missing-slug notice + fail-open (T3, T8, T9), Worker /api/devices + OG + SPA fallback (T9), CI + manual deploy (T10), WebGL-unavailable fallback (T8 Viewer try/catch; dimension chips always render). Covered.
