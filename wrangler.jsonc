@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "size-fyi",
+  "main": "src/worker/index.ts",
   "compatibility_date": "2026-07-19",
   "account_id": "c0912e10eadeaa117b0067ab29b55da6",
   "routes": [
@@ -8,7 +9,8 @@
     { "pattern": "www.size.fyi/*", "zone_id": "97d61ea9647d82b9472d12d85a675f9b" }
   ],
   "assets": {
-    "directory": "./public",
+    "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   }
 }
