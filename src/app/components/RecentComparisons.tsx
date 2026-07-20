@@ -8,13 +8,13 @@ export default function RecentComparisons() {
   if (recents.length === 0) return null;
   return (
     <section aria-label="Recent comparisons" className="space-y-1">
-      <p className="text-[13px] font-medium text-stone-500">Recent</p>
+      <p className="px-4 text-[13px] font-medium text-stone-500">Recent</p>
       <ul>
         {recents.slice(0, 8).map((r) => (
           <li key={r.path}>
             <a
               href={r.path}
-              className="block truncate rounded-md py-1 text-[16px] text-blue-600 hover:underline dark:text-blue-400"
+              className="block truncate rounded-md px-4 py-1 text-[16px] text-blue-600 hover:underline dark:text-blue-400"
             >
               {r.title}
             </a>

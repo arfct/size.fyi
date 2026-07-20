@@ -94,7 +94,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
   return (
     <section ref={sectionRef} aria-label="Search devices" className="space-y-2">
       {status === 'error' ? (
-        <button onClick={retry} className="text-[13px] text-red-600 underline">
+        <button onClick={retry} className="px-4 text-[13px] text-red-600 underline">
           Catalog failed to load — retry
         </button>
       ) : (
@@ -112,10 +112,10 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
             onChange={(e) => { setQuery(e.target.value); revealOnMobile(); }}
             onFocus={(e) => { e.currentTarget.select(); revealOnMobile(); }}
             placeholder={status === 'loading' ? 'Loading catalog…' : 'Search'}
-            className="-ml-4 w-[calc(100%+1rem)] rounded-full border border-stone-300 bg-transparent px-4 py-2 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
+            className="w-full rounded-full border border-stone-300 bg-transparent px-4 py-2 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
           />
           {rows.length === 0 && (
-            <p className="py-1.5 text-[13px] text-stone-500">{trimmed ? 'No matches.' : 'No suggestions.'}</p>
+            <p className="px-4 py-1.5 text-[13px] text-stone-500">{trimmed ? 'No matches.' : 'No suggestions.'}</p>
           )}
           <ul id="device-results" role="listbox" aria-label="Results" className="space-y-0.5">
             {rows.map((row) => (
@@ -126,7 +126,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
                   aria-selected={false}
                   disabled={full}
                   onClick={() => addRow(row)}
-                  className="block w-full truncate rounded-md py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 md:-ml-4 md:w-[calc(100%+1rem)] md:px-4 dark:hover:bg-stone-800/60"
+                  className="block w-full truncate rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
                 >
                   {row.kind === 'mine' ? (
                     <>
@@ -146,7 +146,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
                 type="button"
                 disabled={full}
                 onClick={() => onAddCustom(trimmed)}
-                className="block w-full truncate rounded-md py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 md:-ml-4 md:w-[calc(100%+1rem)] md:px-4 dark:hover:bg-stone-800/60"
+                className="block w-full truncate rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
               >
                 {trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}
               </button>
