@@ -97,31 +97,36 @@ function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Gro
         '}',
     });
 
+  // Minor lines only in imperial (half-inch); metric shows just the 1 cm major squares.
+  const showMinor = units === 'imperial';
   const majorPos: number[] = [];
   const minorPos: number[] = [];
   const steps = Math.round(halfExtent / minorMM);
   for (let i = -steps; i <= steps; i++) {
     const p = i * minorMM;
     const isMajor = Math.abs(Math.round(p / unitMM) * unitMM - p) < 1e-6;
+    if (!isMajor && !showMinor) continue;
     const arr = isMajor ? majorPos : minorPos;
     arr.push(-halfExtent, 0, p, halfExtent, 0, p); // parallel to X
     arr.push(p, 0, -halfExtent, p, 0, halfExtent); // parallel to Z
   }
   for (const [pos, opacity] of [[majorPos, 0.55], [minorPos, 0.22]] as const) {
+    if (pos.length === 0) continue;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.add(new THREE.LineSegments(geo, lineMaterial(opacity)));
   }
 
+  // Bare numeric labels (no unit): metric shows the distance in mm, imperial in whole inches.
   const stride = Math.max(1, Math.ceil(majorCount / 8));
-  const unitLabel = units === 'imperial' ? 'in' : 'cm';
   for (let k = stride; k <= majorCount; k += stride) {
     const dist = k * unitMM;
     const opacity = Math.max(0, 1 - dist / halfExtent) ** 2 * 0.9;
     if (opacity < 0.05) continue;
+    const labelValue = units === 'imperial' ? k : Math.round(dist);
     for (const [lx, lz] of [[dist, 0], [0, dist]] as const) {
       const el = document.createElement('div');
-      el.textContent = `${k}${unitLabel}`;
+      el.textContent = `${labelValue}`;
       el.style.cssText =
         `font:11px ui-sans-serif,system-ui;color:#8a8a8a;pointer-events:none;white-space:nowrap;opacity:${opacity.toFixed(3)}`;
       const label = new CSS2DObject(el);

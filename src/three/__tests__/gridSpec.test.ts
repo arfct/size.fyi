@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { gridSpec } from '../scene';
 
-test('metric grid: 1 cm major squares with 5 mm minor lines', () => {
+test('metric grid: 1 cm major squares (minor spacing computed at 5 mm)', () => {
   const s = gridSpec('metric', 100);
   expect(s.unitMM).toBe(10);
   expect(s.minorMM).toBe(5);
