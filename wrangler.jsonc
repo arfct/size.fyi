@@ -3,6 +3,9 @@
   "name": "size-fyi",
   "compatibility_date": "2026-07-19",
   "account_id": "c0912e10eadeaa117b0067ab29b55da6",
+  "routes": [
+    { "pattern": "size.fyi", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./public",
     "not_found_handling": "single-page-application"
