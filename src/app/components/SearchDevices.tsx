@@ -62,6 +62,7 @@ export default function SearchDevices() {
 
   return (
     <section aria-label="Search devices">
+      <label className="mb-1 block text-sm font-medium">Search devices</label>
       {status === 'error' ? (
         <button onClick={retry} className="text-sm text-red-600 underline">
           Catalog failed to load — retry
@@ -123,7 +124,6 @@ export default function SearchDevices() {
           </Combobox.Portal>
         </Combobox.Root>
       )}
-      <label className="mt-1 block text-sm font-medium">Search devices</label>
     </section>
   );
 }
