@@ -19,10 +19,11 @@ interface ViewerProps {
   asideRef?: RefObject<HTMLElement | null>;
 }
 
-// Vertical breathing room (px) reserved at the top of the mobile canvas so the framed model
-// isn't crowded against the sticky top toolbar above it. Desktop reserves horizontal room for
-// the sidebar instead, not this.
-const MOBILE_TOP_INSET = 64;
+// Vertical room (px) reserved at the top of the mobile canvas. The canvas draws full-bleed up
+// under the sticky top toolbar (App pulls it up with -mt-14); this inset matches that toolbar's
+// height (h-14 = 56px) so the framed model centers in the space that stays visible below it.
+// Desktop reserves horizontal room for the sidebar instead, not this.
+const MOBILE_TOP_INSET = 56;
 
 export default function Viewer({ asideRef }: ViewerProps) {
   const ref = useRef<HTMLDivElement>(null);
