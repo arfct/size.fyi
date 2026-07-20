@@ -4,7 +4,9 @@ export type RadiusAxis = 'x' | 'y' | 'z';
 export interface Device {
   slug: string; name: string; category: Category;
   h: number; w: number; d: number;            // mm
-  brand?: string; year?: number; aliases?: string[]; source?: string;
+  make?: string;              // manufacturer, e.g. "Apple"
+  model?: string;             // model designation, e.g. "iPhone 17 Pro Max"
+  year?: number; aliases?: string[]; source?: string;
   radius?: number;            // mm; fillets edges parallel to radiusAxis
   radiusAxis?: RadiusAxis;    // x=width, y=height, z=depth
   screen?: { h: number; w: number; radius?: number }; // mm; inset rect on the +z front face

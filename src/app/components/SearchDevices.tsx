@@ -113,7 +113,7 @@ export default function SearchDevices() {
                       ) : (
                         <>
                           {ci.device.name}
-                          {ci.device.brand ? <span className="text-stone-400"> — {ci.device.brand}</span> : null}
+                          {ci.device.make ? <span className="text-stone-400"> — {ci.device.make}</span> : null}
                         </>
                       )}
                     </Combobox.Item>

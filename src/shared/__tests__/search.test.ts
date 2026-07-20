@@ -6,9 +6,9 @@ const D = (slug: string, name: string, extra: Partial<Device> = {}): Device =>
   ({ slug, name, category: 'phone', h: 1, w: 1, d: 1, ...extra });
 
 const devices = [
-  D('iphone-16', 'iPhone 16', { brand: 'Apple' }),
-  D('iphone-16-pro', 'iPhone 16 Pro', { brand: 'Apple' }),
-  D('galaxy-s24', 'Galaxy S24', { brand: 'Samsung', aliases: ['s24'] }),
+  D('iphone-16', 'iPhone 16', { make: 'Apple' }),
+  D('iphone-16-pro', 'iPhone 16 Pro', { make: 'Apple' }),
+  D('galaxy-s24', 'Galaxy S24', { make: 'Samsung', model: 'Galaxy S24', aliases: ['s24'] }),
   D('paper-a4', 'Paper: A4', { category: 'paper' }),
 ];
 
@@ -17,7 +17,7 @@ test('prefix beats substring', () => {
   expect(r[0]!.slug).toBe('iphone-16');
   expect(r.map((d) => d.slug)).toContain('iphone-16-pro');
 });
-test('matches brand and aliases', () => {
+test('matches make, model, and aliases', () => {
   expect(searchDevices(devices, 'samsung')[0]!.slug).toBe('galaxy-s24');
   expect(searchDevices(devices, 's24')[0]!.slug).toBe('galaxy-s24');
 });

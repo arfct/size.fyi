@@ -1,7 +1,7 @@
 import type { Device } from './types';
 
 function haystack(d: Device): string {
-  return [d.name, d.brand ?? '', ...(d.aliases ?? [])].join(' ').toLowerCase();
+  return [d.name, d.make ?? '', d.model ?? '', ...(d.aliases ?? [])].join(' ').toLowerCase();
 }
 
 export function searchDevices(devices: Device[], query: string, limit = 10): Device[] {
