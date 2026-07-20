@@ -5,7 +5,7 @@ type Status = 'loading' | 'ready' | 'error';
 interface Snapshot { devices: Device[]; status: Status; }
 
 // Module-level store shared by every `useCatalog()` instance, so a `retry()`
-// called from one component (e.g. AddItemPanel) is observed by all of them
+// called from one component (e.g. SearchDevices) is observed by all of them
 // (e.g. useUrlSync too) instead of leaving siblings stuck on their own local
 // 'error' state forever.
 let devices: Device[] = [];
