@@ -21,11 +21,18 @@ test('renders the wordmark as a link home', () => {
   expect(wordmark).toHaveAttribute('href', '/');
 });
 
-test('header holds only the wordmark; the units toggle lives in the left column', () => {
+test('header row holds the wordmark on the left and the units toggle on the right', () => {
   render(<App />);
   const header = screen.getByRole('link', { name: 'size.fyi' }).closest('header');
   expect(header).not.toBeNull();
-  expect(header!.querySelector('button')).toBeNull();
   const unitsButton = screen.getByRole('button', { name: 'mm' });
-  expect(header!.contains(unitsButton)).toBe(false);
+  expect(header!.contains(unitsButton)).toBe(true);
+});
+
+test('viewer column fills the full viewport height on desktop', () => {
+  render(<App />);
+  const tablist = screen.getByRole('tablist', { name: 'View' });
+  const section = tablist.closest('section');
+  expect(section).not.toBeNull();
+  expect(section!.className).toMatch(/\bmd:h-screen\b/);
 });
