@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>size.fyi</title>
+  <meta name="description" content="Compare the size of anything. Coming soon.">
+  <style>
+    :root {
+      --bg: #f6f5f2;
+      --fg: #1a1a1a;
+      --muted: #8a8a84;
+      --accent: #3b6ef6;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #131312;
+        --fg: #f2f1ee;
+        --muted: #7c7c76;
+        --accent: #6b93ff;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { height: 100%; }
+    body {
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    main { text-align: center; padding: 2rem; }
+    .boxes {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 2.5rem;
+      height: 96px;
+    }
+    .boxes span {
+      display: block;
+      border: 2px solid var(--fg);
+      border-radius: 6px;
+      background: transparent;
+      animation: rise 2.4s ease-in-out infinite;
+    }
+    .boxes span:nth-child(1) { width: 24px; height: 24px; animation-delay: 0s; }
+    .boxes span:nth-child(2) { width: 40px; height: 40px; animation-delay: .15s; }
+    .boxes span:nth-child(3) { width: 64px; height: 64px; animation-delay: .3s; border-color: var(--accent); }
+    .boxes span:nth-child(4) { width: 96px; height: 96px; animation-delay: .45s; }
+    @keyframes rise {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    h1 {
+      font-size: clamp(2rem, 6vw, 3.25rem);
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    p {
+      margin-top: 0.75rem;
+      font-size: 1.05rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="boxes" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <h1>size.fyi</h1>
+    <p>Compare the size of anything. Coming&nbsp;soon.</p>
+  </main>
+</body>
+</html>
