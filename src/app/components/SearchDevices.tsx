@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { searchDevices, suggestDevices } from '../../shared/search';
 import type { Device } from '../../shared/types';
 import { MAX_ITEMS } from '../../shared/types';
 import { useCatalog } from '../useCatalog';
 import { useComparison } from '../store';
+import { useIsDesktop } from '../useIsDesktop';
 import { getMyItems } from '../localStore';
 
 type MyItem = ReturnType<typeof getMyItems>[number];
@@ -15,9 +16,17 @@ const SUGGESTION_COUNT = 4;
 export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: string) => void }) {
   const { devices, status, retry } = useCatalog();
   const { state, dispatch } = useComparison();
+  const isDesktop = useIsDesktop();
+  const sectionRef = useRef<HTMLElement>(null);
   const [query, setQuery] = useState('');
   const full = state.items.length >= MAX_ITEMS;
   const trimmed = query.trim();
+
+  // On mobile the search box sits below the 3D view; bring it (and its results) to the top of the
+  // viewport when the user starts searching, so the results aren't hidden under the fold/keyboard.
+  const revealOnMobile = () => {
+    if (!isDesktop) sectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
 
   // Categories (size class / type) and slugs already in the comparison — the former narrows
   // empty-query suggestions to peers, the latter drops anything already added.
@@ -59,7 +68,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
   };
 
   return (
-    <section aria-label="Search devices" className="space-y-2">
+    <section ref={sectionRef} aria-label="Search devices" className="space-y-2">
       <label htmlFor="device-search" className="block text-[16px] font-medium">Search devices</label>
       {status === 'error' ? (
         <button onClick={retry} className="text-[13px] text-red-600 underline">
@@ -75,8 +84,8 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
             aria-controls="device-results"
             value={query}
             disabled={full}
-            onChange={(e) => setQuery(e.target.value)}
-            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => { setQuery(e.target.value); revealOnMobile(); }}
+            onFocus={(e) => { e.currentTarget.select(); revealOnMobile(); }}
             placeholder={status === 'loading' ? 'Loading catalog…' : 'iPhone 16, A4 paper…'}
             className="w-full border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
           />

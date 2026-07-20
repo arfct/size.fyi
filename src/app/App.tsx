@@ -3,6 +3,7 @@ import EmptyState from './components/EmptyState';
 import ItemDialog, { type DialogState } from './components/ItemDialog';
 import ItemList from './components/ItemList';
 import LayoutToggle from './components/LayoutToggle';
+import RecentComparisons from './components/RecentComparisons';
 import SearchDevices from './components/SearchDevices';
 import ShareButton from './components/ShareButton';
 import ViewTabs from './components/ViewTabs';
@@ -56,6 +57,7 @@ function Shell() {
           </div>
         )}
         <ItemList onEdit={(index, name, dims) => setDialog({ mode: 'edit', index, name, dims })} />
+        {!showViewer && <RecentComparisons />}
         <SearchDevices onAddCustom={(name) => setDialog({ mode: 'add', name })} />
       </div>
       {/* Safe area: the pill and empty state stay centered here, not in the full-bleed canvas.
