@@ -83,6 +83,18 @@ test('stack targets: largest at the back (z=0) down to smallest at the front, pe
   expect(tc.pos.z - c.d / 2).toBeGreaterThanOrEqual(ta.pos.z + a.d / 2 - 1e-9);
 });
 
+test('stack gap is capped at 1 cm even for large items', () => {
+  const big = item({ name: 'Big', h: 100, w: 100, d: 100 }); // minDim 100
+  const bigger = item({ name: 'Bigger', h: 120, w: 120, d: 120 }); // minDim 120
+  const keys = computeKeys([big, bigger]);
+  const targets = computeTargets([big, bigger], keys, 'stack');
+  // Uncapped the gap would be min(120,100)=100; capped to 10.
+  const zBigger = targets.get(keys[1]!)!.pos.z; // largest, at the back
+  const zBig = targets.get(keys[0]!)!.pos.z;
+  expect(zBigger).toBeCloseTo(bigger.d / 2); // 60
+  expect(zBig).toBeCloseTo(bigger.d + 10 + big.d / 2); // 120 + 10 + 50 = 180
+});
+
 test('row layout keeps renderOrder 0 for all items', () => {
   const big = item({ name: 'Big', h: 30, w: 100, d: 100 });
   const small = item({ name: 'Small', h: 10, w: 10, d: 10 });

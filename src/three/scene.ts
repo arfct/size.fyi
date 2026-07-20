@@ -306,6 +306,7 @@ export function computeKeys(items: SceneItem[]): string[] {
 
 const volumeOf = (i: SceneItem) => i.h * i.w * i.d;
 const minDimOf = (i: SceneItem) => Math.min(i.h, i.w, i.d);
+const MAX_STACK_GAP = 10; // mm (1 cm) — ceiling on the depth gap between stacked items
 
 // Items are sorted by volume. Row = sequential along +x smallest→largest (all at z=0). Stack =
 // sequential along +z with the LARGEST at the back (z=0) and the smallest at the front (nearest the
@@ -328,7 +329,7 @@ export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutM
     let z = 0;
     seq.forEach(({ item, key }, idx) => {
       targets.set(key, { pos: new THREE.Vector3(0, item.h / 2, z + item.d / 2), renderOrder: idx });
-      z += item.d + gapBetween(seq, idx);
+      z += item.d + Math.min(gapBetween(seq, idx), MAX_STACK_GAP); // cap the stack gap at 1 cm
     });
   } else {
     let x = 0;
