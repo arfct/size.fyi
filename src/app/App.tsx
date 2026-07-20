@@ -32,7 +32,7 @@ function Shell() {
       {/* Mobile top toolbar (md:hidden): sticks to the top and holds the logo, the display menu
           (view / layout / units), and Share. On desktop those controls float over the canvas
           (menu, top-right) and live in the sidebar header (Share). */}
-      <div className="sticky top-0 z-40 order-first flex items-center justify-between gap-2 border-b border-stone-200 bg-white/85 px-4 py-2 backdrop-blur md:hidden dark:border-stone-800 dark:bg-stone-900/85">
+      <div className="sticky top-0 z-40 order-first flex items-center justify-between gap-2 bg-white px-4 py-2 md:hidden dark:bg-stone-900">
         <a href="/" className="flex items-center gap-2 text-[16px] font-semibold tracking-tight">
           <img src="/logo.svg" alt="" className="h-5 w-auto" />
           size.fyi
