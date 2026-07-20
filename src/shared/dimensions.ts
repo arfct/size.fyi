@@ -27,8 +27,9 @@ export function formatLength(mm: number, units: Units): string {
   }
   const inches = mm / 25.4;
   if (inches >= 36) {
-    const ft = Math.floor(inches / 12);
-    const rest = Math.round(inches - ft * 12);
+    const totalIn = Math.round(inches);
+    const ft = Math.floor(totalIn / 12);
+    const rest = totalIn % 12;
     return `${ft} ft ${rest} in`;
   }
   return `${round1(inches).toFixed(1)} in`;

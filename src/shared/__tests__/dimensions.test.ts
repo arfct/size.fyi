@@ -34,6 +34,7 @@ describe('formatting', () => {
   test('metric switches to m at 1000', () => expect(formatLength(1905, 'metric')).toBe('1.91 m'));
   test('imperial inches', () => expect(formatLength(85, 'imperial')).toBe('3.3 in'));
   test('imperial ft+in at 3ft', () => expect(formatLength(1905, 'imperial')).toBe('6 ft 3 in'));
+  test('imperial ft+in rollover', () => expect(formatLength(1206.6, 'imperial')).toBe('4 ft 0 in'));
   test('formatDims joins h×w×d', () =>
     expect(formatDims({ h: 297, w: 210, d: 1 }, 'metric')).toBe('297 × 210 × 1 mm'));
 });
