@@ -112,7 +112,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
             onChange={(e) => { setQuery(e.target.value); revealOnMobile(); }}
             onFocus={(e) => { e.currentTarget.select(); revealOnMobile(); }}
             placeholder={status === 'loading' ? 'Loading catalog…' : 'Search'}
-            className="w-full rounded-full border border-stone-300 bg-transparent px-4 py-2 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
+            className="-ml-4 w-[calc(100%+1rem)] rounded-full border border-stone-300 bg-transparent px-4 py-2 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
           />
           {rows.length === 0 && (
             <p className="py-1.5 text-[13px] text-stone-500">{trimmed ? 'No matches.' : 'No suggestions.'}</p>
