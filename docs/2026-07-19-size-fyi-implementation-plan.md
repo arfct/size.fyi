@@ -1997,6 +1997,18 @@ Requirements:
 4. **Component split:** AddItemPanel splits into `SearchDevices` (combobox + defaults + my-items) and `CustomEntry` (name+dims row, Enter submits, error, addMyItem) so App can order them; behavior and tests carry over (rename/split test files accordingly, keep all existing assertions).
 5. Mobile: left column stacks above viewer, viewer keeps min-height.
 
+### Task 16: Full-bleed canvas with safe-area framing (user-requested, 2026-07-19)
+
+**Files:** Modify `src/three/scene.ts`, `src/app/App.tsx`, `src/app/components/Viewer.tsx` (+ ViewTabs/EmptyState positioning if needed), tests.
+
+Requirements:
+1. **Canvas spans the whole viewport (md+),** rendering behind the left sidebar; the sidebar floats above it with a translucent frosted background (`bg-white/85 backdrop-blur dark:bg-stone-900/85`), no hard right border, so geometry visibly slides under it during orbit.
+2. **Framing is unchanged — the right region is the safe area.** Camera stays centered on the same world point with the same orbit distance/fit as if the canvas were only the right column. Implementation: `camera.setViewOffset(safeW, fullH, -insetLeft, 0, fullW, fullH)` on BOTH cameras (persp aspect + ortho `fit()` computed from the SAFE area dims), applied on resize and inset change. Scene API gains `setInset(leftPx: number)` (0 default). The projection-matrix-lerp transition must respect view offsets (endpoints computed via updateProjectionMatrix WITH offset set — verify no snap).
+3. **Viewer measures the inset:** aside width via ResizeObserver/matchMedia — inset = aside width on md+ row layout, 0 on mobile (mobile keeps the contained block viewer exactly as today).
+4. Floating view pill and EmptyState stay centered in the SAFE area (right region), not the full viewport.
+5. CSS2D labels must remain correctly positioned across the full canvas (labelRenderer full size; projection includes the offset).
+6. Orbit/drag events over the sidebar area: sidebar is above the canvas, so pointer events on it stay UI-only (no accidental orbit).
+
 ## Self-Review Notes
 
 - **Spec coverage:** URL scheme (T3), catalog+validation+lazy load (T4, T7), localStorage myItems/recents/units (T5, T7, T8), three.js views + on-demand render (T6), combobox search + custom entry + errors (T7), share + native share (T8), missing-slug notice + fail-open (T3, T8, T9), Worker /api/devices + OG + SPA fallback (T9), CI + manual deploy (T10), WebGL-unavailable fallback (T8 Viewer try/catch; dimension chips always render). Covered.
