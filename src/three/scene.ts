@@ -141,6 +141,29 @@ export function createScene(container: HTMLElement): SizeScene {
   controls.enableDamping = true;
   controls.addEventListener('change', requestRender);
 
+  // --- view transition state ---
+  interface CameraPose { position: THREE.Vector3; quaternion: THREE.Quaternion; projectionMatrix: THREE.Matrix4 }
+  interface ViewEndState extends CameraPose { controlsTarget: THREE.Vector3 }
+  const TRANSITION_MS = 450;
+  const scratchProjection = new THREE.Matrix4();
+  let firstView = true; // initial mount jumps instead of animating
+  let animating = false;
+  let animRaf = 0;
+  let animStart = 0;
+  let animFromView: ViewName = '3d';
+  let animToView: ViewName = '3d';
+  let animFrom: CameraPose | null = null;
+  let animTo: ViewEndState | null = null;
+
+  function easeInOutCubic(t: number): number {
+    return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+  }
+
+  function lerpMatrix4(target: THREE.Matrix4, a: THREE.Matrix4, b: THREE.Matrix4, t: number) {
+    const ae = a.elements, be = b.elements, te = target.elements;
+    for (let i = 0; i < 16; i++) te[i] = (ae[i] ?? 0) + ((be[i] ?? 0) - (ae[i] ?? 0)) * t;
+  }
+
   const group = new THREE.Group();
   scene.add(group);
   let grid: THREE.GridHelper | null = null;
@@ -230,27 +253,27 @@ export function createScene(container: HTMLElement): SizeScene {
     const c = bounds.getCenter(new THREE.Vector3());
     grid.position.set(c.x, 0, c.z);
     scene.add(grid);
-    setView(view); // refit cameras
+    // Refit is always instant (never animated), even mid-flight: cancel any transition and jump.
+    applyInstant(view);
   }
 
-  function setView(next: ViewName) {
-    view = next;
+  // Computes the target camera pose for `next` (mutating the real persp/ortho camera objects,
+  // exactly as the old instant setView did) and returns cloned pose data safe to keep around
+  // while persp continues to be repurposed as the in-flight transition camera.
+  function computeEnd(next: ViewName): ViewEndState {
     const c = bounds.getCenter(new THREE.Vector3());
     const s = bounds.getSize(new THREE.Vector3());
     const { width, height } = container.getBoundingClientRect();
     const aspect = Math.max(width, 1) / Math.max(height, 1);
+    let targetCam: THREE.Camera;
     if (next === '3d') {
-      camera = persp;
       persp.aspect = aspect;
       const radius = Math.max(s.x, s.y, s.z, 1);
       persp.position.set(c.x + radius * 1.2, c.y + radius * 0.9, c.z + radius * 1.6);
       persp.lookAt(c);
       persp.updateProjectionMatrix();
-      controls.target.copy(c);
-      controls.enabled = true;
+      targetCam = persp;
     } else {
-      camera = ortho;
-      controls.enabled = false;
       const fit = (fw: number, fh: number) => {
         const m = 1.1;
         const half = Math.max(fw / aspect, fh) * m / 2 * Math.max(aspect, 1);
@@ -265,16 +288,133 @@ export function createScene(container: HTMLElement): SizeScene {
       if (next === 'top') { fit(s.x, s.z); ortho.position.set(c.x, c.y + far / 2, c.z); }
       ortho.lookAt(c);
       ortho.updateProjectionMatrix();
+      targetCam = ortho;
+    }
+    return {
+      position: targetCam.position.clone(),
+      quaternion: targetCam.quaternion.clone(),
+      projectionMatrix: targetCam.projectionMatrix.clone(),
+      controlsTarget: c.clone(),
+    };
+  }
+
+  // Current pose to transition *from*: the live interpolated persp pose mid-flight, or the
+  // settled active camera's pose otherwise.
+  function currentPose(): CameraPose {
+    const src: THREE.Camera = animating ? persp : camera;
+    return {
+      position: src.position.clone(),
+      quaternion: src.quaternion.clone(),
+      projectionMatrix: src.projectionMatrix.clone(),
+    };
+  }
+
+  function cancelAnimation() {
+    if (animRaf) cancelAnimationFrame(animRaf);
+    animRaf = 0;
+    animating = false;
+    animFrom = null;
+    animTo = null;
+  }
+
+  // Instant camera placement — no animation. Used for the very first setView after mount,
+  // the setItems refit, and resize (which cancels any in-flight transition and jumps).
+  function applyInstant(next: ViewName) {
+    cancelAnimation();
+    const end = computeEnd(next);
+    view = next;
+    if (next === '3d') {
+      camera = persp;
+      controls.target.copy(end.controlsTarget);
+      controls.enabled = true;
+    } else {
+      camera = ortho;
+      controls.enabled = false;
     }
     if (grid) grid.visible = next !== 'front' && next !== 'side';
     requestRender();
+  }
+
+  function finalizeTransition() {
+    const next = animToView;
+    const end = animTo!;
+    animFrom = null;
+    animTo = null;
+    animRaf = 0;
+    animating = false;
+    if (next === '3d') {
+      camera = persp;
+      persp.position.copy(end.position);
+      persp.quaternion.copy(end.quaternion);
+      const { width, height } = container.getBoundingClientRect();
+      persp.aspect = Math.max(width, 1) / Math.max(height, 1);
+      persp.updateProjectionMatrix(); // restore auto (non-lerped) projection
+      controls.target.copy(end.controlsTarget);
+      controls.enabled = true;
+    } else {
+      camera = ortho; // ortho's real position/quaternion/projectionMatrix were set by computeEnd
+      controls.enabled = false;
+    }
+    if (grid) grid.visible = next !== 'front' && next !== 'side';
+    requestRender();
+  }
+
+  function tick(now: number) {
+    if (disposed || !animating || !animFrom || !animTo) return;
+    const t = Math.min(1, (now - animStart) / TRANSITION_MS);
+    const e = easeInOutCubic(t);
+    persp.position.lerpVectors(animFrom.position, animTo.position, e);
+    persp.quaternion.slerpQuaternions(animFrom.quaternion, animTo.quaternion, e);
+    lerpMatrix4(scratchProjection, animFrom.projectionMatrix, animTo.projectionMatrix, e);
+    persp.projectionMatrix.copy(scratchProjection);
+    persp.projectionMatrixInverse.copy(persp.projectionMatrix).invert();
+    if (grid) {
+      const gridView = t >= 0.5 ? animToView : animFromView;
+      grid.visible = gridView !== 'front' && gridView !== 'side';
+    }
+    camera = persp;
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+    if (t >= 1) {
+      finalizeTransition();
+    } else {
+      animRaf = requestAnimationFrame(tick);
+    }
+  }
+
+  function beginTransition(next: ViewName) {
+    const from = currentPose();
+    const fromView = view;
+    cancelAnimation();
+    const end = computeEnd(next);
+    view = next;
+    animFromView = fromView;
+    animToView = next;
+    animFrom = from;
+    animTo = end;
+    animStart = performance.now();
+    animating = true;
+    controls.enabled = false;
+    camera = persp;
+    animRaf = requestAnimationFrame(tick);
+  }
+
+  function setView(next: ViewName) {
+    if (firstView) {
+      firstView = false;
+      applyInstant(next);
+      return;
+    }
+    beginTransition(next);
   }
 
   function resize() {
     const { width, height } = container.getBoundingClientRect();
     renderer.setSize(width, height);
     labelRenderer.setSize(width, height);
-    setView(view);
+    // Cancel-and-jump: a resize mid-flight recomputes the end state for the new size and
+    // snaps to it rather than continuing to animate through a resized viewport.
+    applyInstant(view);
   }
 
   const ro = new ResizeObserver(resize);
@@ -288,6 +428,7 @@ export function createScene(container: HTMLElement): SizeScene {
     dispose() {
       disposed = true;
       cancelAnimationFrame(rafHandle);
+      cancelAnimationFrame(animRaf);
       ro.disconnect();
       controls.removeEventListener('change', requestRender);
       controls.dispose();

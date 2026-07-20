@@ -20,3 +20,12 @@ test('renders the wordmark as a link home', () => {
   expect(wordmark).toBeInTheDocument();
   expect(wordmark).toHaveAttribute('href', '/');
 });
+
+test('header holds only the wordmark; the units toggle lives in the left column', () => {
+  render(<App />);
+  const header = screen.getByRole('link', { name: 'size.fyi' }).closest('header');
+  expect(header).not.toBeNull();
+  expect(header!.querySelector('button')).toBeNull();
+  const unitsButton = screen.getByRole('button', { name: 'mm' });
+  expect(header!.contains(unitsButton)).toBe(false);
+});

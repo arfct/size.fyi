@@ -13,19 +13,8 @@ function Shell() {
   const { state, dispatch } = useComparison();
   return (
     <div className="flex min-h-screen flex-col bg-stone-100 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
-      <header className="flex items-center justify-between border-b border-stone-200 px-4 py-3 dark:border-stone-800">
+      <header className="flex items-center border-b border-stone-200 px-4 py-3 dark:border-stone-800">
         <a href="/" className="text-lg font-semibold tracking-tight">size.fyi</a>
-        <div className="flex items-center gap-2">
-          <button onClick={() => {
-            const next = state.units === 'metric' ? 'imperial' : 'metric';
-            setStoredUnits(next);
-            dispatch({ type: 'setUnits', units: next });
-          }}
-            className="rounded-md border border-stone-300 px-3 py-1 text-sm dark:border-stone-700">
-            {state.units === 'metric' ? 'mm' : 'in'}
-          </button>
-          <ShareButton />
-        </div>
       </header>
       {state.missing.length > 0 && (
         <div className="flex items-center justify-between bg-amber-100 px-4 py-2 text-sm text-amber-900" role="status">
@@ -33,16 +22,25 @@ function Shell() {
           <button onClick={() => dispatch({ type: 'dismissMissing' })} aria-label="Dismiss">✕</button>
         </div>
       )}
-      <main className="flex flex-1 flex-col gap-4 p-4 md:flex-row">
-        <aside className="w-full space-y-4 md:w-80 md:shrink-0">
+      <main className="flex flex-1 flex-col md:flex-row">
+        <aside className="w-full space-y-4 p-4 md:w-80 md:shrink-0">
+          <div className="flex items-center gap-2">
+            <button onClick={() => {
+              const next = state.units === 'metric' ? 'imperial' : 'metric';
+              setStoredUnits(next);
+              dispatch({ type: 'setUnits', units: next });
+            }}
+              className="rounded-md border border-stone-300 px-3 py-1 text-sm dark:border-stone-700">
+              {state.units === 'metric' ? 'mm' : 'in'}
+            </button>
+            <ShareButton />
+          </div>
           <AddItemPanel />
           <ItemList />
         </aside>
-        <section className="flex flex-1 flex-col gap-3">
+        <section className="relative min-h-[360px] flex-1 overflow-hidden bg-white dark:bg-stone-900">
           <ViewTabs />
-          <div className="relative flex-1 overflow-hidden rounded-lg bg-white dark:bg-stone-900">
-            {state.items.length === 0 ? <EmptyState /> : <Viewer />}
-          </div>
+          {state.items.length === 0 ? <EmptyState /> : <Viewer />}
         </section>
       </main>
     </div>

@@ -9,11 +9,15 @@ const VIEWS: Array<{ id: View; label: string }> = [
 export default function ViewTabs() {
   const { state, dispatch } = useComparison();
   return (
-    <div role="tablist" aria-label="View" className="inline-flex rounded-md border border-stone-200 p-0.5 dark:border-stone-800">
+    <div
+      role="tablist"
+      aria-label="View"
+      className="absolute left-1/2 top-3 z-10 inline-flex -translate-x-1/2 rounded-full border border-stone-200/70 bg-white/70 p-0.5 shadow-sm backdrop-blur dark:border-stone-800/70 dark:bg-stone-900/70"
+    >
       {VIEWS.map((v) => (
         <button key={v.id} role="tab" aria-selected={state.view === v.id}
           onClick={() => dispatch({ type: 'setView', view: v.id })}
-          className={`rounded px-3 py-1 text-sm ${state.view === v.id ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900' : 'text-stone-600 dark:text-stone-300'}`}>
+          className={`rounded-full px-3 py-1 text-sm ${state.view === v.id ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900' : 'text-stone-600 dark:text-stone-300'}`}>
           {v.label}
         </button>
       ))}
