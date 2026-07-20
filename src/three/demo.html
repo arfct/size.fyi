@@ -1,0 +1,12 @@
+<!doctype html>
+<div id="stage" style="width:100vw;height:100vh;position:relative"></div>
+<script type="module">
+  import { createScene } from './scene.ts';
+  const s = createScene(document.getElementById('stage'));
+  s.setItems([
+    { name: 'iPhone 16 Pro', h: 149.6, w: 71.5, d: 8.25, color: '#E69F00' },
+    { name: 'Paper: A4', h: 297, w: 210, d: 1, color: '#56B4E9' },
+    { name: 'Drinks Can', h: 115, w: 65, d: 65, color: '#009E73' },
+  ]);
+  window.scene = s; // poke s.setView('front') etc. from console
+</script>
