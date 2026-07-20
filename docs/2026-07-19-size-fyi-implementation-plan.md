@@ -1986,6 +1986,17 @@ Requirements:
 4. `resize()` during animation must not crash (recompute end states or cancel-and-jump — implementer's choice, documented).
 5. Tests: layout assertions where cheap (ViewTabs renders within the viewer container); scene animation excluded from unit tests (controller verifies visually).
 
+### Task 15: Unified surface layout (user-requested, 2026-07-19)
+
+**Files:** Modify `src/app/App.tsx`, `src/app/styles.css`; split `src/app/components/AddItemPanel.tsx` into `SearchDevices.tsx` + `CustomEntry.tsx`; update tests.
+
+Requirements:
+1. **Page background = 3D background.** The viewer's surface color (white / dark:stone-900) becomes the whole page background; remove the viewer section's own bg so page and canvas are one indistinguishable surface (light + dark).
+2. **Canvas to the top.** The viewer column occupies the full viewport height — no header above it. The header row exists only within the left column. Floating view pill stays top-center of the viewer. Missing-slug notice moves into the left column (below the header row) or floats — implementer's choice, keep it visible.
+3. **Left column order (top→bottom):** header row `size.fyi  [mm] [Share]` (wordmark left, controls right, hairline under it or none — match the calmer surface), then ItemList (devices), then the add-your-own row, then the device search below it. EmptyState copy still shows in the viewer when empty.
+4. **Component split:** AddItemPanel splits into `SearchDevices` (combobox + defaults + my-items) and `CustomEntry` (name+dims row, Enter submits, error, addMyItem) so App can order them; behavior and tests carry over (rename/split test files accordingly, keep all existing assertions).
+5. Mobile: left column stacks above viewer, viewer keeps min-height.
+
 ## Self-Review Notes
 
 - **Spec coverage:** URL scheme (T3), catalog+validation+lazy load (T4, T7), localStorage myItems/recents/units (T5, T7, T8), three.js views + on-demand render (T6), combobox search + custom entry + errors (T7), share + native share (T8), missing-slug notice + fail-open (T3, T8, T9), Worker /api/devices + OG + SPA fallback (T9), CI + manual deploy (T10), WebGL-unavailable fallback (T8 Viewer try/catch; dimension chips always render). Covered.
