@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { addMyItem, getMyItems, addRecent, getRecents } from '../localStore';
+import { addMyItem, getMyItems, addRecent, getRecents, getStoredUnits } from '../localStore';
 
 beforeEach(() => localStorage.clear());
 
@@ -21,4 +21,17 @@ test('survives broken storage', () => {
   vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('quota'); });
   expect(getMyItems()).toEqual([]);
   vi.restoreAllMocks();
+});
+test('validates myItems shape', () => {
+  localStorage.setItem('myItems', '"corrupted"');
+  expect(getMyItems()).toEqual([]);
+  expect(() => addMyItem({ name: 'X', h: 1, w: 2, d: 3 })).not.toThrow();
+});
+test('validates recents shape', () => {
+  localStorage.setItem('recentComparisons', '{}');
+  expect(getRecents()).toEqual([]);
+});
+test('validates units shape', () => {
+  localStorage.setItem('units', '"bogus"');
+  expect(getStoredUnits()).toBeNull();
 });
