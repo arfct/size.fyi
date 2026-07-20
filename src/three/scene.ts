@@ -41,10 +41,13 @@ export function createScene(container: HTMLElement): SizeScene {
   let bounds = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
 
   let renderQueued = false;
+  let rafHandle = 0;
+  let disposed = false;
   function requestRender() {
     if (renderQueued) return;
     renderQueued = true;
-    requestAnimationFrame(() => {
+    rafHandle = requestAnimationFrame(() => {
+      if (disposed) return;
       renderQueued = false;
       if (view === '3d') controls.update();
       renderer.render(scene, camera);
@@ -56,8 +59,13 @@ export function createScene(container: HTMLElement): SizeScene {
     group.traverse((o) => {
       if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
       if (o instanceof THREE.LineSegments) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
+      if (o instanceof CSS2DObject) o.element.remove();
     });
     group.clear();
+  }
+
+  function removeGrid() {
+    if (grid) { scene.remove(grid); grid.geometry.dispose(); (grid.material as THREE.Material).dispose(); grid = null; }
   }
 
   function setItems(items: SceneItem[]) {
@@ -88,7 +96,7 @@ export function createScene(container: HTMLElement): SizeScene {
     bounds = new THREE.Box3().setFromObject(group);
     if (items.length === 0) bounds.set(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
 
-    if (grid) { scene.remove(grid); grid.geometry.dispose(); (grid.material as THREE.Material).dispose(); }
+    removeGrid();
     const span = Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, 1);
     const step = 10 ** Math.max(1, Math.ceil(Math.log10(span / 20)));
     const size = Math.ceil((span * 2) / step) * step;
@@ -152,9 +160,13 @@ export function createScene(container: HTMLElement): SizeScene {
     setView,
     resize,
     dispose() {
+      disposed = true;
+      cancelAnimationFrame(rafHandle);
       ro.disconnect();
+      controls.removeEventListener('change', requestRender);
       controls.dispose();
       clearGroup();
+      removeGrid();
       renderer.dispose();
       container.replaceChildren();
     },
