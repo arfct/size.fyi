@@ -5,9 +5,10 @@ import LayoutToggle from './components/LayoutToggle';
 import RecentComparisons from './components/RecentComparisons';
 import SearchDevices from './components/SearchDevices';
 import ShareButton from './components/ShareButton';
+import UnitsToggle from './components/UnitsToggle';
+import ViewMenu from './components/ViewMenu';
 import ViewTabs from './components/ViewTabs';
 import Viewer from './components/Viewer';
-import { setStoredUnits } from './localStore';
 import { ComparisonProvider, useComparison } from './store';
 import { useIsDesktop } from './useIsDesktop';
 import { useUrlSync } from './useUrlSync';
@@ -31,25 +32,31 @@ function Shell() {
           <Viewer asideRef={asideRef} />
         </div>
       )}
+      {/* Mobile top toolbar (md:hidden): sticks to the top and holds the logo, the view menu, the
+          units toggle, and Share — the controls that live in the sidebar header / float over the
+          canvas on desktop. */}
+      <div className="sticky top-0 z-40 order-first flex items-center justify-between gap-2 border-b border-stone-200 bg-white/85 px-4 py-2 backdrop-blur md:hidden dark:border-stone-800 dark:bg-stone-900/85">
+        <a href="/" className="flex items-center gap-2 text-[16px] font-semibold tracking-tight">
+          <img src="/logo.svg" alt="" className="h-5 w-5" />
+          size.fyi
+        </a>
+        <div className="flex items-center gap-2">
+          <ViewMenu />
+          <UnitsToggle />
+          <ShareButton />
+        </div>
+      </div>
       <div
         ref={asideRef}
         className="relative z-10 order-2 w-full space-y-4 p-4 md:order-1 md:h-screen md:w-80 md:shrink-0 md:overflow-y-auto"
       >
-        <header className="flex items-center justify-between border-b border-stone-200 pb-3 dark:border-stone-800">
+        <header className="hidden items-center justify-between border-b border-stone-200 pb-3 md:flex dark:border-stone-800">
           <a href="/" className="flex items-center gap-2 text-[16px] font-semibold tracking-tight">
             <img src="/logo.svg" alt="" className="h-5 w-5" />
             size.fyi
           </a>
           <div className="flex items-center gap-2">
-            <button onClick={() => {
-              const next = state.units === 'metric' ? 'imperial' : 'metric';
-              setStoredUnits(next);
-              dispatch({ type: 'setUnits', units: next });
-            }}
-              aria-label={`Units: ${state.units === 'metric' ? 'millimeters' : 'inches'}`}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-300 text-[13px] dark:border-stone-700">
-              {state.units === 'metric' ? 'mm' : 'in'}
-            </button>
+            <UnitsToggle />
             <ShareButton />
           </div>
         </header>

@@ -1,5 +1,5 @@
 import { beforeEach, test, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import App from '../App';
 import { __resetCatalogStore } from '../useCatalog';
 
@@ -16,18 +16,21 @@ beforeEach(() => {
 
 test('renders the wordmark as a link home', () => {
   render(<App />);
-  const wordmark = screen.getByRole('link', { name: 'size.fyi' });
-  expect(wordmark).toBeInTheDocument();
-  expect(wordmark).toHaveAttribute('href', '/');
+  // The wordmark appears in both the mobile toolbar and the desktop sidebar header.
+  const wordmarks = screen.getAllByRole('link', { name: 'size.fyi' });
+  expect(wordmarks.length).toBeGreaterThan(0);
+  for (const w of wordmarks) expect(w).toHaveAttribute('href', '/');
 });
 
-test('header row holds the wordmark on the left and the units toggle on the right', () => {
+test('the sidebar header holds the wordmark and the units toggle', () => {
   render(<App />);
-  const header = screen.getByRole('link', { name: 'size.fyi' }).closest('header');
-  expect(header).not.toBeNull();
-  const unitsButton = screen.getByRole('button', { name: /units:/i });
+  const header = screen
+    .getAllByRole('link', { name: 'size.fyi' })
+    .map((l) => l.closest('header'))
+    .find((h): h is HTMLElement => h != null);
+  expect(header).toBeTruthy();
+  const unitsButton = within(header!).getByRole('button', { name: /units:/i });
   expect(unitsButton).toHaveTextContent('mm');
-  expect(header!.contains(unitsButton)).toBe(true);
 });
 
 test('viewer column fills the full viewport height on desktop', () => {
