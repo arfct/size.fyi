@@ -66,8 +66,7 @@ Catalog data lives in `data/devices/*.json`. Each file contains an array of devi
   "w": 65,
   "d": 65,
   "radius": 32.5,
-  "radiusAxis": "y",
-  "source": "https://example.com/beverage-specs"
+  "radiusAxis": "y"
 }
 ```
 
@@ -111,7 +110,7 @@ The UI offers four viewing modes:
 - **Search and add items** via combobox with device catalog
 - **Custom dimensions** via URL-encoded syntax
 - **Share comparisons** with native share API or copy URL
-- **OG image injection** for social media previews
+- **Rich link previews** via injected Open Graph tags
 - **Local storage persistence** of recent comparisons and preferences
 - **Graceful fallbacks** for WebGL-unavailable browsers
 
@@ -148,7 +147,3 @@ The current implementation serves the catalog as static JSON via the Worker's `A
 3. **Test locally:** `npm run dev` to test the app with your changes
 4. **Run tests:** `npm test` and `npm run test:worker` before committing
 5. **Deploy:** `npm run deploy` to push to Cloudflare Workers
-
-## License
-
-[Specify your license here]
