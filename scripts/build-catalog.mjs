@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const DATA_DIR = 'data/devices';
 const OUT = 'public/devices.json';
-const CATEGORIES = ['everyday', 'paper', 'phone', 'tablet', 'laptop', 'console', 'pc-case', 'audio', 'camera'];
+const CATEGORIES = ['everyday', 'paper', 'phone', 'tablet', 'laptop', 'console', 'pc-case', 'audio', 'camera', 'watch'];
 const MESHES = ['banana'];
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const checkOnly = process.argv.includes('--check');
@@ -61,7 +61,8 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
       if (d[k] !== undefined && (typeof d[k] !== 'string' || !d[k].trim())) errors.push(`${id}: ${k} must be a non-empty string`);
     }
     if (d.rank !== undefined && (typeof d.rank !== 'number' || d.rank < 0 || !Number.isFinite(d.rank))) errors.push(`${id}: rank must be a non-negative number`);
-    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'make', 'model', 'rank', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh']);
+    if (d.url !== undefined && (typeof d.url !== 'string' || !/^https:\/\/\S+$/.test(d.url))) errors.push(`${id}: url must be an https:// string`);
+    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'make', 'model', 'rank', 'url', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh']);
     for (const k of Object.keys(d)) if (!allowed.has(k)) errors.push(`${id}: unknown key ${k}`);
     devices.push(d);
   }

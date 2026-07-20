@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
-import type { LayoutMode } from '../shared/types';
+import type { LayoutMode, Units } from '../shared/types';
 
 export type ViewName = '3d' | 'front' | 'side' | 'top';
 export interface SceneItem {
@@ -15,6 +15,7 @@ export interface SizeScene {
   setView(view: ViewName): void;
   setLayout(mode: LayoutMode): void;
   setInset(px: number, top?: number): void;
+  setUnits(units: Units): void;
   resize(): void;
   dispose(): void;
 }
@@ -49,6 +50,86 @@ export function applyViewOffset(
   } else {
     cam.clearViewOffset();
   }
+}
+
+// Grid geometry parameters for the current unit system and content span. Major squares are 1 cm
+// (metric) or 1 in (imperial); minor lines subdivide each square in half. The half-extent (how far
+// the grid reaches from center) tracks the content but is clamped so a very large object doesn't
+// spawn thousands of lines. Pure — exported for direct unit testing.
+export function gridSpec(units: Units, span: number) {
+  const unitMM = units === 'imperial' ? 25.4 : 10;
+  const minorMM = unitMM / 2;
+  const majorCount = Math.min(40, Math.max(6, Math.round(Math.max(span * 0.65, 6 * unitMM) / unitMM)));
+  return { unitMM, minorMM, majorCount, halfExtent: majorCount * unitMM };
+}
+
+// A ground grid centered under the content: major + minor lines that fade out radially from the
+// center (per-fragment, by world distance) plus numeric tick labels along the +x/+z axes. Built
+// fresh whenever the content bounds or unit system change.
+function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Group {
+  const { unitMM, minorMM, majorCount, halfExtent } = gridSpec(units, span);
+  const g = new THREE.Group();
+  g.position.set(center.x, 0, center.z);
+
+  const lineMaterial = (baseOpacity: number) =>
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: {
+        uColor: { value: new THREE.Color(0x8a8a8a) },
+        uOpacity: { value: baseOpacity },
+        uCenter: { value: new THREE.Vector2(center.x, center.z) },
+        uExtent: { value: halfExtent },
+      },
+      vertexShader:
+        'varying vec3 vWorld;\n' +
+        'void main() {\n' +
+        '  vWorld = (modelMatrix * vec4(position, 1.0)).xyz;\n' +
+        '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n' +
+        '}',
+      fragmentShader:
+        'uniform vec3 uColor; uniform float uOpacity; uniform vec2 uCenter; uniform float uExtent;\n' +
+        'varying vec3 vWorld;\n' +
+        'void main() {\n' +
+        '  float r = distance(vWorld.xz, uCenter);\n' +
+        '  float a = clamp(1.0 - r / uExtent, 0.0, 1.0);\n' +
+        '  gl_FragColor = vec4(uColor, a * a * uOpacity);\n' +
+        '}',
+    });
+
+  const majorPos: number[] = [];
+  const minorPos: number[] = [];
+  const steps = Math.round(halfExtent / minorMM);
+  for (let i = -steps; i <= steps; i++) {
+    const p = i * minorMM;
+    const isMajor = Math.abs(Math.round(p / unitMM) * unitMM - p) < 1e-6;
+    const arr = isMajor ? majorPos : minorPos;
+    arr.push(-halfExtent, 0, p, halfExtent, 0, p); // parallel to X
+    arr.push(p, 0, -halfExtent, p, 0, halfExtent); // parallel to Z
+  }
+  for (const [pos, opacity] of [[majorPos, 0.55], [minorPos, 0.22]] as const) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.add(new THREE.LineSegments(geo, lineMaterial(opacity)));
+  }
+
+  const stride = Math.max(1, Math.ceil(majorCount / 8));
+  const unitLabel = units === 'imperial' ? 'in' : 'cm';
+  for (let k = stride; k <= majorCount; k += stride) {
+    const dist = k * unitMM;
+    const opacity = Math.max(0, 1 - dist / halfExtent) ** 2 * 0.9;
+    if (opacity < 0.05) continue;
+    for (const [lx, lz] of [[dist, 0], [0, dist]] as const) {
+      const el = document.createElement('div');
+      el.textContent = `${k}${unitLabel}`;
+      el.style.cssText =
+        `font:11px ui-sans-serif,system-ui;color:#8a8a8a;pointer-events:none;white-space:nowrap;opacity:${opacity.toFixed(3)}`;
+      const label = new CSS2DObject(el);
+      label.position.set(lx, 0, lz);
+      g.add(label);
+    }
+  }
+  return g;
 }
 
 function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
@@ -271,7 +352,8 @@ export function createScene(container: HTMLElement): SizeScene {
 
   const group = new THREE.Group();
   scene.add(group);
-  let grid: THREE.GridHelper | null = null;
+  let grid: THREE.Group | null = null;
+  let units: Units = 'metric';
   let bounds = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
 
   let renderQueued = false;
@@ -299,7 +381,23 @@ export function createScene(container: HTMLElement): SizeScene {
   }
 
   function removeGrid() {
-    if (grid) { scene.remove(grid); grid.geometry.dispose(); (grid.material as THREE.Material).dispose(); grid = null; }
+    if (!grid) return;
+    grid.traverse((o) => {
+      if (o instanceof THREE.LineSegments) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
+      if (o instanceof CSS2DObject) o.element.remove();
+    });
+    scene.remove(grid);
+    grid = null;
+  }
+
+  // Rebuilds the ground grid for the current bounds + unit system, preserving current visibility.
+  function rebuildGrid() {
+    removeGrid();
+    const c = bounds.getCenter(new THREE.Vector3());
+    const span = Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, 1);
+    grid = buildGrid(c, units, span);
+    grid.visible = view !== 'front' && view !== 'side';
+    scene.add(grid);
   }
 
   // --- item tween ticker ---------------------------------------------------------------
@@ -531,14 +629,7 @@ export function createScene(container: HTMLElement): SizeScene {
 
     bounds = computeTargetBounds(items, keys, targets);
 
-    removeGrid();
-    const span = Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, 1);
-    const step = 10 ** Math.max(1, Math.ceil(Math.log10(span / 20)));
-    const size = Math.ceil((span * 2) / step) * step;
-    grid = new THREE.GridHelper(size, size / step, 0x999999, 0xdddddd);
-    const c = bounds.getCenter(new THREE.Vector3());
-    grid.position.set(c.x, 0, c.z);
-    scene.add(grid);
+    rebuildGrid();
 
     // The very first item placement (initial mount) jumps instantly, like setView's firstView
     // guard; every subsequent change (add/remove/recolor/layout switch) animates the refit.
@@ -741,6 +832,12 @@ export function createScene(container: HTMLElement): SizeScene {
     setView,
     setLayout,
     setInset,
+    setUnits(next: Units) {
+      if (next === units) return;
+      units = next;
+      rebuildGrid();
+      requestRender();
+    },
     resize,
     dispose() {
       disposed = true;

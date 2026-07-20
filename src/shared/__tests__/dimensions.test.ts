@@ -37,4 +37,10 @@ describe('formatting', () => {
   test('imperial ft+in rollover', () => expect(formatLength(1206.6, 'imperial')).toBe('4 ft 0 in'));
   test('formatDims joins h×w×d', () =>
     expect(formatDims({ h: 297, w: 210, d: 1 }, 'metric')).toBe('297 × 210 × 1 mm'));
+  test('formatDims shows the unit once (imperial, all inches)', () =>
+    expect(formatDims({ h: 150, w: 71.9, d: 8.8 }, 'imperial')).toBe('5.9 × 2.8 × 0.3 in'));
+  test('formatDims keeps per-component units when they differ (m + mm)', () =>
+    expect(formatDims({ h: 1982, w: 838, d: 33 }, 'metric')).toBe('1.98 m × 838 mm × 33 mm'));
+  test('formatDims keeps per-component units when a ft+in component is present', () =>
+    expect(formatDims({ h: 1905, w: 300, d: 100 }, 'imperial')).toBe('6 ft 3 in × 11.8 in × 3.9 in'));
 });

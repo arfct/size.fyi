@@ -1,5 +1,5 @@
 export type Category = 'everyday' | 'paper' | 'phone' | 'tablet' | 'laptop'
-  | 'console' | 'pc-case' | 'audio' | 'camera';
+  | 'console' | 'pc-case' | 'audio' | 'camera' | 'watch';
 export type RadiusAxis = 'x' | 'y' | 'z';
 export interface Device {
   slug: string; name: string; category: Category;
@@ -7,6 +7,7 @@ export interface Device {
   make?: string;              // manufacturer, e.g. "Apple"
   model?: string;             // model designation, e.g. "iPhone 17 Pro Max"
   rank?: number;              // suggestion weight; higher surfaces sooner (default 0)
+  url?: string;               // optional link to the product / info page
   year?: number; aliases?: string[]; source?: string;
   radius?: number;            // mm; fillets edges parallel to radiusAxis
   radiusAxis?: RadiusAxis;    // x=width, y=height, z=depth

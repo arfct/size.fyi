@@ -10,11 +10,17 @@ export default function ItemList() {
       {state.items.map((item, i) => {
         const name = item.kind === 'device' ? item.device.name : item.name;
         const dims = item.kind === 'device' ? item.device : item;
+        const url = item.kind === 'device' ? item.device.url : undefined;
         return (
           <li key={`${name}-${i}`} className="group flex items-center gap-2 rounded-md py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
-                <p className="min-w-0 truncate text-[16px] font-medium">{name}</p>
+                {url ? (
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    className="min-w-0 truncate text-[16px] font-medium hover:underline">{name}</a>
+                ) : (
+                  <p className="min-w-0 truncate text-[16px] font-medium">{name}</p>
+                )}
                 <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: itemColor(item, i) }} />
               </div>
               <p className="text-[13px] text-stone-500">{formatDims(dims, state.units)}</p>

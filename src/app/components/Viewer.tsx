@@ -66,6 +66,8 @@ export default function Viewer({ asideRef }: ViewerProps) {
 
   useEffect(() => { sceneRef.current?.setLayout(state.layoutMode); }, [state.layoutMode]);
 
+  useEffect(() => { sceneRef.current?.setUnits(state.units); }, [state.units]);
+
   return (
     <div ref={ref} className="relative h-full min-h-[320px] w-full" data-testid="viewer">
       {unavailable && (
