@@ -5,3 +5,6 @@ node_modules/
 .superpowers/
 dist/
 public/devices.json
+# Unoptimized 3D-model spike output (see docs/2026-07-20-device-3d-models-plan.md).
+# Decimated/Draco models get their own committed location once that feature lands.
+public/models/
