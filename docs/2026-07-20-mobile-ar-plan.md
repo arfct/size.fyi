@@ -71,6 +71,29 @@ the current scene and host it at a URL:
 - Android intent quirks and the `browser_fallback_url`; iOS requiring the `<img>` child inside the
   `rel="ar"` anchor to be tappable.
 
+## USDZ generation — findings (2026-07-20 spike)
+
+- **three ships `USDZExporter`** (`three/examples/jsm/exporters/USDZExporter.js`, confirmed in our
+  installed three 0.185.1): `await new USDZExporter().parseAsync(scene, { maxTextureSize })` →
+  USDZ bytes, **client-side, no server tooling**. Limits: no animations, PBR-metallic-roughness
+  only, textures re-encoded. Fine for our simple box/model geometry.
+- **Build-time glTF→USDZ options** (for pre-generated per-device assets): Google
+  [`usd_from_gltf`](https://github.com/google/usd_from_gltf) (CLI/Docker, purpose-built for Quick
+  Look, lossy — doubles geometry for double-sided), Apple **Reality Converter** (macOS GUI) or
+  `usdzconvert` (needs Xcode + USD Python tools). **None are installed here** (no Xcode/Docker
+  image), so a build-time USDZ step would add a real toolchain dependency.
+- **Recommendation change:** because `USDZExporter` works in-browser and needs no toolchain,
+  generate **both** GLB (`GLTFExporter`) **and** USDZ (`USDZExporter`) client-side on the AR tap,
+  upload to the Worker/R2 blob store, and launch with the returned URL. This collapses Phase 1 and
+  Phase 2 into one path and avoids installing/maintaining `usd_from_gltf`. Per-device static USDZ
+  becomes an optional optimization, not a prerequisite.
+- **⚠️ Transparency is the blocker, not the format.** AR Quick Look (iOS 16+) frustum-culls
+  geometry *inside* transparent models — our translucent, overlapping comparison boxes would
+  literally disappear in AR. So the **AR export must use opaque materials** (distinct solid colors
+  per item), diverging from the on-screen translucent look. Bake an opaque-material variant of the
+  scene specifically for export. Validate on a real device early.
+- **Scale:** author USDZ in metres — export the scene scaled ×0.001 (our units are mm).
+
 ## Task outline
 
 **Phase 1**

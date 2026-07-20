@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LayoutMode, Units } from '../shared/types';
 
 export type ViewName = '3d' | 'front' | 'side' | 'top';
@@ -9,6 +11,51 @@ export interface SceneItem {
   radius?: number; radiusAxis?: 'x' | 'y' | 'z';
   screen?: { h: number; w: number; radius?: number };
   mesh?: 'banana';
+  model3d?: { url: string; rotation?: [number, number, number] };
+}
+
+// Loads a GLB and returns one BufferGeometry fit to the given w×h×d box, centred on the origin so
+// it drops in wherever the procedural box would sit. Cached per url (dims are constant per device);
+// callers clone the result so per-handle disposal is safe. Normals are recomputed since the
+// optimized models ship without them (see scripts/build-models.mjs).
+const gltfLoader = new GLTFLoader();
+const modelGeometryCache = new Map<string, Promise<THREE.BufferGeometry>>();
+function loadModelGeometry(
+  model: { url: string; rotation?: [number, number, number] },
+  w: number, h: number, d: number,
+): Promise<THREE.BufferGeometry> {
+  let pending = modelGeometryCache.get(model.url);
+  if (!pending) {
+    pending = gltfLoader.loadAsync(`/models/${model.url}`).then((gltf) => {
+      gltf.scene.updateMatrixWorld(true);
+      const parts: THREE.BufferGeometry[] = [];
+      gltf.scene.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.geometry) return;
+        const g = mesh.geometry.clone();
+        for (const name of Object.keys(g.attributes)) if (name !== 'position') g.deleteAttribute(name);
+        g.applyMatrix4(mesh.matrixWorld);
+        parts.push(g);
+      });
+      const geo = parts.length === 1 ? parts[0]! : mergeGeometries(parts, false)!;
+      if (model.rotation) {
+        const [rx, ry, rz] = model.rotation;
+        geo.rotateX((rx * Math.PI) / 180);
+        geo.rotateY((ry * Math.PI) / 180);
+        geo.rotateZ((rz * Math.PI) / 180);
+      }
+      geo.computeBoundingBox();
+      const box = geo.boundingBox!;
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      geo.translate(-center.x, -center.y, -center.z);
+      geo.scale(w / (size.x || 1), h / (size.y || 1), d / (size.z || 1));
+      geo.computeVertexNormals();
+      return geo;
+    });
+    modelGeometryCache.set(model.url, pending);
+  }
+  return pending.then((geo) => geo.clone());
 }
 export interface SizeScene {
   setItems(items: SceneItem[]): void;
@@ -542,7 +589,10 @@ export function createScene(container: HTMLElement): SizeScene {
   }
 
   function createHandle(item: SceneItem, keyId: string, target: Target, maxDim: number): ItemHandle {
-    const geo = buildGeometry(item);
+    const isModel = item.model3d != null;
+    // Model items start as a box placeholder (fit to w×h×d) and swap to the loaded geometry when
+    // it arrives, keeping the box as the fallback if the load fails.
+    const geo = isModel ? new THREE.BoxGeometry(item.w, item.h, item.d) : buildGeometry(item);
     const isWireframe = item.mesh != null;
     const meshBaseOpacity = isWireframe ? WIREFRAME_OPACITY : MESH_OPACITY;
     // depthWrite: false — renderOrder alone only sequences the transparent-object render queue; the
@@ -569,7 +619,7 @@ export function createScene(container: HTMLElement): SizeScene {
     mesh.add(label);
 
     let edges: THREE.LineSegments | null = null;
-    if (!isWireframe) {
+    if (!isWireframe && !isModel) {
       edges = new THREE.LineSegments(
         new THREE.EdgesGeometry(geo, 30),
         new THREE.LineBasicMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false }),
@@ -579,7 +629,7 @@ export function createScene(container: HTMLElement): SizeScene {
     }
 
     let screenMesh: THREE.Mesh | null = null;
-    if (item.screen) {
+    if (item.screen && !isModel) {
       const screenGeo = new THREE.ShapeGeometry(
         roundedRectShape(item.screen.w, item.screen.h, item.screen.radius ?? 0),
         12,
@@ -597,6 +647,20 @@ export function createScene(container: HTMLElement): SizeScene {
     }
 
     group.add(mesh);
+
+    if (isModel) {
+      // Swap the placeholder box for the real geometry once loaded; skip if the handle was
+      // removed meanwhile (mesh detached), and keep the box on failure.
+      loadModelGeometry(item.model3d!, item.w, item.h, item.d)
+        .then((g) => {
+          if (!mesh.parent) { g.dispose(); return; }
+          mesh.geometry.dispose();
+          mesh.geometry = g;
+          requestRender();
+        })
+        .catch(() => { /* fall back to the box placeholder */ });
+    }
+
     return { keyId, mesh, edges, screenMesh, label, item, meshBaseOpacity, fading: false };
   }
 

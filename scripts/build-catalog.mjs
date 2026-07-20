@@ -1,4 +1,5 @@
 import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 const DATA_DIR = 'data/devices';
@@ -62,7 +63,19 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
     }
     if (d.rank !== undefined && (typeof d.rank !== 'number' || d.rank < 0 || !Number.isFinite(d.rank))) errors.push(`${id}: rank must be a non-negative number`);
     if (d.url !== undefined && (typeof d.url !== 'string' || !/^https:\/\/\S+$/.test(d.url))) errors.push(`${id}: url must be an https:// string`);
-    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'make', 'model', 'rank', 'url', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh']);
+    if (d.model3d !== undefined) {
+      const m = d.model3d;
+      if (typeof m !== 'object' || m === null || Array.isArray(m)) errors.push(`${id}: model3d must be an object`);
+      else {
+        if (typeof m.url !== 'string' || !/^[a-z0-9-]+\.glb$/.test(m.url)) errors.push(`${id}: model3d.url must look like "name.glb"`);
+        else if (!existsSync(path.join('public/models', m.url))) errors.push(`${id}: model3d file public/models/${m.url} not found`);
+        if (m.rotation !== undefined && (!Array.isArray(m.rotation) || m.rotation.length !== 3 || m.rotation.some((n) => typeof n !== 'number' || !Number.isFinite(n))))
+          errors.push(`${id}: model3d.rotation must be [x, y, z] numbers`);
+        if (d.mesh !== undefined) errors.push(`${id}: model3d and mesh are mutually exclusive`);
+        for (const k of Object.keys(m)) if (!['url', 'rotation'].includes(k)) errors.push(`${id}: unknown key model3d.${k}`);
+      }
+    }
+    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'make', 'model', 'rank', 'url', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh', 'model3d']);
     for (const k of Object.keys(d)) if (!allowed.has(k)) errors.push(`${id}: unknown key ${k}`);
     devices.push(d);
   }

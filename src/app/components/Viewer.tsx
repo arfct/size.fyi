@@ -58,6 +58,7 @@ export default function Viewer({ asideRef }: ViewerProps) {
       radiusAxis: item.kind === 'device' ? item.device.radiusAxis : undefined,
       screen: item.kind === 'device' ? item.device.screen : undefined,
       mesh: item.kind === 'device' ? item.device.mesh : undefined,
+      model3d: item.kind === 'device' ? item.device.model3d : undefined,
       color: itemColor(item, i),
     })));
   }, [state.items]);

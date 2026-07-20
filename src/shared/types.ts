@@ -13,6 +13,9 @@ export interface Device {
   radiusAxis?: RadiusAxis;    // x=width, y=height, z=depth
   screen?: { h: number; w: number; radius?: number }; // mm; inset rect on the +z front face
   mesh?: 'banana';            // procedural mesh override; always renders yellow wireframe
+  // Optional real 3D model (glTF/GLB under /models). Rendered fit to this device's w×h×d in place
+  // of the box; `rotation` (degrees XYZ) aligns the model's axes to our h=height/w=width/d=depth.
+  model3d?: { url: string; rotation?: [number, number, number] };
 }
 export interface Catalog { version: number; devices: Device[]; }
 export type ComparisonItem =
