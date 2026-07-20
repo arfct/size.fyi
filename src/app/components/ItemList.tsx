@@ -1,0 +1,27 @@
+import { formatDims } from '../../shared/dimensions';
+import { colorFor } from '../palette';
+import { useComparison } from '../store';
+
+export default function ItemList() {
+  const { state, dispatch } = useComparison();
+  if (state.items.length === 0) return null;
+  return (
+    <ul className="space-y-2" aria-label="Items">
+      {state.items.map((item, i) => {
+        const name = item.kind === 'device' ? item.device.name : item.name;
+        const dims = item.kind === 'device' ? item.device : item;
+        return (
+          <li key={`${name}-${i}`} className="flex items-center gap-2 rounded-md border border-stone-200 px-3 py-2 dark:border-stone-800">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: colorFor(i) }} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{name}</p>
+              <p className="text-xs text-stone-500">{formatDims(dims, state.units)}</p>
+            </div>
+            <button onClick={() => dispatch({ type: 'remove', index: i })} aria-label={`Remove ${name}`}
+              className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200">✕</button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

@@ -12,7 +12,9 @@ beforeEach(() => {
   );
 });
 
-test('renders the wordmark', () => {
+test('renders the wordmark as a link home', () => {
   render(<App />);
-  expect(screen.getByText('size.fyi')).toBeInTheDocument();
+  const wordmark = screen.getByRole('link', { name: 'size.fyi' });
+  expect(wordmark).toBeInTheDocument();
+  expect(wordmark).toHaveAttribute('href', '/');
 });
