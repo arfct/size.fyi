@@ -107,7 +107,11 @@ later addition (deliberately out of v1).
    | 32″ Widescreen TV | 550×790×90 | Paper: A4 | 297×210×1 |
    | | | Paper: A5 | 210×148×1 |
 
-2. A curated ~150–200 popular devices: recent iPhones / Pixels / Galaxys,
+2. One original addition to `everyday`: **Banana** (35×190×35 mm, average
+   fruit lying flat), with alias "banana for scale" so the meme spelling
+   finds it.
+
+3. A curated ~150–200 popular devices: recent iPhones / Pixels / Galaxys,
    iPads, MacBooks, game consoles, common SFF PC cases — each with a `source`.
 
 **Size budget:** a minified entry is ~150–200 bytes; 200 devices ≈ 35 KB raw

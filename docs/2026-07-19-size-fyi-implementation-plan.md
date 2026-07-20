@@ -534,7 +534,7 @@ export function comparisonTitle(items: ComparisonItem[]): string {
 
 - [ ] **Step 1: Author seed data**
 
-`data/devices/everyday.json` — the 17 sizeasy presets, verbatim dimensions (this is the ONLY externally sourced content, per Global Constraints):
+`data/devices/everyday.json` — the 17 sizeasy presets with verbatim dimensions (the ONLY externally sourced content, per Global Constraints), plus one original addition: **Banana** (~190 mm average, lying flat — a "banana for scale" nod, findable via that alias):
 ```json
 [
   { "slug": "box-of-matches", "name": "Box of Matches", "category": "everyday", "h": 36, "w": 53, "d": 15 },
@@ -543,6 +543,7 @@ export function comparisonTitle(items: ComparisonItem[]): string {
   { "slug": "drinks-can", "name": "Drinks Can", "category": "everyday", "h": 115, "w": 65, "d": 65 },
   { "slug": "cd-case", "name": "CD Case", "category": "everyday", "h": 124, "w": 142, "d": 10 },
   { "slug": "wine-bottle", "name": "Wine Bottle", "category": "everyday", "h": 295, "w": 70, "d": 70 },
+  { "slug": "banana", "name": "Banana", "category": "everyday", "h": 35, "w": 190, "d": 35, "aliases": ["banana for scale"] },
   { "slug": "19in-monitor", "name": "19″ TFT Monitor", "category": "everyday", "h": 360, "w": 425, "d": 50 },
   { "slug": "32in-tv", "name": "32″ Widescreen TV", "category": "everyday", "h": 550, "w": 790, "d": 90 },
   { "slug": "internal-door", "name": "Internal Door", "category": "everyday", "h": 1982, "w": 838, "d": 33 },
