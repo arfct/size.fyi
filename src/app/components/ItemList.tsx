@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ComparisonItem } from '../../shared/types';
 import { formatDims } from '../../shared/dimensions';
+import { type ARTarget, canLaunchAR, launchAR } from '../ar';
 import { itemColor } from '../palette';
 import { useComparison } from '../store';
 
@@ -12,7 +13,7 @@ const volumeOf = (item: ComparisonItem) => {
 // The colored dot doubles as a menu trigger. Self-contained dropdown: a ref-scoped
 // mousedown-outside listener and Escape close it; the trigger and menu live inside the ref so
 // clicking them never counts as "outside".
-function ItemMenu({ color, name, onEdit, onRemove }: { color: string; name: string; onEdit: () => void; onRemove: () => void }) {
+function ItemMenu({ color, name, ar, onEdit, onRemove }: { color: string; name: string; ar?: ARTarget; onEdit: () => void; onRemove: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -42,6 +43,16 @@ function ItemMenu({ color, name, onEdit, onRemove }: { color: string; name: stri
       </button>
       {open && (
         <div role="menu" className="absolute right-0 top-full z-30 mt-1 min-w-32 rounded-md border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900">
+          {ar && canLaunchAR() && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => { setOpen(false); launchAR(ar); }}
+              className="block w-full px-3 py-1.5 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800"
+            >
+              View in AR
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"
@@ -78,6 +89,9 @@ export default function ItemList({ onEdit }: { onEdit: (index: number, name: str
         const name = item.kind === 'device' ? item.device.name : item.name;
         const dims = item.kind === 'device' ? item.device : item;
         const url = item.kind === 'device' ? item.device.url : undefined;
+        const ar: ARTarget | undefined = item.kind === 'device' && item.device.model3d
+          ? { usdzUrl: `/models/${item.device.slug}.usdz`, glbUrl: `/models/${item.device.model3d.url}`, title: name }
+          : undefined;
         return (
           <li key={`${name}-${i}`} className="flex items-center gap-2 rounded-md py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60">
             <div className="min-w-0 flex-1">
@@ -91,6 +105,7 @@ export default function ItemList({ onEdit }: { onEdit: (index: number, name: str
                 <ItemMenu
                   color={itemColor(item, i)}
                   name={name}
+                  ar={ar}
                   onEdit={() => onEdit(i, name, `${dims.h}×${dims.w}×${dims.d}`)}
                   onRemove={() => dispatch({ type: 'remove', index: i })}
                 />
