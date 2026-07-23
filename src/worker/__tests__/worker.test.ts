@@ -49,10 +49,12 @@ describe('OG injection', () => {
     const res = await SELF.fetch('https://size.fyi/shoebox~350x250x130-vs-drinks-can');
     expect(await res.text()).toContain('Shoebox vs Drinks Can');
   });
-  test('unknown-only path serves untouched app html', async () => {
+  test('unknown / homepage path gets default site og tags', async () => {
     const res = await SELF.fetch('https://size.fyi/totally-unknown-thing');
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain('size.fyi — compare the size of anything');
+    const html = await res.text();
+    expect(html).toContain('<title>size.fyi — compare the size of anything</title>');
+    expect(html).toContain('property="og:image"'); // default hero card
   });
 });
 
@@ -77,7 +79,9 @@ describe('OG injection security', () => {
     // live attribute (og:url's `%22`/`%3d` stay percent-encoded by the URL
     // parser and are additionally escAttr()-escaped, so this can't happen).
     for (const tag of ogTags) {
-      expect(tag).toMatch(/^<meta property="og:[a-z]+" content="[^"]*">$/);
+      // og:image:width/height have colons in the property name; content must stay a single
+      // well-formed attribute with no unescaped quote to break out of.
+      expect(tag).toMatch(/^<meta property="og:[a-z:]+" content="[^"]*">$/);
     }
     // og:title/og:description are built solely from catalog device names,
     // so the payload text must never surface there at all.
