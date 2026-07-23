@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from 'react';
 import type { ComparisonItem, LayoutMode, Units, View } from '../shared/types';
-import { MAX_ITEMS } from '../shared/types';
+import { MAX_ITEMS, itemDims } from '../shared/types';
 import { getStoredUnits } from './localStore';
 
 export interface ComparisonState {
@@ -21,7 +21,7 @@ export type Action =
 // one canonical order (and one canonical URL) regardless of the order they were added — which is
 // what keeps recent comparisons free of add-order "inversion" duplicates.
 const volumeOf = (item: ComparisonItem) => {
-  const d = item.kind === 'device' ? item.device : item;
+  const d = itemDims(item);
   return d.h * d.w * d.d;
 };
 const byVolume = (items: ComparisonItem[]) => [...items].sort((a, b) => volumeOf(a) - volumeOf(b));

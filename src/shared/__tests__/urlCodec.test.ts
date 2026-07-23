@@ -4,7 +4,15 @@ import type { Device, ComparisonItem } from '../types';
 
 const iphone: Device = { slug: 'iphone-16-pro', name: 'iPhone 16 Pro', category: 'phone', h: 149.6, w: 71.5, d: 8.25 };
 const a4: Device = { slug: 'paper-a4', name: 'Paper: A4', category: 'paper', h: 297, w: 210, d: 1 };
-const bySlug = new Map([[iphone.slug, iphone], [a4.slug, a4]]);
+const fold: Device = {
+  slug: 'galaxy-z-fold8', name: 'Galaxy Z Fold8', category: 'phone', h: 123.9, w: 81.9, d: 9.7,
+  defaultState: 'closed',
+  states: [
+    { label: 'closed', h: 123.9, w: 81.9, d: 9.7, seam: true },
+    { label: 'open', h: 123.9, w: 161.4, d: 4.5 },
+  ],
+};
+const bySlug = new Map([[iphone.slug, iphone], [a4.slug, a4], [fold.slug, fold]]);
 const dev = (device: Device): ComparisonItem => ({ kind: 'device', device });
 const custom: ComparisonItem = { kind: 'custom', name: 'Shoebox', h: 350, w: 250, d: 130 };
 
@@ -47,6 +55,27 @@ test('title', () =>
 test('slugify', () => {
   expect(slugify('Paper: A4')).toBe('paper-a4');
   expect(slugify('  Böxy thing!! ')).toBe('boxy-thing');
+});
+
+describe('multi-state devices', () => {
+  test('default state encodes bare (with or without explicit state)', () => {
+    expect(encodeComparison([{ kind: 'device', device: fold }])).toBe('/galaxy-z-fold8');
+    expect(encodeComparison([{ kind: 'device', device: fold, state: 'closed' }])).toBe('/galaxy-z-fold8');
+  });
+  test('non-default state appends :state', () => {
+    expect(encodeComparison([{ kind: 'device', device: fold, state: 'open' }])).toBe('/galaxy-z-fold8:open');
+  });
+  test('decode bare → default (no state), :open → open', () => {
+    expect(decodeComparison('/galaxy-z-fold8', bySlug).items).toEqual([{ kind: 'device', device: fold }]);
+    expect(decodeComparison('/galaxy-z-fold8:open', bySlug).items).toEqual([{ kind: 'device', device: fold, state: 'open' }]);
+  });
+  test('unknown state falls back to default', () => {
+    expect(decodeComparison('/galaxy-z-fold8:bogus', bySlug).items).toEqual([{ kind: 'device', device: fold }]);
+  });
+  test('open state round-trips through encode→decode', () => {
+    const item: ComparisonItem = { kind: 'device', device: fold, state: 'open' };
+    expect(decodeComparison(encodeComparison([item]), bySlug).items).toEqual([item]);
+  });
 });
 
 // Issue 1: custom names containing "vs" must round-trip correctly

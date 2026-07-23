@@ -1,10 +1,11 @@
 import type { ComparisonItem, Device } from './types';
-import { MAX_ITEMS } from './types';
+import { MAX_ITEMS, defaultStateLabel } from './types';
 
 export const RESERVED_PREFIXES = ['api', 'assets'];
 const SEP = '-vs-';
 const CUSTOM_RE = /^([a-z0-9]+(?:_[a-z0-9]+)*)~(\d+(?:\.\d)?)x(\d+(?:\.\d)?)x(\d+(?:\.\d)?)$/;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const STATE_RE = /^[a-z0-9]+$/;
 
 export function slugify(name: string): string {
   return name
@@ -21,8 +22,14 @@ function slugifyCustomName(name: string): string {
 
 const fmt = (n: number) => String(Math.round(n * 10) / 10);
 
+// Multi-state devices append the active state as `slug:state`; the default state stays bare so the
+// common URL is unchanged (and matches the pre-merge slug for the default).
 function encodeItem(item: ComparisonItem): string {
-  if (item.kind === 'device') return item.device.slug;
+  if (item.kind === 'device') {
+    const { slug } = item.device;
+    if (item.state && item.state !== defaultStateLabel(item.device)) return `${slug}:${item.state}`;
+    return slug;
+  }
   return `${slugifyCustomName(item.name)}~${fmt(item.h)}x${fmt(item.w)}x${fmt(item.d)}`;
 }
 
@@ -39,6 +46,7 @@ function titleCaseCustom(slug: string): string {
   return slug.split('_').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
 }
 
+// A `slug:state` token selects a multi-state device's state; a bare slug uses its default state.
 export function decodeComparison(
   path: string,
   bySlug: Map<string, Device>,
@@ -59,10 +67,16 @@ export function decodeComparison(
           continue;
         }
       }
-      if (SLUG_RE.test(token)) {
-        const device = bySlug.get(token);
-        if (device) items.push({ kind: 'device', device });
-        else missing.push(token);
+      const colon = token.indexOf(':');
+      const base = colon === -1 ? token : token.slice(0, colon);
+      const stateTok = colon === -1 ? '' : token.slice(colon + 1);
+      if (!SLUG_RE.test(base) || (stateTok && !STATE_RE.test(stateTok))) continue;
+      const device = bySlug.get(base);
+      if (device) {
+        const state = stateTok && device.states?.some((s) => s.label === stateTok) ? stateTok : undefined;
+        items.push(state ? { kind: 'device', device, state } : { kind: 'device', device });
+      } else {
+        missing.push(base);
       }
     }
   } catch {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { createScene, type SizeScene } from '../../three/scene';
+import { itemDims } from '../../shared/types';
 import { colorFor, itemColor } from '../palette';
 import { useComparison } from '../store';
 import { useIsDesktop } from '../useIsDesktop';
@@ -59,18 +60,20 @@ export default function Viewer({ asideRef }: ViewerProps) {
 
   useEffect(() => {
     const items = state.items.length > 0
-      ? state.items.map((item, i) => ({
-        name: item.kind === 'device' ? item.device.name : item.name,
-        h: item.kind === 'device' ? item.device.h : item.h,
-        w: item.kind === 'device' ? item.device.w : item.w,
-        d: item.kind === 'device' ? item.device.d : item.d,
-        radius: item.kind === 'device' ? item.device.radius : undefined,
-        radiusAxis: item.kind === 'device' ? item.device.radiusAxis : undefined,
-        screen: item.kind === 'device' ? item.device.screen : undefined,
-        mesh: item.kind === 'device' ? item.device.mesh : undefined,
-        model3d: item.kind === 'device' ? item.device.model3d : undefined,
-        color: itemColor(item, i),
-      }))
+      ? state.items.map((item, i) => {
+        const dims = itemDims(item); // resolves the active state for foldables
+        return {
+          name: item.kind === 'device' ? item.device.name : item.name,
+          h: dims.h, w: dims.w, d: dims.d,
+          radius: dims.radius,
+          radiusAxis: dims.radiusAxis,
+          screen: dims.screen,
+          seam: dims.seam,
+          mesh: item.kind === 'device' ? item.device.mesh : undefined,
+          model3d: item.kind === 'device' ? item.device.model3d : undefined,
+          color: itemColor(item, i),
+        };
+      })
       : PLACEHOLDER_CUBES.map((c, i) => ({ ...c, color: colorFor(i) }));
     sceneRef.current?.setItems(items);
   }, [state.items]);

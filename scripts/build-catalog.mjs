@@ -13,6 +13,40 @@ const errors = [];
 const devices = [];
 const seen = new Set();
 
+// Validates the geometry fields (h/w/d + optional radius/radiusAxis/screen) on a device or one of
+// its states. `g` is the object carrying them; `id` prefixes any error.
+function validateGeometry(g, id) {
+  for (const k of ['h', 'w', 'd']) {
+    const v = g[k];
+    if (typeof v !== 'number' || v < 0.1 || v > 100_000) errors.push(`${id}: ${k}=${v} out of range`);
+  }
+  if (g.radius !== undefined || g.radiusAxis !== undefined) {
+    const cross = { x: ['h', 'd'], y: ['w', 'd'], z: ['h', 'w'] }[g.radiusAxis];
+    if (!cross) errors.push(`${id}: radiusAxis must be x|y|z when radius present`);
+    else if (typeof g.radius !== 'number' || g.radius <= 0
+      || g.radius > Math.min(g[cross[0]], g[cross[1]]) / 2 + 0.01)
+      errors.push(`${id}: radius out of range for its cross-section`);
+  }
+  if (g.screen !== undefined) {
+    if (typeof g.screen !== 'object' || g.screen === null || Array.isArray(g.screen)) {
+      errors.push(`${id}: screen must be an object`);
+    } else {
+      const screenAllowed = new Set(['h', 'w', 'radius']);
+      for (const k of Object.keys(g.screen)) if (!screenAllowed.has(k)) errors.push(`${id}: unknown key screen.${k}`);
+      const sh = g.screen.h, sw = g.screen.w;
+      if (typeof sh !== 'number' || sh <= 0) errors.push(`${id}: screen.h missing or invalid`);
+      else if (typeof g.h === 'number' && sh > g.h) errors.push(`${id}: screen.h=${sh} exceeds h=${g.h}`);
+      if (typeof sw !== 'number' || sw <= 0) errors.push(`${id}: screen.w missing or invalid`);
+      else if (typeof g.w === 'number' && sw > g.w) errors.push(`${id}: screen.w=${sw} exceeds w=${g.w}`);
+      if (g.screen.radius !== undefined) {
+        if (typeof g.screen.radius !== 'number' || g.screen.radius <= 0
+          || (typeof sh === 'number' && typeof sw === 'number' && g.screen.radius > Math.min(sh, sw) / 2 + 0.01))
+          errors.push(`${id}: screen.radius out of range`);
+      }
+    }
+  }
+}
+
 for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).sort()) {
   const list = JSON.parse(await readFile(path.join(DATA_DIR, file), 'utf8'));
   if (!Array.isArray(list)) { errors.push(`${file}: not an array`); continue; }
@@ -24,34 +58,32 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
     seen.add(d.slug);
     if (typeof d.name !== 'string' || !d.name.trim()) errors.push(`${id}: missing name`);
     if (!CATEGORIES.includes(d.category)) errors.push(`${id}: bad category ${d.category}`);
-    for (const k of ['h', 'w', 'd']) {
-      const v = d[k];
-      if (typeof v !== 'number' || v < 0.1 || v > 100_000) errors.push(`${id}: ${k}=${v} out of range`);
-    }
-    if (d.radius !== undefined || d.radiusAxis !== undefined) {
-      const cross = { x: ['h', 'd'], y: ['w', 'd'], z: ['h', 'w'] }[d.radiusAxis];
-      if (!cross) errors.push(`${id}: radiusAxis must be x|y|z when radius present`);
-      else if (typeof d.radius !== 'number' || d.radius <= 0
-        || d.radius > Math.min(d[cross[0]], d[cross[1]]) / 2 + 0.01)
-        errors.push(`${id}: radius out of range for its cross-section`);
-    }
-    if (d.screen !== undefined) {
-      if (typeof d.screen !== 'object' || d.screen === null || Array.isArray(d.screen)) {
-        errors.push(`${id}: screen must be an object`);
+
+    // Multi-state devices: validate each state and mirror the default state's geometry to the top
+    // level so single-state consumers (and the geometry check below) keep working unchanged.
+    if (d.states !== undefined) {
+      const geomKeys = ['h', 'w', 'd', 'radius', 'radiusAxis', 'screen'];
+      for (const k of geomKeys) if (d[k] !== undefined) errors.push(`${id}: ${k} must live on states[], not the device, when states is set`);
+      if (!Array.isArray(d.states) || d.states.length < 2) {
+        errors.push(`${id}: states must be an array of 2+ states`);
       } else {
-        const screenAllowed = new Set(['h', 'w', 'radius']);
-        for (const k of Object.keys(d.screen)) if (!screenAllowed.has(k)) errors.push(`${id}: unknown key screen.${k}`);
-        const sh = d.screen.h, sw = d.screen.w;
-        if (typeof sh !== 'number' || sh <= 0) errors.push(`${id}: screen.h missing or invalid`);
-        else if (typeof d.h === 'number' && sh > d.h) errors.push(`${id}: screen.h=${sh} exceeds device h=${d.h}`);
-        if (typeof sw !== 'number' || sw <= 0) errors.push(`${id}: screen.w missing or invalid`);
-        else if (typeof d.w === 'number' && sw > d.w) errors.push(`${id}: screen.w=${sw} exceeds device w=${d.w}`);
-        if (d.screen.radius !== undefined) {
-          if (typeof d.screen.radius !== 'number' || d.screen.radius <= 0
-            || (typeof sh === 'number' && typeof sw === 'number' && d.screen.radius > Math.min(sh, sw) / 2 + 0.01))
-            errors.push(`${id}: screen.radius out of range`);
+        const labels = new Set();
+        for (const [i, s] of d.states.entries()) {
+          const sid = `${id}.states[${i}]`;
+          if (typeof s.label !== 'string' || !/^[a-z0-9]+$/.test(s.label)) errors.push(`${sid}: label must be [a-z0-9]+`);
+          else if (labels.has(s.label)) errors.push(`${sid}: duplicate state label ${s.label}`);
+          else labels.add(s.label);
+          if (s.seam !== undefined && typeof s.seam !== 'boolean') errors.push(`${sid}: seam must be a boolean`);
+          const stateAllowed = new Set(['label', 'h', 'w', 'd', 'radius', 'radiusAxis', 'screen', 'seam']);
+          for (const k of Object.keys(s)) if (!stateAllowed.has(k)) errors.push(`${sid}: unknown key ${k}`);
+          validateGeometry(s, sid);
         }
+        if (d.defaultState !== undefined && !labels.has(d.defaultState)) errors.push(`${id}: defaultState ${d.defaultState} is not a state label`);
+        const def = d.states.find((s) => s.label === (d.defaultState ?? d.states[0].label)) ?? d.states[0];
+        for (const k of geomKeys) if (def[k] !== undefined) d[k] = def[k]; // mirror default state up
       }
+    } else {
+      validateGeometry(d, id);
     }
     if (d.mesh !== undefined) {
       if (!MESHES.includes(d.mesh)) errors.push(`${id}: unknown mesh ${d.mesh}`);
@@ -75,7 +107,7 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
         for (const k of Object.keys(m)) if (!['url', 'rotation'].includes(k)) errors.push(`${id}: unknown key model3d.${k}`);
       }
     }
-    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'make', 'model', 'rank', 'url', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh', 'model3d']);
+    const allowed = new Set(['slug', 'name', 'category', 'h', 'w', 'd', 'make', 'model', 'rank', 'url', 'year', 'aliases', 'source', 'radius', 'radiusAxis', 'screen', 'mesh', 'model3d', 'states', 'defaultState']);
     for (const k of Object.keys(d)) if (!allowed.has(k)) errors.push(`${id}: unknown key ${k}`);
     devices.push(d);
   }

@@ -10,6 +10,7 @@ export interface SceneItem {
   name: string; h: number; w: number; d: number; color: string;
   radius?: number; radiusAxis?: 'x' | 'y' | 'z';
   screen?: { h: number; w: number; radius?: number };
+  seam?: boolean; // draw a fold parting-line around the mid-thickness (z=0) outline
   mesh?: 'banana';
   model3d?: { url: string; rotation?: [number, number, number] };
 }
@@ -199,6 +200,21 @@ function darken(hex: string, amount: number): THREE.Color {
   return new THREE.Color(hex).multiplyScalar(1 - amount);
 }
 
+// A closed foldable is two panels stacked in depth; this traces the w×h device outline at the
+// mid-thickness plane (local z=0) as line segments — the clamshell "parting line" that reads as
+// "this opens". Added as a child of the mesh so it inherits position/scale/fade like the edges.
+function buildSeamGeometry(w: number, h: number, radius = 0): THREE.BufferGeometry {
+  const pts = roundedRectShape(w, h, radius).getPoints(48);
+  const positions: number[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!, b = pts[(i + 1) % pts.length]!;
+    positions.push(a.x, a.y, 0, b.x, b.y, 0);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  return geo;
+}
+
 // Sweeps circular cross-section rings along a planar curved spine (bending upward through
 // ~110°) with a tapered radius profile, then rescales the result so its bounding box is
 // exactly w×h×d — matching how box/rounded geometry sits on the ground at those dimensions.
@@ -288,7 +304,7 @@ function buildGeometry(item: SceneItem): THREE.BufferGeometry {
 export interface LayoutTarget { pos: THREE.Vector3; renderOrder: number }
 
 function itemKey(item: SceneItem): string {
-  return `${item.name}|${item.h}x${item.w}x${item.d}|${item.mesh ?? ''}`;
+  return `${item.name}|${item.h}x${item.w}x${item.d}|${item.mesh ?? ''}|${item.seam ? 'seam' : ''}`;
 }
 
 // Disambiguates duplicate items (same name+dims+mesh added more than once) by suffixing an
@@ -516,6 +532,7 @@ export function createScene(container: HTMLElement): SizeScene {
     keyId: string;
     mesh: THREE.Mesh;
     edges: THREE.LineSegments | null;
+    seam: THREE.LineSegments | null;
     screenMesh: THREE.Mesh | null;
     label: CSS2DObject;
     item: SceneItem;
@@ -563,6 +580,7 @@ export function createScene(container: HTMLElement): SizeScene {
   function applyOpacityFactor(handle: ItemHandle, factor: number) {
     (handle.mesh.material as THREE.Material).opacity = handle.meshBaseOpacity * factor;
     if (handle.edges) (handle.edges.material as THREE.Material).opacity = factor;
+    if (handle.seam) (handle.seam.material as THREE.Material).opacity = factor;
     if (handle.screenMesh) (handle.screenMesh.material as THREE.Material).opacity = SCREEN_OPACITY * factor;
   }
 
@@ -597,12 +615,15 @@ export function createScene(container: HTMLElement): SizeScene {
     const edgesMat = handle.edges?.material as THREE.LineBasicMaterial | undefined;
     const fromEdges = edgesMat?.color.clone();
     const toEdges = new THREE.Color(toColorHex);
+    const seamMat = handle.seam?.material as THREE.LineBasicMaterial | undefined;
+    const fromSeam = seamMat?.color.clone();
     const screenMat = handle.screenMesh?.material as THREE.MeshBasicMaterial | undefined;
     const fromScreen = screenMat?.color.clone();
     const toScreen = darken(toColorHex, 0.35);
     addTween(`${handle.keyId}:color`, TWEEN_MS, (k) => {
       meshMat.color.copy(fromMesh).lerp(toMesh, k);
       if (edgesMat && fromEdges) edgesMat.color.copy(fromEdges).lerp(toEdges, k);
+      if (seamMat && fromSeam) seamMat.color.copy(fromSeam).lerp(toEdges, k);
       if (screenMat && fromScreen) screenMat.color.copy(fromScreen).lerp(toScreen, k);
     }, () => {
       // Label background isn't tweened frame-by-frame (a CSS color string, not a THREE.Color) —
@@ -617,6 +638,7 @@ export function createScene(container: HTMLElement): SizeScene {
     handle.mesh.geometry.dispose();
     (handle.mesh.material as THREE.Material).dispose();
     if (handle.edges) { handle.edges.geometry.dispose(); (handle.edges.material as THREE.Material).dispose(); }
+    if (handle.seam) { handle.seam.geometry.dispose(); (handle.seam.material as THREE.Material).dispose(); }
     if (handle.screenMesh) { handle.screenMesh.geometry.dispose(); (handle.screenMesh.material as THREE.Material).dispose(); }
     handle.label.element.remove();
     handle.mesh.removeFromParent();
@@ -664,6 +686,17 @@ export function createScene(container: HTMLElement): SizeScene {
       mesh.add(edges);
     }
 
+    let seam: THREE.LineSegments | null = null;
+    if (item.seam && !isWireframe && !isModel) {
+      const seamRadius = item.radiusAxis === 'z' ? (item.radius ?? 0) : 0;
+      seam = new THREE.LineSegments(
+        buildSeamGeometry(item.w, item.h, seamRadius),
+        new THREE.LineBasicMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false }),
+      );
+      seam.renderOrder = target.renderOrder;
+      mesh.add(seam); // child at local z=0 — the mid-thickness plane
+    }
+
     let screenMesh: THREE.Mesh | null = null;
     if (item.screen && !isModel) {
       const screenGeo = new THREE.ShapeGeometry(
@@ -697,7 +730,7 @@ export function createScene(container: HTMLElement): SizeScene {
         .catch(() => { /* fall back to the box placeholder */ });
     }
 
-    return { keyId, mesh, edges, screenMesh, label, item, meshBaseOpacity, fading: false };
+    return { keyId, mesh, edges, seam, screenMesh, label, item, meshBaseOpacity, fading: false };
   }
 
   function applyDiff(items: SceneItem[]) {
@@ -736,6 +769,7 @@ export function createScene(container: HTMLElement): SizeScene {
       tweenColor(existing, existing.item.color, item.color);
       existing.mesh.renderOrder = target.renderOrder;
       if (existing.edges) existing.edges.renderOrder = target.renderOrder;
+      if (existing.seam) existing.seam.renderOrder = target.renderOrder;
       if (existing.screenMesh) existing.screenMesh.renderOrder = target.renderOrder;
       existing.item = item;
       if (currentOpacityFactor(existing) < 0.999) tweenFadeTo(existing, 1);

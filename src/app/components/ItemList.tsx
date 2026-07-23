@@ -1,6 +1,7 @@
 import { Ellipsis } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { ComparisonItem } from '../../shared/types';
+import type { ComparisonItem, Device } from '../../shared/types';
+import { defaultStateLabel, itemDims } from '../../shared/types';
 import { formatDims } from '../../shared/dimensions';
 import { type ARTarget, canLaunchAR, launchAR } from '../ar';
 import { MY_ITEM_ICON, deviceIcon } from '../categoryIcon';
@@ -8,9 +9,32 @@ import { itemColor } from '../palette';
 import { useComparison } from '../store';
 
 const volumeOf = (item: ComparisonItem) => {
-  const d = item.kind === 'device' ? item.device : item;
+  const d = itemDims(item);
   return d.h * d.w * d.d;
 };
+
+// Segmented open/closed (etc.) switch for multi-state devices; selecting a state re-dispatches the
+// item with the new label (which re-sorts by volume since the size class changes).
+function StateToggle({ device, active, onSelect }: { device: Device; active: string; onSelect: (label: string) => void }) {
+  return (
+    <div role="group" aria-label="State" className="mt-1 inline-flex rounded-md border border-stone-300 p-0.5 dark:border-stone-700">
+      {device.states!.map((s) => {
+        const on = s.label === active;
+        return (
+          <button
+            key={s.label}
+            type="button"
+            aria-pressed={on}
+            onClick={() => { if (!on) onSelect(s.label); }}
+            className={`rounded px-2 py-0.5 text-[12px] capitalize ${on ? 'bg-stone-800 text-white dark:bg-stone-200 dark:text-stone-900' : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'}`}
+          >
+            {s.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 // A neutral ellipsis menu trigger on the right of each row (the item's swatch color now lives on
 // the leading category icon). Self-contained dropdown: a ref-scoped mousedown-outside listener
@@ -90,8 +114,10 @@ export default function ItemList({ onEdit }: { onEdit: (index: number, name: str
     <ul className="space-y-2" aria-label="Items">
       {ordered.map(({ item, i }) => {
         const name = item.kind === 'device' ? item.device.name : item.name;
-        const dims = item.kind === 'device' ? item.device : item;
+        const dims = itemDims(item);
         const url = item.kind === 'device' ? item.device.url : undefined;
+        const states = item.kind === 'device' ? item.device.states : undefined;
+        const activeState = item.kind === 'device' ? (item.state ?? defaultStateLabel(item.device)) : undefined;
         const ar: ARTarget | undefined = item.kind === 'device' && item.device.model3d
           ? { usdzUrl: `/models/${item.device.slug}.usdz`, glbUrl: `/models/${item.device.model3d.url}`, title: name }
           : undefined;
@@ -115,6 +141,13 @@ export default function ItemList({ onEdit }: { onEdit: (index: number, name: str
                 />
               </div>
               <p className="text-[13px] text-stone-500">{formatDims(dims, state.units)}</p>
+              {states && states.length > 1 && item.kind === 'device' && (
+                <StateToggle
+                  device={item.device}
+                  active={activeState!}
+                  onSelect={(label) => dispatch({ type: 'update', index: i, item: { ...item, state: label } })}
+                />
+              )}
             </div>
           </li>
         );

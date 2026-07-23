@@ -1,4 +1,5 @@
 import type { Catalog, Device } from '../shared/types';
+import { itemDims } from '../shared/types';
 import { comparisonTitle, decodeComparison } from '../shared/urlCodec';
 import { formatDims } from '../shared/dimensions';
 
@@ -61,7 +62,7 @@ export default {
       if (items.length === 0) return htmlNoCache(assetRes);
       const title = `${comparisonTitle(items)} — size.fyi`;
       const desc = `Compare sizes in 3D: ${items
-        .map((i) => `${i.kind === 'device' ? i.device.name : i.name} (${formatDims(i.kind === 'device' ? i.device : i, 'metric')})`)
+        .map((i) => `${i.kind === 'device' ? i.device.name : i.name} (${formatDims(itemDims(i), 'metric')})`)
         .join(' vs ')}`;
       const canonical = `https://size.fyi${url.pathname}`;
       const transformed = new HTMLRewriter()
