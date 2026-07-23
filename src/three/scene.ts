@@ -259,12 +259,12 @@ function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
   const at = (dx: number, dy: number) => new THREE.Vector2(pen.x + dx, pen.y + dy);
   const cubic = (d1x: number, d1y: number, d2x: number, d2y: number, ex: number, ey: number) => {
     const e = at(ex, ey);
-    sampleCubic(pts, pen.clone(), at(d1x, d1y), at(d2x, d2y), e, 8);
+    sampleCubic(pts, pen.clone(), at(d1x, d1y), at(d2x, d2y), e, 16);
     pen.copy(e);
   };
   const arcTo = (dx: number, dy: number) => {
     const e = at(dx, dy);
-    sampleArc(pts, pen.clone(), e, R, inside, 10);
+    sampleArc(pts, pen.clone(), e, R, inside, 20);
     pen.copy(e);
   };
   const lineTo = (x: number, y: number) => { pen.set(x, y); pts.push(pen.clone()); };
@@ -797,10 +797,12 @@ export function createScene(container: HTMLElement): SizeScene {
 
     let screenMesh: THREE.Mesh | null = null;
     if (item.screen && !isModel) {
-      const screenGeo = new THREE.ShapeGeometry(
-        roundedRectShape(item.screen.w, item.screen.h, item.screen.radius ?? 0),
-        12,
-      );
+      // Concentric corners: screen radius = body radius − bezel inset, so the bezel gap stays
+      // uniform through the corner (mirrors the body's rounding). Floored at the device's own
+      // stored screen radius so devices with a small/absent body radius don't regress to square.
+      const inset = (item.w - item.screen.w) / 2;
+      const screenR = Math.max(item.screen.radius ?? 0, item.radius ? item.radius - inset : 0);
+      const screenGeo = new THREE.ShapeGeometry(roundedRectShape(item.screen.w, item.screen.h, screenR));
       const screenMat = new THREE.MeshBasicMaterial({
         color: darken(item.color, 0.35),
         transparent: true,
