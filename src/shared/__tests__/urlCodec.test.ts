@@ -58,23 +58,37 @@ test('slugify', () => {
 });
 
 describe('multi-state devices', () => {
-  test('default state encodes bare (with or without explicit state)', () => {
-    expect(encodeComparison([{ kind: 'device', device: fold }])).toBe('/galaxy-z-fold8');
-    expect(encodeComparison([{ kind: 'device', device: fold, state: 'closed' }])).toBe('/galaxy-z-fold8');
+  test('state is encoded explicitly as slug-state', () => {
+    expect(encodeComparison([{ kind: 'device', device: fold }])).toBe('/galaxy-z-fold8-closed'); // default
+    expect(encodeComparison([{ kind: 'device', device: fold, state: 'closed' }])).toBe('/galaxy-z-fold8-closed');
+    expect(encodeComparison([{ kind: 'device', device: fold, state: 'open' }])).toBe('/galaxy-z-fold8-open');
   });
-  test('non-default state appends :state', () => {
-    expect(encodeComparison([{ kind: 'device', device: fold, state: 'open' }])).toBe('/galaxy-z-fold8:open');
+  test('slug-state selects the state', () => {
+    expect(decodeComparison('/galaxy-z-fold8-open', bySlug).items).toEqual([{ kind: 'device', device: fold, state: 'open' }]);
+    expect(decodeComparison('/galaxy-z-fold8-closed', bySlug).items).toEqual([{ kind: 'device', device: fold, state: 'closed' }]);
   });
-  test('decode bare → default (no state), :open → open', () => {
+  test('bare slug → default state (no explicit state)', () => {
     expect(decodeComparison('/galaxy-z-fold8', bySlug).items).toEqual([{ kind: 'device', device: fold }]);
+  });
+  test('legacy colon form still decodes', () => {
     expect(decodeComparison('/galaxy-z-fold8:open', bySlug).items).toEqual([{ kind: 'device', device: fold, state: 'open' }]);
   });
-  test('unknown state falls back to default', () => {
-    expect(decodeComparison('/galaxy-z-fold8:bogus', bySlug).items).toEqual([{ kind: 'device', device: fold }]);
+  test('unknown state on a real foldable falls back to default', () => {
+    expect(decodeComparison('/galaxy-z-fold8-bogus', bySlug).items).toEqual([{ kind: 'device', device: fold }]);
+  });
+  test('a -state suffix on a single-state device is not mis-parsed', () => {
+    // iphone-16-pro exists but has no states → the token is just unknown, not iphone-16-pro+"open"
+    const r = decodeComparison('/iphone-16-pro-open', bySlug);
+    expect(r.items).toEqual([]);
+    expect(r.missing).toEqual(['iphone-16-pro-open']);
   });
   test('open state round-trips through encode→decode', () => {
     const item: ComparisonItem = { kind: 'device', device: fold, state: 'open' };
     expect(decodeComparison(encodeComparison([item]), bySlug).items).toEqual([item]);
+  });
+  test('title includes the state label for foldables', () => {
+    expect(comparisonTitle([{ kind: 'device', device: fold, state: 'open' }, { kind: 'device', device: fold }]))
+      .toBe('Galaxy Z Fold8 (open) vs Galaxy Z Fold8 (closed)');
   });
 });
 
