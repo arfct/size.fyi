@@ -246,7 +246,8 @@ function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
   const p = Math.min((1 + s) * R, budget);
   const arcMeasure = 90 * (1 - s);
   const arc = Math.sin(toRad(arcMeasure / 2)) * R * Math.SQRT2;
-  const p3p4 = R * Math.tan(toRad((90 - arcMeasure) / 2));
+  const angleAlpha = (90 - arcMeasure) / 2;
+  const p3p4 = R * Math.tan(toRad(angleAlpha / 2));
   const cc = p3p4 * Math.cos(toRad(45 * s));
   const cd = cc * Math.tan(toRad(45 * s));
   const cb = (p - arc - cc - cd) / 3;
