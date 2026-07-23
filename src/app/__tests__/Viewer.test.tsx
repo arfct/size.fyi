@@ -16,11 +16,12 @@ function Harness() {
   return <Viewer />;
 }
 
-test('shows a fallback message when the 3D scene fails to initialize', () => {
+test('shows a fallback message when the 3D scene fails to initialize', async () => {
   render(
     <ComparisonProvider>
       <Harness />
     </ComparisonProvider>,
   );
-  expect(screen.getByText(/3D view isn't available in this browser/)).toBeInTheDocument();
+  // The scene module is lazy-loaded, so createScene throws in a microtask — await the fallback.
+  expect(await screen.findByText(/3D view isn't available in this browser/)).toBeInTheDocument();
 });
