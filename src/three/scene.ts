@@ -191,6 +191,11 @@ function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Gro
 // instead of jumping, without looking boxy.
 const SQUIRCLE_N = 5;
 
+// A superellipse corner hugs the corner, so at a given radius it looks squarer than a circular arc.
+// Scale the radius up so the squircle cuts the same corner area a circular arc did, keeping the
+// familiar rounded-corner size. Area match for n=5: √((1−π/4) / (1−[Γ(1.2)]²/Γ(1.4))) ≈ 2.08.
+const SQUIRCLE_RADIUS_SCALE = 2.1;
+
 // Traces one quarter-corner as a superellipse quadrant (centre cx,cy; extent rr) from `startAngle`
 // sweeping +90°, sampled as line segments — the continuous-curvature replacement for a circular arc.
 function superCorner(s: THREE.Shape, cx: number, cy: number, rr: number, startAngle: number) {
@@ -203,7 +208,7 @@ function superCorner(s: THREE.Shape, cx: number, cy: number, rr: number, startAn
 }
 
 function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
-  const hx = a / 2, hy = b / 2, rr = Math.min(r, hx, hy);
+  const hx = a / 2, hy = b / 2, rr = Math.min(r * SQUIRCLE_RADIUS_SCALE, hx, hy);
   const s = new THREE.Shape();
   s.moveTo(-hx + rr, -hy);
   s.lineTo(hx - rr, -hy); superCorner(s, hx - rr, -hy + rr, rr, -Math.PI / 2);
