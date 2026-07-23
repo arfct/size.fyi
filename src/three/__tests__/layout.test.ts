@@ -10,14 +10,20 @@ const item = (overrides: Partial<SceneItem> & Pick<SceneItem, 'name' | 'h' | 'w'
 test('computeKeys disambiguates duplicate name+dims+mesh items with a stable #n suffix', () => {
   const phone = item({ name: 'Phone', h: 150, w: 75, d: 8 });
   const keys = computeKeys([phone, phone, phone]);
-  expect(keys).toEqual(['Phone|150x75x8|', 'Phone|150x75x8|#1', 'Phone|150x75x8|#2']);
+  expect(keys).toEqual(['Phone|150x75x8||', 'Phone|150x75x8||#1', 'Phone|150x75x8||#2']);
 });
 
 test('computeKeys keeps distinct items (different dims or mesh) unsuffixed', () => {
   const a = item({ name: 'Phone', h: 150, w: 75, d: 8 });
   const b = item({ name: 'Phone', h: 160, w: 75, d: 8 }); // different h
   const c = item({ name: 'Banana', h: 20, w: 40, d: 20, mesh: 'banana' });
-  expect(computeKeys([a, b, c])).toEqual(['Phone|150x75x8|', 'Phone|160x75x8|', 'Banana|20x40x20|banana']);
+  expect(computeKeys([a, b, c])).toEqual(['Phone|150x75x8||', 'Phone|160x75x8||', 'Banana|20x40x20|banana|']);
+});
+
+test('computeKeys distinguishes same dims by seam state (foldable open vs closed key)', () => {
+  const closed = item({ name: 'Fold', h: 150, w: 75, d: 8, seam: true });
+  const open = item({ name: 'Fold', h: 150, w: 75, d: 8 });
+  expect(computeKeys([closed, open])).toEqual(['Fold|150x75x8||seam', 'Fold|150x75x8||']);
 });
 
 test('row targets: sequential x, gap = smaller neighbour min-dimension, all at z=0, renderOrder 0', () => {
