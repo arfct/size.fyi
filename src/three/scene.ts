@@ -186,14 +186,30 @@ function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Gro
   return g;
 }
 
+// Superellipse exponent for continuous-curvature ("squircle") corners: 2 is a plain circle, higher
+// is squarer. ~4 gives the iOS-style G2 blend where curvature eases in from the straight edge
+// instead of jumping, without looking boxy.
+const SQUIRCLE_N = 5;
+
+// Traces one quarter-corner as a superellipse quadrant (centre cx,cy; extent rr) from `startAngle`
+// sweeping +90°, sampled as line segments — the continuous-curvature replacement for a circular arc.
+function superCorner(s: THREE.Shape, cx: number, cy: number, rr: number, startAngle: number) {
+  const SEG = 12, m = 2 / SQUIRCLE_N;
+  const sp = (t: number) => Math.sign(t) * Math.abs(t) ** m;
+  for (let k = 1; k <= SEG; k++) {
+    const t = startAngle + (Math.PI / 2) * (k / SEG);
+    s.lineTo(cx + rr * sp(Math.cos(t)), cy + rr * sp(Math.sin(t)));
+  }
+}
+
 function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
   const hx = a / 2, hy = b / 2, rr = Math.min(r, hx, hy);
   const s = new THREE.Shape();
   s.moveTo(-hx + rr, -hy);
-  s.lineTo(hx - rr, -hy); s.absarc(hx - rr, -hy + rr, rr, -Math.PI / 2, 0, false);
-  s.lineTo(hx, hy - rr);  s.absarc(hx - rr, hy - rr, rr, 0, Math.PI / 2, false);
-  s.lineTo(-hx + rr, hy); s.absarc(-hx + rr, hy - rr, rr, Math.PI / 2, Math.PI, false);
-  s.lineTo(-hx, -hy + rr); s.absarc(-hx + rr, -hy + rr, rr, Math.PI, Math.PI * 1.5, false);
+  s.lineTo(hx - rr, -hy); superCorner(s, hx - rr, -hy + rr, rr, -Math.PI / 2);
+  s.lineTo(hx, hy - rr);  superCorner(s, hx - rr, hy - rr, rr, 0);
+  s.lineTo(-hx + rr, hy); superCorner(s, -hx + rr, hy - rr, rr, Math.PI / 2);
+  s.lineTo(-hx, -hy + rr); superCorner(s, -hx + rr, -hy + rr, rr, Math.PI);
   return s;
 }
 
