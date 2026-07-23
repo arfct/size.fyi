@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LayoutMode, Units } from '../shared/types';
 
@@ -284,8 +285,13 @@ export function buildBananaGeometry(w: number, h: number, d: number): THREE.Buff
 
 function buildGeometry(item: SceneItem): THREE.BufferGeometry {
   if (item.mesh === 'banana') return buildBananaGeometry(item.w, item.h, item.d);
-  if (!item.radius || !item.radiusAxis)
-    return new THREE.BoxGeometry(item.w, item.h, item.d);
+  if (!item.radius) return new THREE.BoxGeometry(item.w, item.h, item.d);
+  // radius without an axis rounds every edge (e.g. AirPods cases). Clamp just under half the
+  // smallest side so the fillets never overrun the box.
+  if (!item.radiusAxis) {
+    const r = Math.min(item.radius, Math.min(item.w, item.h, item.d) / 2 - 0.01);
+    return new RoundedBoxGeometry(item.w, item.h, item.d, 4, r);
+  }
   const opts = { bevelEnabled: false, curveSegments: 12 };
   let geo: THREE.BufferGeometry;
   if (item.radiusAxis === 'z') {

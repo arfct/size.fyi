@@ -21,11 +21,17 @@ function validateGeometry(g, id) {
     if (typeof v !== 'number' || v < 0.1 || v > 100_000) errors.push(`${id}: ${k}=${v} out of range`);
   }
   if (g.radius !== undefined || g.radiusAxis !== undefined) {
-    const cross = { x: ['h', 'd'], y: ['w', 'd'], z: ['h', 'w'] }[g.radiusAxis];
-    if (!cross) errors.push(`${id}: radiusAxis must be x|y|z when radius present`);
-    else if (typeof g.radius !== 'number' || g.radius <= 0
-      || g.radius > Math.min(g[cross[0]], g[cross[1]]) / 2 + 0.01)
-      errors.push(`${id}: radius out of range for its cross-section`);
+    if (g.radiusAxis === undefined) {
+      // all-edge rounding (RoundedBox): radius must fit the smallest side
+      if (typeof g.radius !== 'number' || g.radius <= 0 || g.radius > Math.min(g.h, g.w, g.d) / 2 + 0.01)
+        errors.push(`${id}: radius out of range for all-edge rounding`);
+    } else {
+      const cross = { x: ['h', 'd'], y: ['w', 'd'], z: ['h', 'w'] }[g.radiusAxis];
+      if (!cross) errors.push(`${id}: radiusAxis must be x|y|z`);
+      else if (typeof g.radius !== 'number' || g.radius <= 0
+        || g.radius > Math.min(g[cross[0]], g[cross[1]]) / 2 + 0.01)
+        errors.push(`${id}: radius out of range for its cross-section`);
+    }
   }
   if (g.screen !== undefined) {
     if (typeof g.screen !== 'object' || g.screen === null || Array.isArray(g.screen)) {
