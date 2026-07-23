@@ -1,0 +1,12 @@
+{
+  "name": "size.fyi",
+  "short_name": "size.fyi",
+  "description": "Compare the size of devices and everyday objects in 3D.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

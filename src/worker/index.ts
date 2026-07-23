@@ -2,8 +2,22 @@ import type { Catalog, Device } from '../shared/types';
 import { itemDims } from '../shared/types';
 import { comparisonTitle, decodeComparison } from '../shared/urlCodec';
 import { formatDims } from '../shared/dimensions';
+import { renderOgImage, OG_WIDTH, OG_HEIGHT, type OgFont } from './og';
 
 interface Env { ASSETS: Fetcher }
+
+// Self-hosted OG fonts, fetched once per isolate via the ASSETS binding (no external font CDN).
+let fontsCache: Promise<OgFont[]> | null = null;
+function loadOgFonts(env: Env, origin: string): Promise<OgFont[]> {
+  fontsCache ??= Promise.all([
+    env.ASSETS.fetch(`${origin}/fonts/Inter-Regular.ttf`).then((r) => r.arrayBuffer()),
+    env.ASSETS.fetch(`${origin}/fonts/Inter-SemiBold.ttf`).then((r) => r.arrayBuffer()),
+  ]).then(([regular, semibold]): OgFont[] => [
+    { name: 'Inter', data: regular, weight: 400, style: 'normal' },
+    { name: 'Inter', data: semibold, weight: 600, style: 'normal' },
+  ]).catch((e) => { fontsCache = null; throw e; });
+  return fontsCache;
+}
 
 // Serve the HTML shell with `no-cache` (revalidate every navigation) so app updates land on the
 // next load while we stabilize. Hashed /assets/* files keep their immutable caching — they're
@@ -28,6 +42,33 @@ function loadCatalog(env: Env, origin: string): Promise<Map<string, Device>> {
   return catalogCache;
 }
 
+// Renders (or serves from the edge cache) the OG share image for a comparison. The path after
+// /api/og/ is the same comparison grammar as a normal URL. Deterministic per comparison, so it's
+// cached immutably — a given comparison rasterizes at most once per edge location.
+async function apiOg(request: Request, env: Env, origin: string, ctx: ExecutionContext): Promise<Response> {
+  const cache = caches.default;
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const spec = new URL(request.url).pathname.slice('/api/og/'.length);
+  const bySlug = await loadCatalog(env, origin);
+  const { items } = decodeComparison(`/${spec}`, bySlug);
+  if (items.length === 0) return new Response('not found', { status: 404 });
+  try {
+    const fonts = await loadOgFonts(env, origin);
+    // Materialize the PNG (forces full rasterization; surfaces render errors instead of streaming an
+    // empty body) so both the response and the cached copy carry the complete bytes.
+    const png = await renderOgImage(items, 'metric', fonts).arrayBuffer();
+    if (png.byteLength === 0) throw new Error('empty image');
+    const res = new Response(png, {
+      headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=31536000, immutable' },
+    });
+    ctx.waitUntil(cache.put(request, res.clone()));
+    return res;
+  } catch {
+    return new Response('image unavailable', { status: 500 });
+  }
+}
+
 // Sets ETag/Cache-Control here; conditional-request handling (If-None-Match
 // → 304) is left to Cloudflare's edge cache in front of the Worker rather
 // than implemented locally. Cache-control is `no-cache` for now (revalidate
@@ -49,21 +90,29 @@ async function apiDevices(env: Env, origin: string): Promise<Response> {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === '/api/devices') return apiDevices(env, url.origin);
+    if (url.pathname.startsWith('/api/og/')) return apiOg(request, env, url.origin, ctx);
     if (url.pathname.startsWith('/api/')) return new Response('not found', { status: 404 });
 
-    // Everything else: serve the app shell, with OG injection when the path decodes.
+    // Everything else: serve the app shell with OG tags — comparison-specific when the path decodes,
+    // site defaults otherwise (so the homepage unfurls too). Owning all OG here avoids duplicate
+    // tags from index.html.
     const assetRes = await env.ASSETS.fetch(new Request(`${url.origin}/`, request));
     try {
       const bySlug = await loadCatalog(env, url.origin);
       const { items } = decodeComparison(url.pathname, bySlug);
-      if (items.length === 0) return htmlNoCache(assetRes);
-      const title = `${comparisonTitle(items)} — size.fyi`;
-      const desc = `Compare sizes in 3D: ${items
-        .map((i) => `${i.kind === 'device' ? i.device.name : i.name} (${formatDims(itemDims(i), 'metric')})`)
-        .join(' vs ')}`;
+      const HERO = '/iphone-17-pro-vs-galaxy-z-fold8-open'; // default homepage card
+      const title = items.length
+        ? `${comparisonTitle(items)} — size.fyi`
+        : 'size.fyi — compare the size of anything';
+      const desc = items.length
+        ? `Compare sizes in 3D: ${items
+          .map((i) => `${i.kind === 'device' ? i.device.name : i.name} (${formatDims(itemDims(i), 'metric')})`)
+          .join(' vs ')}`
+        : 'Compare the size of devices and everyday objects in 3D.';
+      const ogPath = items.length ? url.pathname : HERO;
       const canonical = `https://size.fyi${url.pathname}`;
       const transformed = new HTMLRewriter()
         .on('title', { element(e) { e.setInnerContent(title); } })
@@ -77,11 +126,16 @@ export default {
               .replace(/</g, '&lt;')
               .replace(/>/g, '&gt;')
               .replace(/'/g, '&#39;');
+            const ogImage = `https://size.fyi/api/og${ogPath}`;
             meta(`property="og:title" content="${escAttr(title)}"`);
             meta(`property="og:description" content="${escAttr(desc)}"`);
             meta(`property="og:url" content="${escAttr(canonical)}"`);
             meta(`property="og:type" content="website"`);
-            meta(`name="twitter:card" content="summary"`);
+            meta(`property="og:image" content="${escAttr(ogImage)}"`);
+            meta(`property="og:image:width" content="${OG_WIDTH}"`);
+            meta(`property="og:image:height" content="${OG_HEIGHT}"`);
+            meta(`name="twitter:card" content="summary_large_image"`);
+            meta(`name="twitter:image" content="${escAttr(ogImage)}"`);
           },
         })
         .transform(assetRes);
