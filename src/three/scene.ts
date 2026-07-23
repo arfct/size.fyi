@@ -186,36 +186,107 @@ function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Gro
   return g;
 }
 
-// Superellipse exponent for continuous-curvature ("squircle") corners: 2 is a plain circle, higher
-// is squarer. ~4 gives the iOS-style G2 blend where curvature eases in from the straight edge
-// instead of jumping, without looking boxy.
-const SQUIRCLE_N = 5;
+// Corner smoothing (Apple/Figma "squircle"): 0 = plain circular arc, ~0.6 = iOS, 1 = maximum. The
+// corner keeps a REAL circular arc of the exact radius (so perceived roundedness always equals the
+// radius, no scaling needed) and eases the curvature into the straight edges with cubic Béziers.
+// Ported from Figma's construction — figma.com/blog/desperately-seeking-squircles, via the formulas
+// in github.com/phamfoo/figma-squircle (getPathParamsForCorner).
+const CORNER_SMOOTHING = 0.6;
+const toRad = (deg: number) => (deg * Math.PI) / 180;
 
-// A superellipse corner hugs the corner, so at a given radius it looks squarer than a circular arc.
-// Scale the radius up so the squircle cuts the same corner area a circular arc did, keeping the
-// familiar rounded-corner size. Area match for n=5: √((1−π/4) / (1−[Γ(1.2)]²/Γ(1.4))) ≈ 2.08.
-const SQUIRCLE_RADIUS_SCALE = 2.1;
-
-// Traces one quarter-corner as a superellipse quadrant (centre cx,cy; extent rr) from `startAngle`
-// sweeping +90°, sampled as line segments — the continuous-curvature replacement for a circular arc.
-function superCorner(s: THREE.Shape, cx: number, cy: number, rr: number, startAngle: number) {
-  const SEG = 12, m = 2 / SQUIRCLE_N;
-  const sp = (t: number) => Math.sign(t) * Math.abs(t) ** m;
-  for (let k = 1; k <= SEG; k++) {
-    const t = startAngle + (Math.PI / 2) * (k / SEG);
-    s.lineTo(cx + rr * sp(Math.cos(t)), cy + rr * sp(Math.sin(t)));
+function sampleCubic(
+  out: THREE.Vector2[], p0: THREE.Vector2, c1: THREE.Vector2, c2: THREE.Vector2, p3: THREE.Vector2, seg: number,
+) {
+  for (let k = 1; k <= seg; k++) {
+    const t = k / seg, mt = 1 - t;
+    const w0 = mt * mt * mt, w1 = 3 * mt * mt * t, w2 = 3 * mt * t * t, w3 = t * t * t;
+    out.push(new THREE.Vector2(
+      w0 * p0.x + w1 * c1.x + w2 * c2.x + w3 * p3.x,
+      w0 * p0.y + w1 * c1.y + w2 * c2.y + w3 * p3.y,
+    ));
   }
 }
 
+// Samples the minor circular arc from s→e of radius r. Of the two possible centres, picks the one
+// nearer `inside` (the rect centre) so the arc bulges outward like a corner should.
+function sampleArc(out: THREE.Vector2[], s: THREE.Vector2, e: THREE.Vector2, r: number, inside: THREE.Vector2, seg: number) {
+  const mx = (s.x + e.x) / 2, my = (s.y + e.y) / 2;
+  const dx = e.x - s.x, dy = e.y - s.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const h = Math.sqrt(Math.max(0, r * r - (len / 2) ** 2));
+  const px = -dy / len, py = dx / len; // unit perpendicular to the chord
+  const c1 = new THREE.Vector2(mx + px * h, my + py * h);
+  const c2 = new THREE.Vector2(mx - px * h, my - py * h);
+  const c = c1.distanceTo(inside) <= c2.distanceTo(inside) ? c1 : c2;
+  const a0 = Math.atan2(s.y - c.y, s.x - c.x);
+  let da = Math.atan2(e.y - c.y, e.x - c.x) - a0;
+  while (da > Math.PI) da -= 2 * Math.PI;
+  while (da < -Math.PI) da += 2 * Math.PI;
+  for (let k = 1; k <= seg; k++) {
+    const a = a0 + da * (k / seg);
+    out.push(new THREE.Vector2(c.x + r * Math.cos(a), c.y + r * Math.sin(a)));
+  }
+}
+
+// A rounded rect with Figma-style smoothed corners. Built in an SVG-like top-left/y-down frame (as
+// Figma's formulas assume), sampled to points, then flipped into our centred, y-up shape space.
 function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
-  const hx = a / 2, hy = b / 2, rr = Math.min(r * SQUIRCLE_RADIUS_SCALE, hx, hy);
-  const s = new THREE.Shape();
-  s.moveTo(-hx + rr, -hy);
-  s.lineTo(hx - rr, -hy); superCorner(s, hx - rr, -hy + rr, rr, -Math.PI / 2);
-  s.lineTo(hx, hy - rr);  superCorner(s, hx - rr, hy - rr, rr, 0);
-  s.lineTo(-hx + rr, hy); superCorner(s, -hx + rr, hy - rr, rr, Math.PI / 2);
-  s.lineTo(-hx, -hy + rr); superCorner(s, -hx + rr, -hy + rr, rr, Math.PI);
-  return s;
+  const W = a, H = b;
+  const shape = new THREE.Shape();
+  const budget = Math.min(W, H) / 2; // symmetric equal corners: each gets half the shorter side
+  const R = Math.min(r, budget);
+  if (R <= 0) {
+    shape.setFromPoints([
+      new THREE.Vector2(-W / 2, -H / 2), new THREE.Vector2(W / 2, -H / 2),
+      new THREE.Vector2(W / 2, H / 2), new THREE.Vector2(-W / 2, H / 2),
+    ]);
+    return shape;
+  }
+  let s = Math.min(CORNER_SMOOTHING, Math.max(0, budget / R - 1));
+  const p = Math.min((1 + s) * R, budget);
+  const arcMeasure = 90 * (1 - s);
+  const arc = Math.sin(toRad(arcMeasure / 2)) * R * Math.SQRT2;
+  const p3p4 = R * Math.tan(toRad((90 - arcMeasure) / 2));
+  const cc = p3p4 * Math.cos(toRad(45 * s));
+  const cd = cc * Math.tan(toRad(45 * s));
+  const cb = (p - arc - cc - cd) / 3;
+  const ca = 2 * cb;
+
+  const inside = new THREE.Vector2(W / 2, H / 2);
+  const pts: THREE.Vector2[] = [];
+  const pen = new THREE.Vector2(W - p, 0);
+  pts.push(pen.clone());
+  const at = (dx: number, dy: number) => new THREE.Vector2(pen.x + dx, pen.y + dy);
+  const cubic = (d1x: number, d1y: number, d2x: number, d2y: number, ex: number, ey: number) => {
+    const e = at(ex, ey);
+    sampleCubic(pts, pen.clone(), at(d1x, d1y), at(d2x, d2y), e, 8);
+    pen.copy(e);
+  };
+  const arcTo = (dx: number, dy: number) => {
+    const e = at(dx, dy);
+    sampleArc(pts, pen.clone(), e, R, inside, 10);
+    pen.copy(e);
+  };
+  const lineTo = (x: number, y: number) => { pen.set(x, y); pts.push(pen.clone()); };
+
+  cubic(ca, 0, ca + cb, 0, ca + cb + cc, cd);
+  arcTo(arc, arc);
+  cubic(cd, cc, cd, cb + cc, cd, ca + cb + cc);
+  lineTo(W, H - p);
+  cubic(0, ca, 0, ca + cb, -cd, ca + cb + cc);
+  arcTo(-arc, arc);
+  cubic(-cc, cd, -(cb + cc), cd, -(ca + cb + cc), cd);
+  lineTo(p, H);
+  cubic(-ca, 0, -(ca + cb), 0, -(ca + cb + cc), -cd);
+  arcTo(-arc, -arc);
+  cubic(-cd, -cc, -cd, -(cb + cc), -cd, -(ca + cb + cc));
+  lineTo(0, p);
+  cubic(0, -ca, 0, -(ca + cb), cd, -(ca + cb + cc));
+  arcTo(arc, -arc);
+  cubic(cc, -cd, cb + cc, -cd, ca + cb + cc, -cd);
+
+  shape.setFromPoints(pts.map((v) => new THREE.Vector2(v.x - W / 2, H / 2 - v.y)));
+  return shape;
 }
 
 function darken(hex: string, amount: number): THREE.Color {
