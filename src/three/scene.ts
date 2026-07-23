@@ -505,10 +505,14 @@ export function createScene(container: HTMLElement): SizeScene {
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
   renderer.domElement.addEventListener('pointerup', onPointerUp);
 
+  // Honor prefers-reduced-motion: collapse camera/item animation durations to ~instant (guarded for
+  // jsdom, which lacks matchMedia). Read once at construction — the setting rarely toggles mid-visit.
+  const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   // --- view transition state ---
   interface CameraPose { position: THREE.Vector3; quaternion: THREE.Quaternion; projectionMatrix: THREE.Matrix4 }
   interface ViewEndState extends CameraPose { controlsTarget: THREE.Vector3 }
-  const TRANSITION_MS = 450;
+  const TRANSITION_MS = reducedMotion ? 0 : 450;
   const scratchProjection = new THREE.Matrix4();
   let firstView = true; // initial mount jumps instead of animating
   let animating = false;
@@ -583,7 +587,7 @@ export function createScene(container: HTMLElement): SizeScene {
   // are keyed by an id so re-triggering the same kind of tween on the same item (e.g. a second
   // setItems() call arriving mid-animation) *retargets* it — capturing the live current value as
   // the new "from" — rather than stacking a competing animation on top.
-  const TWEEN_MS = 350;
+  const TWEEN_MS = reducedMotion ? 0 : 350;
   interface ActiveTween { id: string; start: number; dur: number; update: (k: number) => void; done?: () => void }
   let activeTweens: ActiveTween[] = [];
   let tweenRaf = 0;
@@ -607,7 +611,7 @@ export function createScene(container: HTMLElement): SizeScene {
     if (disposed) return;
     const finished: ActiveTween[] = [];
     activeTweens = activeTweens.filter((t) => {
-      const k = Math.min(1, (now - t.start) / t.dur);
+      const k = t.dur > 0 ? Math.min(1, (now - t.start) / t.dur) : 1; // dur 0 (reduced motion) → instant
       t.update(easeInOutCubic(k));
       if (k >= 1) { finished.push(t); return false; }
       return true;
@@ -861,8 +865,16 @@ export function createScene(container: HTMLElement): SizeScene {
       if (!existing) {
         const handle = createHandle(item, key, target, maxDim);
         handles.set(key, handle);
-        tweenFadeTo(handle, 1);
-        addTween(`${key}:scale`, TWEEN_MS, (k) => handle.mesh.scale.setScalar(0.01 + 0.99 * k));
+        if (firstItems) {
+          // Initial paint is instant (like the camera's firstItems/firstView jump) — no fade/scale
+          // tween, so the meshes are visible on the very first frame regardless of when the scene
+          // (now lazy-loaded) mounts relative to the render loop.
+          applyOpacityFactor(handle, 1);
+          handle.mesh.scale.setScalar(1);
+        } else {
+          tweenFadeTo(handle, 1);
+          addTween(`${key}:scale`, TWEEN_MS, (k) => handle.mesh.scale.setScalar(0.01 + 0.99 * k));
+        }
         return;
       }
       existing.fading = false;
@@ -1005,7 +1017,7 @@ export function createScene(container: HTMLElement): SizeScene {
 
   function tick(now: number) {
     if (disposed || !animating || !animFrom || !animTo) return;
-    const t = Math.min(1, (now - animStart) / TRANSITION_MS);
+    const t = TRANSITION_MS > 0 ? Math.min(1, (now - animStart) / TRANSITION_MS) : 1; // reduced motion → jump
     const e = easeInOutCubic(t);
     persp.position.lerpVectors(animFrom.position, animTo.position, e);
     persp.quaternion.slerpQuaternions(animFrom.quaternion, animTo.quaternion, e);

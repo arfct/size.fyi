@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { createScene, type SizeScene } from '../../three/scene';
+import type { SizeScene } from '../../three/scene';
 import { itemDims } from '../../shared/types';
 import { colorFor, itemColor } from '../palette';
 import { useComparison } from '../store';
@@ -31,13 +31,22 @@ export default function Viewer({ asideRef }: ViewerProps) {
   const sceneRef = useRef<SizeScene | null>(null);
   const { state } = useComparison();
   const [unavailable, setUnavailable] = useState(false);
+  const [ready, setReady] = useState(false); // flips true once the lazy 3D chunk has created the scene
   const isDesktop = useIsDesktop();
 
+  // Lazy-load the Three.js scene as its own chunk so first paint (and the no-WebGL table fallback)
+  // don't block on the 3D engine. `ready` re-runs the state-sync effects below once it's created.
   useEffect(() => {
     if (!ref.current) return;
-    try { sceneRef.current = createScene(ref.current); }
-    catch { sceneRef.current = null; setUnavailable(true); /* WebGL unavailable; table remains */ }
-    return () => sceneRef.current?.dispose();
+    let disposed = false;
+    import('../../three/scene')
+      .then(({ createScene }) => {
+        if (disposed || !ref.current) return;
+        try { sceneRef.current = createScene(ref.current); setReady(true); }
+        catch { setUnavailable(true); /* WebGL unavailable; table remains */ }
+      })
+      .catch(() => setUnavailable(true));
+    return () => { disposed = true; sceneRef.current?.dispose(); sceneRef.current = null; };
   }, []);
 
   // Measures the floating sidebar's width and feeds it to the scene as a left inset, so the
@@ -56,7 +65,7 @@ export default function Viewer({ asideRef }: ViewerProps) {
     const ro = new ResizeObserver(update);
     ro.observe(aside);
     return () => ro.disconnect();
-  }, [asideRef, isDesktop]);
+  }, [asideRef, isDesktop, ready]);
 
   useEffect(() => {
     const items = state.items.length > 0
@@ -76,13 +85,13 @@ export default function Viewer({ asideRef }: ViewerProps) {
       })
       : PLACEHOLDER_CUBES.map((c, i) => ({ ...c, color: colorFor(i) }));
     sceneRef.current?.setItems(items);
-  }, [state.items]);
+  }, [state.items, ready]);
 
-  useEffect(() => { sceneRef.current?.setView(state.view); }, [state.view]);
+  useEffect(() => { sceneRef.current?.setView(state.view); }, [state.view, ready]);
 
-  useEffect(() => { sceneRef.current?.setLayout(state.layoutMode); }, [state.layoutMode]);
+  useEffect(() => { sceneRef.current?.setLayout(state.layoutMode); }, [state.layoutMode, ready]);
 
-  useEffect(() => { sceneRef.current?.setUnits(state.units); }, [state.units]);
+  useEffect(() => { sceneRef.current?.setUnits(state.units); }, [state.units, ready]);
 
   return (
     <div ref={ref} className="relative h-full min-h-[320px] w-full" data-testid="viewer">
