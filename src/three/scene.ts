@@ -259,12 +259,12 @@ function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
   const at = (dx: number, dy: number) => new THREE.Vector2(pen.x + dx, pen.y + dy);
   const cubic = (d1x: number, d1y: number, d2x: number, d2y: number, ex: number, ey: number) => {
     const e = at(ex, ey);
-    sampleCubic(pts, pen.clone(), at(d1x, d1y), at(d2x, d2y), e, 16);
+    sampleCubic(pts, pen.clone(), at(d1x, d1y), at(d2x, d2y), e, 32);
     pen.copy(e);
   };
   const arcTo = (dx: number, dy: number) => {
     const e = at(dx, dy);
-    sampleArc(pts, pen.clone(), e, R, inside, 20);
+    sampleArc(pts, pen.clone(), e, R, inside, 40);
     pen.copy(e);
   };
   const lineTo = (x: number, y: number) => { pen.set(x, y); pts.push(pen.clone()); };
