@@ -314,7 +314,12 @@ function placeCorner(plane: THREE.Mesh, x: number, y: number, z: number, ax: num
   plane.position.set(x + (0.5 - ax) * width, y - (0.5 - ay) * height, z);
 }
 
-const labelFrontZ = (item: SceneItem) => item.d / 2 + 1.5; // clear of the face and screen plane (d/2+0.4) to avoid z-fighting
+const labelFrontZ = (item: SceneItem) => item.d / 2 + 1.5; // sit a little off the front face
+// Nothing in the scene writes depth (every material is depthWrite:false), so the translucent draw
+// order is decided by renderOrder then camera distance. Labels get a small renderOrder bias over
+// their device's box/screen/edges so they always draw on top of their own face — otherwise tilting
+// the camera reorders them behind the 55%-opaque box and they appear to fade.
+const LABEL_ORDER_BIAS = 0.5;
 const labelGap = (item: SceneItem) => Math.max(item.w, item.h) * 0.03; // clearance from the box edge
 const labelTextH = (item: SceneItem) => Math.max(item.w, item.h) * 0.05; // world text height
 
@@ -793,6 +798,7 @@ export function createScene(container: HTMLElement): SizeScene {
     placeCorner(nameLabel, 0, -item.h / 2 - labelGap(item), labelFrontZ(item), 0.5, 0);
     const widthLabel = makeDimLabel(item, 'w');
     const heightLabel = makeDimLabel(item, 'h');
+    for (const l of [nameLabel, widthLabel, heightLabel]) l.renderOrder = target.renderOrder + LABEL_ORDER_BIAS;
     mesh.add(nameLabel, widthLabel, heightLabel);
 
     let edges: THREE.LineSegments | null = null;
@@ -899,6 +905,7 @@ export function createScene(container: HTMLElement): SizeScene {
       if (existing.edges) existing.edges.renderOrder = target.renderOrder;
       if (existing.seam) existing.seam.renderOrder = target.renderOrder;
       if (existing.screenMesh) existing.screenMesh.renderOrder = target.renderOrder;
+      for (const l of labelsOf(existing)) l.renderOrder = target.renderOrder + LABEL_ORDER_BIAS;
       existing.item = item;
       if (currentOpacityFactor(existing) < 0.999) tweenFadeTo(existing, 1);
     });
@@ -1120,8 +1127,10 @@ export function createScene(container: HTMLElement): SizeScene {
         disposeLabel(h.heightLabel);
         h.widthLabel = makeDimLabel(h.item, 'w');
         h.heightLabel = makeDimLabel(h.item, 'h');
-        (h.widthLabel.material as THREE.Material).opacity = factor;
-        (h.heightLabel.material as THREE.Material).opacity = factor;
+        for (const l of [h.widthLabel, h.heightLabel]) {
+          (l.material as THREE.Material).opacity = factor;
+          l.renderOrder = h.mesh.renderOrder + LABEL_ORDER_BIAS;
+        }
         h.mesh.add(h.widthLabel, h.heightLabel);
       }
       rebuildGrid();
