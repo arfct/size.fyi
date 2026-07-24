@@ -371,7 +371,7 @@ function buildSeamGeometry(w: number, h: number, radius = 0): THREE.BufferGeomet
 export function buildBananaGeometry(w: number, h: number, d: number): THREE.BufferGeometry {
   const N = 24; // rings along the spine
   const M = 12; // radial segments per ring
-  const arcHalf = 0.96; // half-sweep, radians (~110° total)
+  const arcHalf = 1.3; // half-sweep, radians (~150° total) — enough curl that the fat middle doesn't flatten the concave (top) side
   const R = 1; // arbitrary spine arc radius; shape is rescaled to w×h×d below
   const rMax = 0.5; // arbitrary cross-section scale; rescaled below too
 
