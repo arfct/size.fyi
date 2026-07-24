@@ -273,9 +273,12 @@ function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
   return shape;
 }
 
-// Mixes a colour toward white by `amount` (0 = unchanged, 1 = white).
+// Mixes a colour toward white / black by `amount` (0 = unchanged, 1 = white/black).
 function tintToWhite(hex: string, amount: number): THREE.Color {
   return new THREE.Color(hex).lerp(new THREE.Color(0xffffff), amount);
+}
+function tintToBlack(hex: string, amount: number): THREE.Color {
+  return new THREE.Color(hex).lerp(new THREE.Color(0x000000), amount);
 }
 
 // Face-aligned text label: text rasterized (white) onto a canvas and mapped onto a plane sized in
@@ -545,6 +548,13 @@ export function createScene(container: HTMLElement): SizeScene {
   // jsdom, which lacks matchMedia). Read once at construction — the setting rarely toggles mid-visit.
   const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // Follows the app's theme (Tailwind's default dark: = prefers-color-scheme). The screen face tints
+  // toward white in light mode (paler than the body) and toward black in dark mode (darker than it),
+  // so it always reads as a distinct panel against the background. Live-updated on theme change.
+  const darkQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+  let darkMode = darkQuery?.matches ?? false;
+  const screenColor = (hex: string) => darkMode ? tintToBlack(hex, SCREEN_TINT) : tintToWhite(hex, SCREEN_TINT);
+
   // --- view transition state ---
   interface CameraPose { position: THREE.Vector3; quaternion: THREE.Quaternion; projectionMatrix: THREE.Matrix4 }
   interface ViewEndState extends CameraPose { controlsTarget: THREE.Vector3 }
@@ -669,12 +679,12 @@ export function createScene(container: HTMLElement): SizeScene {
   // mesh is the sole child of `group`; edges/screenMesh/labels all hang off mesh as children (in
   // its local, geometry-centered space) so a single mesh.position/scale tween carries all of them
   // along for free. clearGroup()'s traverse() still finds and disposes every descendant.
-  const MESH_OPACITY = 0.55; // MeshLambertMaterial "solid" items
+  const MESH_OPACITY = 0.65; // MeshLambertMaterial "solid" items
   const WIREFRAME_OPACITY = 1; // banana/wireframe mesh — transparent is turned on unconditionally
   // (rather than only while fading) so an opacity tween works uniformly across mesh kinds; at
   // opacity 1 a transparent material renders identically to an opaque one.
-  const SCREEN_OPACITY = 1; // opaque, so the pale screen reads cleanly against the body
-  const SCREEN_TINT = 0.6; // screen colour mixed 60% toward white → paler than the translucent body
+  const SCREEN_OPACITY = 1; // opaque, so the tinted screen reads cleanly against the body
+  const SCREEN_TINT = 0.6; // how far the screen colour is mixed toward white (light) / black (dark)
 
   interface ItemHandle {
     keyId: string;
@@ -744,7 +754,7 @@ export function createScene(container: HTMLElement): SizeScene {
     const fromSeam = seamMat?.color.clone();
     const screenMat = handle.screenMesh?.material as THREE.MeshBasicMaterial | undefined;
     const fromScreen = screenMat?.color.clone();
-    const toScreen = tintToWhite(toColorHex, SCREEN_TINT); // matches the pale screen face
+    const toScreen = screenColor(toColorHex); // matches the current-theme screen face
     // The name label is white text tinted by its material colour, so it tweens like the mesh/edges.
     const nameMat = handle.nameLabel.material as THREE.MeshBasicMaterial;
     const fromName = nameMat.color.clone();
@@ -871,7 +881,7 @@ export function createScene(container: HTMLElement): SizeScene {
       const screenR = Math.max(item.screen.radius ?? 0, item.radius ? item.radius - inset : 0);
       const screenGeo = new THREE.ShapeGeometry(roundedRectShape(item.screen.w, item.screen.h, screenR));
       const screenMat = new THREE.MeshBasicMaterial({
-        color: tintToWhite(item.color, SCREEN_TINT), // paler than the body so the screen reads lighter
+        color: screenColor(item.color), // paler than the body (light mode) / darker (dark mode)
         transparent: true,
         opacity: 0,
         depthWrite: false,
@@ -1156,6 +1166,16 @@ export function createScene(container: HTMLElement): SizeScene {
   ro.observe(container);
   resize();
 
+  // Re-tint every live screen face when the OS/app theme flips (no rebuild needed — just the colour).
+  function onThemeChange(e: MediaQueryListEvent) {
+    darkMode = e.matches;
+    for (const h of handles.values()) {
+      if (h.screenMesh) (h.screenMesh.material as THREE.MeshBasicMaterial).color.copy(screenColor(h.item.color));
+    }
+    requestRender();
+  }
+  darkQuery?.addEventListener('change', onThemeChange);
+
   return {
     setItems: (items) => { applyDiff(items); },
     setView,
@@ -1178,6 +1198,7 @@ export function createScene(container: HTMLElement): SizeScene {
       activeTweens = [];
       handles.clear();
       ro.disconnect();
+      darkQuery?.removeEventListener('change', onThemeChange);
       controls.removeEventListener('change', requestRender);
       controls.dispose();
       clearGroup();
