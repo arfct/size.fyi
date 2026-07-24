@@ -1,0 +1,25 @@
+{
+  "slug": "galaxy-s26",
+  "name": "Galaxy S26",
+  "make": "Samsung",
+  "model": "Galaxy S26",
+  "rank": 90,
+  "category": "phone",
+  "h": 149.6,
+  "w": 71.7,
+  "d": 7.2,
+  "year": 2026,
+  "aliases": [
+    "s26",
+    "samsung s26",
+    "galaxy s26"
+  ],
+  "source": "gsmarena.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 145.3,
+    "w": 67.1,
+    "radius": 8
+  }
+}

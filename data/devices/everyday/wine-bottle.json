@@ -1,0 +1,11 @@
+{
+  "slug": "wine-bottle",
+  "name": "Wine Bottle",
+  "category": "everyday",
+  "rank": 60,
+  "h": 295,
+  "w": 70,
+  "d": 70,
+  "radius": 35,
+  "radiusAxis": "y"
+}

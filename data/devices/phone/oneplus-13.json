@@ -1,0 +1,25 @@
+{
+  "slug": "oneplus-13",
+  "name": "OnePlus 13",
+  "make": "OnePlus",
+  "model": "OnePlus 13",
+  "rank": 66,
+  "category": "phone",
+  "h": 162.9,
+  "w": 76.5,
+  "d": 8.5,
+  "year": 2024,
+  "aliases": [
+    "oneplus 13",
+    "op13",
+    "oneplus13"
+  ],
+  "source": "oneplus.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 157.7,
+    "w": 71.7,
+    "radius": 8
+  }
+}

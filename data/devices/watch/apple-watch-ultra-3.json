@@ -1,0 +1,26 @@
+{
+  "slug": "apple-watch-ultra-3",
+  "name": "Apple Watch Ultra 3",
+  "make": "Apple",
+  "model": "Apple Watch Ultra 3",
+  "rank": 93,
+  "category": "watch",
+  "h": 49,
+  "w": 44,
+  "d": 12,
+  "year": 2025,
+  "aliases": [
+    "apple watch ultra",
+    "ultra 3",
+    "apple watch ultra 3"
+  ],
+  "source": "apple.com",
+  "url": "https://www.apple.com/apple-watch-ultra-3/",
+  "radius": 9,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 42,
+    "w": 36,
+    "radius": 8
+  }
+}

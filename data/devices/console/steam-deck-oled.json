@@ -1,0 +1,22 @@
+{
+  "slug": "steam-deck-oled",
+  "name": "Steam Deck OLED",
+  "make": "Valve",
+  "model": "Steam Deck OLED",
+  "rank": 81,
+  "category": "console",
+  "h": 117,
+  "w": 298,
+  "d": 49,
+  "year": 2023,
+  "aliases": [
+    "steam deck",
+    "steamdeck"
+  ],
+  "source": "steamdeck.com",
+  "screen": {
+    "h": 99.6,
+    "w": 159.4,
+    "radius": 4
+  }
+}

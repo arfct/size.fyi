@@ -1,0 +1,25 @@
+{
+  "slug": "boox-palma-2",
+  "name": "Boox Palma 2",
+  "make": "Boox",
+  "model": "Palma 2",
+  "rank": 72,
+  "category": "tablet",
+  "h": 159,
+  "w": 80,
+  "d": 8,
+  "year": 2024,
+  "aliases": [
+    "boox palma",
+    "palma",
+    "onyx boox palma"
+  ],
+  "source": "onyxboox.com",
+  "radius": 8,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 130,
+    "w": 66,
+    "radius": 4
+  }
+}

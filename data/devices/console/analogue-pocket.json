@@ -1,0 +1,24 @@
+{
+  "slug": "analogue-pocket",
+  "name": "Analogue Pocket",
+  "make": "Analogue",
+  "model": "Pocket",
+  "rank": 64,
+  "category": "console",
+  "h": 149,
+  "w": 88,
+  "d": 22,
+  "year": 2021,
+  "aliases": [
+    "analogue pocket",
+    "pocket"
+  ],
+  "source": "analogue.co",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 66.1,
+    "w": 59.5,
+    "radius": 2
+  }
+}

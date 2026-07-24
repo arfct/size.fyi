@@ -1,0 +1,25 @@
+{
+  "slug": "pixel-watch-4-45",
+  "name": "Pixel Watch 4 (45mm)",
+  "make": "Google",
+  "model": "Pixel Watch 4 (45mm)",
+  "rank": 82,
+  "category": "watch",
+  "h": 45,
+  "w": 45,
+  "d": 12.3,
+  "year": 2025,
+  "aliases": [
+    "pixel watch 4",
+    "pixel watch",
+    "pixel watch 4 45"
+  ],
+  "source": "store.google.com",
+  "radius": 22,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 38,
+    "w": 38,
+    "radius": 19
+  }
+}

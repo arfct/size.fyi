@@ -1,0 +1,23 @@
+{
+  "slug": "legion-go-2",
+  "name": "Lenovo Legion Go 2",
+  "make": "Lenovo",
+  "model": "Legion Go 2",
+  "rank": 80,
+  "category": "console",
+  "h": 136.7,
+  "w": 295.6,
+  "d": 42.45,
+  "year": 2025,
+  "aliases": [
+    "legion go 2",
+    "legion go gen 2",
+    "lenovo legion go 2"
+  ],
+  "source": "lenovo.com",
+  "screen": {
+    "h": 118.4,
+    "w": 189.5,
+    "radius": 4
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "slug": "galaxy-z-flip8",
+  "name": "Galaxy Z Flip8",
+  "make": "Samsung",
+  "model": "Galaxy Z Flip8",
+  "rank": 89,
+  "category": "phone",
+  "year": 2026,
+  "source": "gsmarena.com",
+  "defaultState": "closed",
+  "aliases": [
+    "z flip 8",
+    "flip 8",
+    "galaxy flip 8",
+    "flip 8 closed",
+    "flip 8 folded",
+    "flip 8 open",
+    "flip 8 unfolded"
+  ],
+  "states": [
+    {
+      "label": "closed",
+      "h": 85.7,
+      "w": 75.4,
+      "d": 13.1,
+      "radius": 11,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 77.2,
+        "w": 69.8,
+        "radius": 8
+      },
+      "seam": true
+    },
+    {
+      "label": "open",
+      "h": 166.9,
+      "w": 75.4,
+      "d": 6.1,
+      "radius": 11,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 161.1,
+        "w": 69.1,
+        "radius": 8
+      }
+    }
+  ]
+}

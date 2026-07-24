@@ -1,0 +1,25 @@
+{
+  "slug": "pebble-original",
+  "name": "Pebble (original)",
+  "make": "Pebble",
+  "model": "Pebble (original)",
+  "rank": 52,
+  "category": "watch",
+  "h": 52,
+  "w": 36,
+  "d": 11.5,
+  "year": 2013,
+  "aliases": [
+    "pebble",
+    "pebble classic",
+    "original pebble"
+  ],
+  "source": "getpebble.com",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 26,
+    "w": 24,
+    "radius": 2
+  }
+}

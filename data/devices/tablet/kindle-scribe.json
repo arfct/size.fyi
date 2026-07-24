@@ -1,0 +1,24 @@
+{
+  "slug": "kindle-scribe",
+  "name": "Kindle Scribe (2024)",
+  "make": "Amazon",
+  "model": "Kindle Scribe (2024)",
+  "rank": 78,
+  "category": "tablet",
+  "h": 230,
+  "w": 196,
+  "d": 5.8,
+  "year": 2024,
+  "aliases": [
+    "kindle scribe",
+    "scribe"
+  ],
+  "source": "amazon.com",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 212,
+    "w": 158,
+    "radius": 2
+  }
+}

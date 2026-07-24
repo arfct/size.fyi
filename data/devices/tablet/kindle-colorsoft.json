@@ -1,0 +1,24 @@
+{
+  "slug": "kindle-colorsoft",
+  "name": "Kindle Colorsoft",
+  "make": "Amazon",
+  "model": "Kindle Colorsoft",
+  "rank": 74,
+  "category": "tablet",
+  "h": 176.7,
+  "w": 127.6,
+  "d": 7.8,
+  "year": 2024,
+  "aliases": [
+    "kindle colorsoft",
+    "colorsoft"
+  ],
+  "source": "amazon.com",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 140,
+    "w": 105,
+    "radius": 2
+  }
+}

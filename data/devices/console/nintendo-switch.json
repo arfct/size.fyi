@@ -1,0 +1,23 @@
+{
+  "slug": "nintendo-switch",
+  "name": "Nintendo Switch",
+  "make": "Nintendo",
+  "model": "Nintendo Switch",
+  "rank": 70,
+  "category": "console",
+  "h": 102,
+  "w": 239,
+  "d": 13.9,
+  "year": 2017,
+  "aliases": [
+    "switch",
+    "nsw",
+    "og switch"
+  ],
+  "source": "nintendo.com",
+  "screen": {
+    "h": 77.2,
+    "w": 137.3,
+    "radius": 4
+  }
+}

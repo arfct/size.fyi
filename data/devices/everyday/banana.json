@@ -1,0 +1,13 @@
+{
+  "slug": "banana",
+  "name": "Banana for scale",
+  "category": "everyday",
+  "rank": 99,
+  "h": 80,
+  "w": 190,
+  "d": 35,
+  "aliases": [
+    "banana"
+  ],
+  "mesh": "banana"
+}

@@ -1,0 +1,13 @@
+{
+  "slug": "19in-monitor",
+  "name": "19″ TFT Monitor",
+  "category": "everyday",
+  "rank": 40,
+  "h": 360,
+  "w": 425,
+  "d": 50,
+  "screen": {
+    "h": 301.5,
+    "w": 376.8
+  }
+}

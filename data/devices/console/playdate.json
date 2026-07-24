@@ -1,0 +1,24 @@
+{
+  "slug": "playdate",
+  "name": "Playdate",
+  "make": "Panic",
+  "model": "Playdate",
+  "rank": 62,
+  "category": "console",
+  "h": 76,
+  "w": 74,
+  "d": 9,
+  "year": 2022,
+  "aliases": [
+    "playdate",
+    "panic playdate"
+  ],
+  "source": "play.date",
+  "radius": 8,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 35.3,
+    "w": 58.8,
+    "radius": 2
+  }
+}

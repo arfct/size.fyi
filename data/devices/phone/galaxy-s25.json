@@ -1,0 +1,24 @@
+{
+  "slug": "galaxy-s25",
+  "name": "Galaxy S25",
+  "make": "Samsung",
+  "model": "Galaxy S25",
+  "rank": 84,
+  "category": "phone",
+  "h": 146.9,
+  "w": 70.5,
+  "d": 7.2,
+  "year": 2025,
+  "aliases": [
+    "s25",
+    "samsung s25"
+  ],
+  "source": "samsung.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 141.9,
+    "w": 65.5,
+    "radius": 8
+  }
+}

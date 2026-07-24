@@ -1,0 +1,24 @@
+{
+  "slug": "rog-xbox-ally-x",
+  "name": "ROG Xbox Ally X",
+  "make": "ASUS",
+  "model": "ROG Xbox Ally X (2025)",
+  "rank": 83,
+  "category": "console",
+  "h": 121.5,
+  "w": 290.8,
+  "d": 50.7,
+  "year": 2025,
+  "aliases": [
+    "rog xbox ally x",
+    "xbox ally x",
+    "rog ally x",
+    "ally x"
+  ],
+  "source": "asus.com",
+  "screen": {
+    "h": 87.2,
+    "w": 155,
+    "radius": 4
+  }
+}

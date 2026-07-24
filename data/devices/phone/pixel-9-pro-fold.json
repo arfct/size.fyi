@@ -1,0 +1,47 @@
+{
+  "slug": "pixel-9-pro-fold",
+  "name": "Pixel 9 Pro Fold",
+  "make": "Google",
+  "model": "Pixel 9 Pro Fold",
+  "rank": 68,
+  "category": "phone",
+  "year": 2024,
+  "source": "store.google.com",
+  "defaultState": "closed",
+  "aliases": [
+    "pixel 9 pro fold",
+    "9 pro fold",
+    "pixel fold 2",
+    "pixel 9 pro fold open",
+    "pixel 9 fold"
+  ],
+  "states": [
+    {
+      "label": "closed",
+      "h": 155.2,
+      "w": 77.1,
+      "d": 10.5,
+      "radius": 11,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 146.1,
+        "w": 65.1,
+        "radius": 8
+      },
+      "seam": true
+    },
+    {
+      "label": "open",
+      "h": 155.2,
+      "w": 150.2,
+      "d": 5.1,
+      "radius": 9,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 146.3,
+        "w": 141.1,
+        "radius": 8
+      }
+    }
+  ]
+}

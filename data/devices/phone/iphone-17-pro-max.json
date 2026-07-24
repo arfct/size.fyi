@@ -1,0 +1,24 @@
+{
+  "slug": "iphone-17-pro-max",
+  "name": "iPhone 17 Pro Max",
+  "make": "Apple",
+  "model": "iPhone 17 Pro Max",
+  "rank": 89,
+  "category": "phone",
+  "h": 163.4,
+  "w": 78,
+  "d": 8.75,
+  "year": 2025,
+  "aliases": [
+    "17 pro max",
+    "iphone 17 pro max"
+  ],
+  "source": "apple.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 158.5,
+    "w": 73,
+    "radius": 8
+  }
+}

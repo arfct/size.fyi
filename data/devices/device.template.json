@@ -1,0 +1,17 @@
+{
+  "slug": "example-phone-1",
+  "name": "Example Phone 1",
+  "category": "phone",
+  "make": "Acme",
+  "year": 2026,
+  "rank": 50,
+  "h": 150,
+  "w": 72,
+  "d": 8,
+  "radius": 12,
+  "radiusAxis": "z",
+  "screen": { "h": 145, "w": 68, "radius": 12 },
+  "aliases": ["example phone", "acme 1"],
+  "source": "https://example.com/spec-page",
+  "url": "https://example.com/product"
+}

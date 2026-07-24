@@ -1,0 +1,13 @@
+{
+  "slug": "32in-tv",
+  "name": "32″ Widescreen TV",
+  "category": "everyday",
+  "rank": 42,
+  "h": 550,
+  "w": 790,
+  "d": 90,
+  "screen": {
+    "h": 398.5,
+    "w": 708.4
+  }
+}

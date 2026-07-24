@@ -1,0 +1,18 @@
+{
+  "slug": "macbook-air-13-m5",
+  "name": "MacBook Air 13″ (M5)",
+  "make": "Apple",
+  "model": "MacBook Air 13″ (M5)",
+  "rank": 97,
+  "category": "laptop",
+  "h": 215,
+  "w": 304.1,
+  "d": 11.3,
+  "year": 2025,
+  "aliases": [
+    "macbook air",
+    "m5 air",
+    "air 13"
+  ],
+  "source": "apple.com"
+}

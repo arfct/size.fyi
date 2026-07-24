@@ -1,0 +1,11 @@
+{
+  "slug": "drinks-can",
+  "name": "Drinks Can",
+  "category": "everyday",
+  "rank": 80,
+  "h": 115,
+  "w": 65,
+  "d": 65,
+  "radius": 32.5,
+  "radiusAxis": "y"
+}

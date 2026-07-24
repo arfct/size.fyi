@@ -1,0 +1,24 @@
+{
+  "slug": "xteink-x4",
+  "name": "Xteink X4",
+  "make": "Xteink",
+  "model": "X4",
+  "rank": 60,
+  "category": "tablet",
+  "h": 114,
+  "w": 69,
+  "d": 5.9,
+  "year": 2026,
+  "aliases": [
+    "xteink x4",
+    "x4"
+  ],
+  "source": "xteink.com",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 82,
+    "w": 57,
+    "radius": 2
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "slug": "steam-machine",
+  "name": "Steam Machine (2026)",
+  "make": "Valve",
+  "model": "Steam Machine",
+  "rank": 85,
+  "category": "console",
+  "h": 162.4,
+  "w": 156,
+  "d": 152,
+  "year": 2026,
+  "aliases": [
+    "steam machine",
+    "valve steam machine"
+  ],
+  "source": "valvesoftware.com"
+}

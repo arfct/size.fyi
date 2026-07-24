@@ -1,0 +1,17 @@
+{
+  "slug": "ps5-slim",
+  "name": "PlayStation 5 Slim",
+  "make": "Sony",
+  "model": "PlayStation 5 Slim",
+  "rank": 98,
+  "category": "console",
+  "h": 358,
+  "w": 96,
+  "d": 216,
+  "year": 2023,
+  "aliases": [
+    "ps5 slim",
+    "playstation 5 slim"
+  ],
+  "source": "playstation.com"
+}

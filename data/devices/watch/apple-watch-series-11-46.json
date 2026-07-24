@@ -1,0 +1,27 @@
+{
+  "slug": "apple-watch-series-11-46",
+  "name": "Apple Watch Series 11 (46mm)",
+  "make": "Apple",
+  "model": "Apple Watch Series 11 (46mm)",
+  "rank": 92,
+  "category": "watch",
+  "h": 46,
+  "w": 39,
+  "d": 9.7,
+  "year": 2025,
+  "aliases": [
+    "apple watch",
+    "apple watch 46",
+    "series 11",
+    "watch series 11"
+  ],
+  "source": "apple.com",
+  "url": "https://www.apple.com/apple-watch-series-11/",
+  "radius": 9,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 38,
+    "w": 32,
+    "radius": 8
+  }
+}

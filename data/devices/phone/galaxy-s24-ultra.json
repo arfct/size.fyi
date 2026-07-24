@@ -1,0 +1,24 @@
+{
+  "slug": "galaxy-s24-ultra",
+  "name": "Galaxy S24 Ultra",
+  "make": "Samsung",
+  "model": "Galaxy S24 Ultra",
+  "rank": 55,
+  "category": "phone",
+  "h": 162.3,
+  "w": 79,
+  "d": 8.6,
+  "year": 2024,
+  "aliases": [
+    "s24 ultra",
+    "s24u"
+  ],
+  "source": "samsung.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 156.8,
+    "w": 72.4,
+    "radius": 8
+  }
+}

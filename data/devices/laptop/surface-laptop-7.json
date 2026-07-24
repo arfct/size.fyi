@@ -1,0 +1,18 @@
+{
+  "slug": "surface-laptop-7",
+  "name": "Surface Laptop 7 (13.8″)",
+  "make": "Microsoft",
+  "model": "Surface Laptop 7 (13.8″)",
+  "rank": 58,
+  "category": "laptop",
+  "h": 220,
+  "w": 301,
+  "d": 17.5,
+  "year": 2024,
+  "aliases": [
+    "surface laptop 7",
+    "surface laptop",
+    "surface laptop 13.8"
+  ],
+  "source": "microsoft.com"
+}

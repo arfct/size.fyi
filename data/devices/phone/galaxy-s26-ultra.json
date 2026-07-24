@@ -1,0 +1,25 @@
+{
+  "slug": "galaxy-s26-ultra",
+  "name": "Galaxy S26 Ultra",
+  "make": "Samsung",
+  "model": "Galaxy S26 Ultra",
+  "rank": 95,
+  "category": "phone",
+  "h": 163.6,
+  "w": 78.1,
+  "d": 7.9,
+  "year": 2026,
+  "aliases": [
+    "s26 ultra",
+    "s26u",
+    "galaxy s26 ultra"
+  ],
+  "source": "gsmarena.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 159.2,
+    "w": 73.5,
+    "radius": 8
+  }
+}

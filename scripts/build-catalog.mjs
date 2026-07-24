@@ -53,17 +53,39 @@ function validateGeometry(g, id) {
   }
 }
 
-for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).sort()) {
-  const list = JSON.parse(await readFile(path.join(DATA_DIR, file), 'utf8'));
-  if (!Array.isArray(list)) { errors.push(`${file}: not an array`); continue; }
-  for (const d of list) {
-    const id = `${file}:${d.slug ?? '?'}`;
+// One device per file under data/devices/<category>/<slug>.json, so PRs adding a device never
+// conflict and each diff is a single self-contained file. Legacy arrays are still accepted so a
+// file may hold several devices if ever needed.
+async function jsonFiles(dir) {
+  const out = [];
+  for (const e of await readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...await jsonFiles(full));
+    else if (e.name.endsWith('.json') && !e.name.endsWith('.template.json')) out.push(full);
+  }
+  return out.sort();
+}
+
+for (const file of await jsonFiles(DATA_DIR)) {
+  const rel = path.relative(DATA_DIR, file);
+  const dirCategory = path.dirname(rel).split(path.sep)[0]; // data/devices/<category>/...
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(file, 'utf8'));
+  } catch (e) {
+    errors.push(`${rel}: invalid JSON — ${e.message}`);
+    continue;
+  }
+  for (const d of Array.isArray(parsed) ? parsed : [parsed]) {
+    const id = `${rel}:${d.slug ?? '?'}`;
     if (typeof d.slug !== 'string' || !SLUG_RE.test(d.slug)) errors.push(`${id}: bad slug`);
     if (d.slug?.includes('-vs-') || d.slug?.includes('~')) errors.push(`${id}: slug collides with URL grammar`);
     if (seen.has(d.slug)) errors.push(`${id}: duplicate slug`);
     seen.add(d.slug);
     if (typeof d.name !== 'string' || !d.name.trim()) errors.push(`${id}: missing name`);
     if (!CATEGORIES.includes(d.category)) errors.push(`${id}: bad category ${d.category}`);
+    else if (dirCategory !== '.' && dirCategory !== d.category)
+      errors.push(`${id}: file is under ${dirCategory}/ but category is "${d.category}" — move it to data/devices/${d.category}/`);
 
     // Multi-state devices: validate each state and mirror the default state's geometry to the top
     // level so single-state consumers (and the geometry check below) keep working unchanged.
@@ -120,7 +142,8 @@ for (const file of (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json')).
 }
 
 if (errors.length) {
-  console.error(`Catalog validation failed:\n  ${errors.join('\n  ')}`);
+  console.error(`Catalog validation failed (${errors.length} error${errors.length > 1 ? 's' : ''}):\n  ${errors.join('\n  ')}`);
+  console.error('\nSee CONTRIBUTING.md for the device schema, or copy data/devices/device.template.json.');
   process.exit(1);
 }
 devices.sort((a, b) => a.slug.localeCompare(b.slug));

@@ -1,0 +1,24 @@
+{
+  "slug": "pixel-9",
+  "name": "Pixel 9",
+  "make": "Google",
+  "model": "Pixel 9",
+  "rank": 48,
+  "category": "phone",
+  "h": 152.8,
+  "w": 72,
+  "d": 8.5,
+  "year": 2024,
+  "aliases": [
+    "pixel9",
+    "google pixel 9"
+  ],
+  "source": "google.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 146.2,
+    "w": 65.1,
+    "radius": 8
+  }
+}

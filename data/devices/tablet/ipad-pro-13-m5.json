@@ -1,0 +1,25 @@
+{
+  "slug": "ipad-pro-13-m5",
+  "name": "iPad Pro 13″ (M5)",
+  "make": "Apple",
+  "model": "iPad Pro 13″ (M5)",
+  "rank": 98,
+  "category": "tablet",
+  "h": 261.6,
+  "w": 215.5,
+  "d": 5.1,
+  "year": 2025,
+  "aliases": [
+    "ipad pro 13",
+    "ipad pro m5",
+    "ipad pro 13 m5"
+  ],
+  "source": "apple.com",
+  "radius": 9,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 253,
+    "w": 206.5,
+    "radius": 5
+  }
+}

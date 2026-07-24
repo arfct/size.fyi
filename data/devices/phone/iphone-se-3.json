@@ -1,0 +1,26 @@
+{
+  "slug": "iphone-se-3",
+  "name": "iPhone SE (3rd gen)",
+  "make": "Apple",
+  "model": "iPhone SE (3rd gen)",
+  "rank": 50,
+  "category": "phone",
+  "h": 138.4,
+  "w": 67.3,
+  "d": 7.3,
+  "year": 2022,
+  "aliases": [
+    "iphone se",
+    "se 2022",
+    "iphone se 2022",
+    "se 3"
+  ],
+  "source": "apple.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 104.1,
+    "w": 58.5,
+    "radius": 8
+  }
+}

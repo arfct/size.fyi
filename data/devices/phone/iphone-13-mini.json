@@ -1,0 +1,26 @@
+{
+  "slug": "iphone-13-mini",
+  "name": "iPhone 13 mini",
+  "make": "Apple",
+  "model": "iPhone 13 mini",
+  "rank": 55,
+  "category": "phone",
+  "h": 131.5,
+  "w": 64.2,
+  "d": 7.65,
+  "year": 2021,
+  "aliases": [
+    "iphone 13 mini",
+    "13 mini",
+    "iphone mini"
+  ],
+  "source": "apple.com",
+  "url": "https://support.apple.com/en-us/111873",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 126,
+    "w": 59,
+    "radius": 8
+  }
+}

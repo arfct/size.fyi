@@ -1,0 +1,24 @@
+{
+  "slug": "galaxy-s25-edge",
+  "name": "Galaxy S25 Edge",
+  "make": "Samsung",
+  "model": "Galaxy S25 Edge",
+  "rank": 78,
+  "category": "phone",
+  "h": 158.2,
+  "w": 75.6,
+  "d": 5.8,
+  "year": 2025,
+  "aliases": [
+    "galaxy s25 edge",
+    "s25 edge"
+  ],
+  "source": "samsung.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 154.5,
+    "w": 71.3,
+    "radius": 8
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "slug": "pixel-10-pro-fold",
+  "name": "Pixel 10 Pro Fold",
+  "make": "Google",
+  "model": "Pixel 10 Pro Fold",
+  "rank": 72,
+  "category": "phone",
+  "year": 2025,
+  "source": "store.google.com",
+  "defaultState": "closed",
+  "aliases": [
+    "pixel 10 pro fold",
+    "pixel fold",
+    "pixel 10 fold",
+    "10 pro fold",
+    "pixel 10 pro fold open",
+    "pixel fold open"
+  ],
+  "states": [
+    {
+      "label": "closed",
+      "h": 155.2,
+      "w": 76.3,
+      "d": 10.8,
+      "radius": 11,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 147.9,
+        "w": 67.6,
+        "radius": 8
+      },
+      "seam": true
+    },
+    {
+      "label": "open",
+      "h": 155.2,
+      "w": 150.4,
+      "d": 5.2,
+      "radius": 9,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 146.3,
+        "w": 141.1,
+        "radius": 8
+      }
+    }
+  ]
+}

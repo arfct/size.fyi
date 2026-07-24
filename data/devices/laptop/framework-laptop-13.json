@@ -1,0 +1,18 @@
+{
+  "slug": "framework-laptop-13",
+  "name": "Framework Laptop 13",
+  "make": "Framework",
+  "model": "Laptop 13",
+  "rank": 60,
+  "category": "laptop",
+  "h": 229,
+  "w": 296.6,
+  "d": 15.85,
+  "year": 2025,
+  "aliases": [
+    "framework 13",
+    "framework laptop",
+    "framework laptop 13"
+  ],
+  "source": "frame.work"
+}

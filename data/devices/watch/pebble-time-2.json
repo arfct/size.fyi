@@ -1,0 +1,28 @@
+{
+  "slug": "pebble-time-2",
+  "name": "Pebble Time 2",
+  "make": "Pebble",
+  "model": "Pebble Time 2",
+  "rank": 78,
+  "category": "watch",
+  "h": 43,
+  "w": 36,
+  "d": 10.9,
+  "year": 2025,
+  "aliases": [
+    "pebble time 2",
+    "core time 2"
+  ],
+  "source": "repebble.com",
+  "url": "https://repebble.com/watch",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 30,
+    "w": 30,
+    "radius": 3
+  },
+  "model3d": {
+    "url": "pebble-time-2.glb"
+  }
+}

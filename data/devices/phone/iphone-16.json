@@ -1,0 +1,24 @@
+{
+  "slug": "iphone-16",
+  "name": "iPhone 16",
+  "make": "Apple",
+  "model": "iPhone 16",
+  "rank": 58,
+  "category": "phone",
+  "h": 147.6,
+  "w": 71.6,
+  "d": 7.8,
+  "year": 2024,
+  "aliases": [
+    "iphone 16",
+    "16"
+  ],
+  "source": "apple.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 141.2,
+    "w": 65.1,
+    "radius": 8
+  }
+}

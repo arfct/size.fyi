@@ -1,0 +1,17 @@
+{
+  "slug": "xbox-series-x",
+  "name": "Xbox Series X",
+  "make": "Microsoft",
+  "model": "Xbox Series X",
+  "rank": 82,
+  "category": "console",
+  "h": 301,
+  "w": 151,
+  "d": 151,
+  "year": 2020,
+  "aliases": [
+    "series x",
+    "xsx"
+  ],
+  "source": "xbox.com"
+}

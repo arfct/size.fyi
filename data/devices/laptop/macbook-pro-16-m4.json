@@ -1,0 +1,18 @@
+{
+  "slug": "macbook-pro-16-m4",
+  "name": "MacBook Pro 16″ (M4)",
+  "make": "Apple",
+  "model": "MacBook Pro 16″ (M4)",
+  "rank": 86,
+  "category": "laptop",
+  "h": 248.1,
+  "w": 355.7,
+  "d": 16.8,
+  "year": 2024,
+  "aliases": [
+    "macbook pro 16",
+    "16 inch macbook pro",
+    "m4 max"
+  ],
+  "source": "apple.com"
+}

@@ -1,0 +1,20 @@
+{
+  "slug": "mac-studio",
+  "name": "Mac Studio",
+  "make": "Apple",
+  "model": "Mac Studio",
+  "rank": 85,
+  "category": "pc-case",
+  "h": 95,
+  "w": 197,
+  "d": 197,
+  "year": 2025,
+  "aliases": [
+    "mac studio",
+    "macstudio",
+    "studio"
+  ],
+  "source": "apple.com",
+  "radius": 6,
+  "radiusAxis": "y"
+}

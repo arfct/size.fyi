@@ -1,0 +1,17 @@
+{
+  "slug": "macbook-air-13-m3",
+  "name": "MacBook Air 13″ (M3)",
+  "make": "Apple",
+  "model": "MacBook Air 13″ (M3)",
+  "rank": 50,
+  "category": "laptop",
+  "h": 215,
+  "w": 304.1,
+  "d": 11.3,
+  "year": 2024,
+  "aliases": [
+    "macbook air m3",
+    "m3 air"
+  ],
+  "source": "apple.com"
+}

@@ -1,0 +1,24 @@
+{
+  "slug": "iphone-17",
+  "name": "iPhone 17",
+  "make": "Apple",
+  "model": "iPhone 17",
+  "rank": 86,
+  "category": "phone",
+  "h": 149.6,
+  "w": 71.5,
+  "d": 7.95,
+  "year": 2025,
+  "aliases": [
+    "iphone 17",
+    "17"
+  ],
+  "source": "apple.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 144.7,
+    "w": 66.5,
+    "radius": 8
+  }
+}

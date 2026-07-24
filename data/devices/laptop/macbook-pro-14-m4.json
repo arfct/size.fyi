@@ -1,0 +1,18 @@
+{
+  "slug": "macbook-pro-14-m4",
+  "name": "MacBook Pro 14″ (M4)",
+  "make": "Apple",
+  "model": "MacBook Pro 14″ (M4)",
+  "rank": 88,
+  "category": "laptop",
+  "h": 221.2,
+  "w": 312.6,
+  "d": 15.5,
+  "year": 2024,
+  "aliases": [
+    "macbook pro",
+    "m4 pro",
+    "14 inch macbook pro"
+  ],
+  "source": "apple.com"
+}

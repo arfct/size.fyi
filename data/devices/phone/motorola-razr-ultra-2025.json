@@ -1,0 +1,48 @@
+{
+  "slug": "motorola-razr-ultra-2025",
+  "name": "Motorola Razr Ultra (2025)",
+  "make": "Motorola",
+  "model": "Razr Ultra (2025)",
+  "rank": 74,
+  "category": "phone",
+  "year": 2025,
+  "source": "motorola.com",
+  "defaultState": "closed",
+  "aliases": [
+    "motorola razr ultra",
+    "razr ultra",
+    "razr 60 ultra",
+    "razr ultra 2025",
+    "razr ultra open",
+    "razr flip"
+  ],
+  "states": [
+    {
+      "label": "closed",
+      "h": 88.1,
+      "w": 74,
+      "d": 15.7,
+      "radius": 18,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 77.5,
+        "w": 65.8,
+        "radius": 8
+      },
+      "seam": true
+    },
+    {
+      "label": "open",
+      "h": 171.5,
+      "w": 74,
+      "d": 7.2,
+      "radius": 11,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 163.6,
+        "w": 68.8,
+        "radius": 8
+      }
+    }
+  ]
+}

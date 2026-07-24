@@ -1,0 +1,24 @@
+{
+  "slug": "ipad-mini-a17-pro",
+  "name": "iPad mini (A17 Pro)",
+  "make": "Apple",
+  "model": "iPad mini (A17 Pro)",
+  "rank": 86,
+  "category": "tablet",
+  "h": 195.4,
+  "w": 134.8,
+  "d": 6.3,
+  "year": 2024,
+  "aliases": [
+    "ipad mini",
+    "ipad mini 7"
+  ],
+  "source": "apple.com",
+  "radius": 9,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 176.2,
+    "w": 115.7,
+    "radius": 4
+  }
+}

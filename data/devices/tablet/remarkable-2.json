@@ -1,0 +1,25 @@
+{
+  "slug": "remarkable-2",
+  "name": "reMarkable 2",
+  "make": "reMarkable",
+  "model": "reMarkable 2",
+  "rank": 76,
+  "category": "tablet",
+  "h": 246,
+  "w": 187,
+  "d": 4.7,
+  "year": 2020,
+  "aliases": [
+    "remarkable",
+    "remarkable 2",
+    "rm2"
+  ],
+  "source": "remarkable.com",
+  "radius": 4,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 210,
+    "w": 157,
+    "radius": 2
+  }
+}

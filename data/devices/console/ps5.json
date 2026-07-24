@@ -1,0 +1,18 @@
+{
+  "slug": "ps5",
+  "name": "PlayStation 5",
+  "make": "Sony",
+  "model": "PlayStation 5",
+  "rank": 79,
+  "category": "console",
+  "h": 390,
+  "w": 104,
+  "d": 260,
+  "year": 2020,
+  "aliases": [
+    "ps5",
+    "playstation 5",
+    "ps5 disc"
+  ],
+  "source": "playstation.com"
+}

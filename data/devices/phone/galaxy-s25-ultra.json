@@ -1,0 +1,24 @@
+{
+  "slug": "galaxy-s25-ultra",
+  "name": "Galaxy S25 Ultra",
+  "make": "Samsung",
+  "model": "Galaxy S25 Ultra",
+  "rank": 88,
+  "category": "phone",
+  "h": 162.8,
+  "w": 77.6,
+  "d": 8.2,
+  "year": 2025,
+  "aliases": [
+    "s25 ultra",
+    "s25u"
+  ],
+  "source": "samsung.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 157.8,
+    "w": 72.6,
+    "radius": 8
+  }
+}

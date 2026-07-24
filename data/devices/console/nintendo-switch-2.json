@@ -1,0 +1,22 @@
+{
+  "slug": "nintendo-switch-2",
+  "name": "Nintendo Switch 2",
+  "make": "Nintendo",
+  "model": "Nintendo Switch 2",
+  "rank": 90,
+  "category": "console",
+  "h": 116,
+  "w": 272,
+  "d": 13.9,
+  "year": 2025,
+  "aliases": [
+    "switch 2",
+    "nsw2"
+  ],
+  "source": "nintendo.com",
+  "screen": {
+    "h": 98.4,
+    "w": 174.9,
+    "radius": 4
+  }
+}

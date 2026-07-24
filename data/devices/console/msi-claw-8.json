@@ -1,0 +1,23 @@
+{
+  "slug": "msi-claw-8",
+  "name": "MSI Claw 8 AI+",
+  "make": "MSI",
+  "model": "Claw 8 AI+",
+  "rank": 78,
+  "category": "console",
+  "h": 126,
+  "w": 299,
+  "d": 24,
+  "year": 2025,
+  "aliases": [
+    "msi claw 8",
+    "claw 8 ai",
+    "msi claw 8 ai+"
+  ],
+  "source": "msi.com",
+  "screen": {
+    "h": 107.7,
+    "w": 172.3,
+    "radius": 4
+  }
+}

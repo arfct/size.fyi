@@ -1,0 +1,17 @@
+{
+  "slug": "airpods-max",
+  "name": "AirPods Max (USB-C)",
+  "make": "Apple",
+  "model": "AirPods Max (USB-C)",
+  "rank": 72,
+  "category": "audio",
+  "h": 187.3,
+  "w": 168.6,
+  "d": 83.4,
+  "year": 2024,
+  "aliases": [
+    "airpods max",
+    "airpods max usb-c"
+  ],
+  "source": "apple.com"
+}

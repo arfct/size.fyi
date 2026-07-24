@@ -1,0 +1,17 @@
+{
+  "slug": "xbox-series-s",
+  "name": "Xbox Series S",
+  "make": "Microsoft",
+  "model": "Xbox Series S",
+  "rank": 75,
+  "category": "console",
+  "h": 275,
+  "w": 151,
+  "d": 65,
+  "year": 2020,
+  "aliases": [
+    "series s",
+    "xss"
+  ],
+  "source": "xbox.com"
+}

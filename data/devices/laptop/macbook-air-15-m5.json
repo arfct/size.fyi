@@ -1,0 +1,17 @@
+{
+  "slug": "macbook-air-15-m5",
+  "name": "MacBook Air 15″ (M5)",
+  "make": "Apple",
+  "model": "MacBook Air 15″ (M5)",
+  "rank": 80,
+  "category": "laptop",
+  "h": 237.6,
+  "w": 340.4,
+  "d": 11.5,
+  "year": 2025,
+  "aliases": [
+    "macbook air 15",
+    "15 inch air"
+  ],
+  "source": "apple.com"
+}

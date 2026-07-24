@@ -1,0 +1,50 @@
+{
+  "slug": "galaxy-z-fold8",
+  "name": "Galaxy Z Fold8",
+  "make": "Samsung",
+  "model": "Galaxy Z Fold8",
+  "rank": 90,
+  "category": "phone",
+  "year": 2026,
+  "source": "gsmarena.com",
+  "defaultState": "closed",
+  "aliases": [
+    "z fold 8",
+    "fold 8",
+    "galaxy fold 8",
+    "z fold8 folded",
+    "fold 8 closed",
+    "fold 8 open",
+    "z fold8 unfolded",
+    "fold 8 unfolded"
+  ],
+  "states": [
+    {
+      "label": "closed",
+      "h": 123.9,
+      "w": 81.9,
+      "d": 9.7,
+      "radius": 11,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 118.1,
+        "w": 74.7,
+        "radius": 8
+      },
+      "seam": true
+    },
+    {
+      "label": "open",
+      "h": 123.9,
+      "w": 161.4,
+      "d": 4.5,
+      "radius": 9,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 115.5,
+        "w": 154.7,
+        "radius": 8
+      }
+    }
+  ]
+}

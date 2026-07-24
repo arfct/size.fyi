@@ -1,0 +1,19 @@
+{
+  "slug": "mac-mini-m4",
+  "name": "Mac mini (M4)",
+  "make": "Apple",
+  "model": "Mac mini (M4)",
+  "rank": 95,
+  "category": "pc-case",
+  "h": 50,
+  "w": 127,
+  "d": 127,
+  "year": 2024,
+  "aliases": [
+    "mac mini",
+    "macmini"
+  ],
+  "source": "apple.com",
+  "radius": 6,
+  "radiusAxis": "y"
+}

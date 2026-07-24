@@ -1,0 +1,29 @@
+{
+  "slug": "pebble-2-duo",
+  "name": "Pebble 2 Duo",
+  "make": "Pebble",
+  "model": "Pebble 2 Duo",
+  "rank": 76,
+  "category": "watch",
+  "h": 39.5,
+  "w": 30.2,
+  "d": 9.8,
+  "year": 2025,
+  "aliases": [
+    "pebble 2 duo",
+    "core 2 duo",
+    "pebble duo"
+  ],
+  "source": "repebble.com",
+  "url": "https://repebble.com/watch",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 24,
+    "w": 24,
+    "radius": 2
+  },
+  "model3d": {
+    "url": "pebble-2-duo.glb"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "slug": "ipad-10th-gen",
+  "name": "iPad (10th generation)",
+  "make": "Apple",
+  "model": "iPad (10th generation)",
+  "rank": 80,
+  "category": "tablet",
+  "h": 248.6,
+  "w": 179.5,
+  "d": 7,
+  "year": 2022,
+  "aliases": [
+    "ipad 10th gen",
+    "ipad 10"
+  ],
+  "source": "apple.com",
+  "radius": 9,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 226.5,
+    "w": 157.4,
+    "radius": 4
+  }
+}

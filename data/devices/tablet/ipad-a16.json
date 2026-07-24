@@ -1,0 +1,25 @@
+{
+  "slug": "ipad-a16",
+  "name": "iPad (A16)",
+  "make": "Apple",
+  "model": "iPad (A16)",
+  "rank": 82,
+  "category": "tablet",
+  "h": 248.6,
+  "w": 179.5,
+  "d": 7,
+  "year": 2025,
+  "aliases": [
+    "ipad a16",
+    "ipad 11th gen",
+    "base ipad"
+  ],
+  "source": "apple.com",
+  "radius": 9,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 226.5,
+    "w": 157.4,
+    "radius": 4
+  }
+}

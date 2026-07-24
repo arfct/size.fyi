@@ -1,0 +1,25 @@
+{
+  "slug": "ipad-air-13-m3",
+  "name": "iPad Air 13″ (M3)",
+  "make": "Apple",
+  "model": "iPad Air 13″ (M3)",
+  "rank": 90,
+  "category": "tablet",
+  "h": 280.6,
+  "w": 214.9,
+  "d": 6.1,
+  "year": 2025,
+  "aliases": [
+    "ipad air 13",
+    "ipad air m3",
+    "ipad air"
+  ],
+  "source": "apple.com",
+  "radius": 9,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 262.2,
+    "w": 196.6,
+    "radius": 5
+  }
+}

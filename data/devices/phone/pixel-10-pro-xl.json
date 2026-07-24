@@ -1,0 +1,25 @@
+{
+  "slug": "pixel-10-pro-xl",
+  "name": "Pixel 10 Pro XL",
+  "make": "Google",
+  "model": "Pixel 10 Pro XL",
+  "rank": 83,
+  "category": "phone",
+  "h": 162.8,
+  "w": 76.6,
+  "d": 8.5,
+  "year": 2025,
+  "aliases": [
+    "pixel 10 pro xl",
+    "pixel10proxl",
+    "10 pro xl"
+  ],
+  "source": "store.google.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 157.8,
+    "w": 71.6,
+    "radius": 8
+  }
+}

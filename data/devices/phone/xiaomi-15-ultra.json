@@ -1,0 +1,25 @@
+{
+  "slug": "xiaomi-15-ultra",
+  "name": "Xiaomi 15 Ultra",
+  "make": "Xiaomi",
+  "model": "15 Ultra",
+  "rank": 67,
+  "category": "phone",
+  "h": 161.3,
+  "w": 75.3,
+  "d": 9.4,
+  "year": 2025,
+  "aliases": [
+    "xiaomi 15 ultra",
+    "15 ultra",
+    "mi 15 ultra"
+  ],
+  "source": "mi.com",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 155.9,
+    "w": 70.1,
+    "radius": 8
+  }
+}
