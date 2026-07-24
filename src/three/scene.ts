@@ -321,7 +321,16 @@ const labelFrontZ = (item: SceneItem) => item.d / 2 + 1.5; // sit a little off t
 // the camera reorders them behind the 55%-opaque box and they appear to fade.
 const LABEL_ORDER_BIAS = 0.5;
 const labelGap = (item: SceneItem) => Math.max(item.w, item.h) * 0.03; // clearance from the box edge
-const labelTextH = (item: SceneItem) => Math.max(item.w, item.h) * 0.05; // world text height
+
+// Label text is one constant world height for the whole scene (not per-item), sized as a fraction
+// of the fit extent — the same max(size) the 3D camera frames to — so it reads at a constant
+// on-screen size (~13px) at the default fit-all zoom regardless of how big the devices are, and
+// scales with the content like a decal when you zoom. Recomputed whenever the content bounds change.
+const LABEL_FIT_FRACTION = 0.045;
+const fitLabelHeight = (box: THREE.Box3) => {
+  const s = box.getSize(new THREE.Vector3());
+  return Math.max(s.x, s.y, s.z, 1) * LABEL_FIT_FRACTION;
+};
 
 // A closed foldable is two panels stacked in depth; this traces the w×h device outline at the
 // mid-thickness plane (local z=0) as line segments — the clamshell "parting line" that reads as
@@ -563,6 +572,7 @@ export function createScene(container: HTMLElement): SizeScene {
   let grid: THREE.Group | null = null;
   let units: Units = 'metric';
   let bounds = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
+  let labelWorldH = fitLabelHeight(bounds); // constant text height (mm) for the current content fit
 
   let renderQueued = false;
   let rafHandle = 0;
@@ -759,15 +769,39 @@ export function createScene(container: HTMLElement): SizeScene {
   }
 
   // Builds one dimension label (width or height) for the current units, in white and inset just
-  // inside the front face at a bottom corner: width bottom-left, height bottom-right. Reused by
-  // createHandle and by setUnits, which rebuilds them when the unit system flips.
+  // inside the front face at a bottom corner: width bottom-left, height bottom-right.
   function makeDimLabel(item: SceneItem, which: 'w' | 'h'): THREE.Mesh {
     const mm = which === 'w' ? item.w : item.h;
     const inset = labelGap(item);
-    const plane = makeLabelPlane(formatLength(mm, units), labelTextH(item), 500, '#ffffff');
+    const plane = makeLabelPlane(formatLength(mm, units), labelWorldH, 500, '#ffffff');
     if (which === 'w') placeCorner(plane, -item.w / 2 + inset, -item.h / 2 + inset, labelFrontZ(item), 0, 1);
     else placeCorner(plane, item.w / 2 - inset, -item.h / 2 + inset, labelFrontZ(item), 1, 1);
     return plane;
+  }
+
+  // Builds the three labels for an item (name centered below in the device colour; width/height
+  // white in the bottom face corners), parents them to the mesh, and biases their render order so
+  // they draw over the face. Reused on create and on rebuilds (unit switch, content-size change).
+  function buildLabels(mesh: THREE.Mesh, item: SceneItem, renderOrder: number) {
+    const nameLabel = makeLabelPlane(item.name, labelWorldH, 600, item.color);
+    placeCorner(nameLabel, 0, -item.h / 2 - labelGap(item), labelFrontZ(item), 0.5, 0);
+    const widthLabel = makeDimLabel(item, 'w');
+    const heightLabel = makeDimLabel(item, 'h');
+    for (const l of [nameLabel, widthLabel, heightLabel]) {
+      l.renderOrder = renderOrder + LABEL_ORDER_BIAS;
+      mesh.add(l);
+    }
+    return { nameLabel, widthLabel, heightLabel };
+  }
+
+  // Rebuilds a handle's three labels in place (after a unit switch or a content-size change that
+  // moved labelWorldH), preserving the item's current fade opacity.
+  function rebuildLabels(handle: ItemHandle) {
+    const factor = currentOpacityFactor(handle);
+    for (const l of labelsOf(handle)) disposeLabel(l);
+    const built = buildLabels(handle.mesh, handle.item, handle.mesh.renderOrder);
+    Object.assign(handle, built);
+    for (const l of labelsOf(handle)) (l.material as THREE.Material).opacity = factor;
   }
 
   function createHandle(item: SceneItem, keyId: string, target: Target): ItemHandle {
@@ -793,15 +827,8 @@ export function createScene(container: HTMLElement): SizeScene {
     mesh.scale.setScalar(0.01);
 
     // Per-device annotations lying on the front face (local +z, the world z=0 plane the devices are
-    // front-aligned to) so they foreshorten and rotate with the box rather than billboarding. The
-    // name sits centered just below the box in its device colour; width/height are white, inside the
-    // bottom corners of the face (see makeDimLabel).
-    const nameLabel = makeLabelPlane(item.name, labelTextH(item), 600, item.color);
-    placeCorner(nameLabel, 0, -item.h / 2 - labelGap(item), labelFrontZ(item), 0.5, 0);
-    const widthLabel = makeDimLabel(item, 'w');
-    const heightLabel = makeDimLabel(item, 'h');
-    for (const l of [nameLabel, widthLabel, heightLabel]) l.renderOrder = target.renderOrder + LABEL_ORDER_BIAS;
-    mesh.add(nameLabel, widthLabel, heightLabel);
+    // front-aligned to) so they foreshorten and rotate with the box rather than billboarding.
+    const { nameLabel, widthLabel, heightLabel } = buildLabels(mesh, item, target.renderOrder);
 
     let edges: THREE.LineSegments | null = null;
     if (!isWireframe && !isModel) {
@@ -866,6 +893,12 @@ export function createScene(container: HTMLElement): SizeScene {
     lastItems = items;
     const keys = computeKeys(items);
     const targets = computeTargets(items, keys, layoutMode);
+    // Bounds (and the fit-based label height derived from them) are needed before handles are built
+    // so new labels get the right world size and existing ones can be rebuilt if the fit changed.
+    bounds = computeTargetBounds(items, keys, targets);
+    const prevLabelH = labelWorldH;
+    labelWorldH = fitLabelHeight(bounds);
+    const labelSizeChanged = Math.abs(labelWorldH - prevLabelH) > 1e-6;
     const newKeySet = new Set(keys);
 
     // Removals: fade out anything no longer present (unless it's already fading). Collect first —
@@ -909,10 +942,9 @@ export function createScene(container: HTMLElement): SizeScene {
       if (existing.screenMesh) existing.screenMesh.renderOrder = target.renderOrder;
       for (const l of labelsOf(existing)) l.renderOrder = target.renderOrder + LABEL_ORDER_BIAS;
       existing.item = item;
+      if (labelSizeChanged) rebuildLabels(existing); // fit changed → resize labels to stay ~13px
       if (currentOpacityFactor(existing) < 0.999) tweenFadeTo(existing, 1);
     });
-
-    bounds = computeTargetBounds(items, keys, targets);
 
     rebuildGrid();
 
@@ -960,9 +992,9 @@ export function createScene(container: HTMLElement): SizeScene {
         ortho.bottom = -ortho.top;
       };
       const far = Math.max(s.x, s.y, s.z) * 4 + 1000;
-      // Front view is fit tightly to the geometry; the face labels sit just outside the box (above
-      // the top, below the bottom), so leave room for their overhang or they clip at the edges.
-      const labelPad = 2 * Math.max(0, ...lastItems.map((i) => labelGap(i) + labelTextH(i)));
+      // Front view is fit tightly to the geometry; the name label sits just below each box, so leave
+      // room for its overhang (label height + gap) or it clips at the bottom edge.
+      const labelPad = 2 * (labelWorldH + Math.max(0, ...lastItems.map((i) => labelGap(i))));
       if (next === 'front') { fit(s.x + labelPad, s.y + labelPad); ortho.position.set(c.x, c.y, c.z + far / 2); }
       if (next === 'side') { fit(s.z, s.y); ortho.position.set(c.x + far / 2, c.y, c.z); }
       if (next === 'top') { fit(s.x, s.z); ortho.position.set(c.x, c.y + far / 2, c.z); }
@@ -1121,20 +1153,8 @@ export function createScene(container: HTMLElement): SizeScene {
     setUnits(next: Units) {
       if (next === units) return;
       units = next;
-      // The label text is baked into a texture, so a unit switch rebuilds the two dim planes in
-      // place, preserving the item's current fade opacity.
-      for (const h of handles.values()) {
-        const factor = currentOpacityFactor(h);
-        disposeLabel(h.widthLabel);
-        disposeLabel(h.heightLabel);
-        h.widthLabel = makeDimLabel(h.item, 'w');
-        h.heightLabel = makeDimLabel(h.item, 'h');
-        for (const l of [h.widthLabel, h.heightLabel]) {
-          (l.material as THREE.Material).opacity = factor;
-          l.renderOrder = h.mesh.renderOrder + LABEL_ORDER_BIAS;
-        }
-        h.mesh.add(h.widthLabel, h.heightLabel);
-      }
+      // Label text is baked into a texture, so a unit switch rebuilds each handle's labels in place.
+      for (const h of handles.values()) rebuildLabels(h);
       rebuildGrid();
       requestRender();
     },
