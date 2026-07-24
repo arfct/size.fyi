@@ -46,7 +46,7 @@ export default function ViewMenu() {
         aria-expanded={open}
         aria-label={`View: ${current.label}`}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 items-center gap-1 rounded-full border border-stone-300 bg-white/70 px-3 text-[13px] backdrop-blur dark:border-stone-700 dark:bg-stone-900/70"
+        className="flex h-9 items-center gap-1 rounded-full border border-transparent bg-white/70 px-3 text-[13px] backdrop-blur hover:border-stone-300 dark:bg-stone-900/70 dark:hover:border-stone-700"
       >
         {current.label} <ChevronDown size={14} aria-hidden className="text-stone-400" />
       </button>

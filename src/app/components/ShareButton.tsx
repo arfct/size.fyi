@@ -1,4 +1,4 @@
-import { Share } from 'lucide-react';
+import { Check, Share } from 'lucide-react';
 import { useState } from 'react';
 import { comparisonTitle, encodeComparison } from '../../shared/urlCodec';
 import { useComparison } from '../store';
@@ -22,11 +22,12 @@ export default function ShareButton() {
     } catch { /* clipboard unavailable or permission denied; fail silently */ }
   };
 
+  // Icon only: no label, and no border until hover (transparent border keeps the layout from shifting).
+  // Copied feedback swaps the icon to a check rather than showing text.
   return (
-    <button onClick={share} aria-label="Share"
-      className="flex h-9 items-center gap-1.5 rounded-full border border-stone-300 px-3 text-[13px] dark:border-stone-700">
-      <Share size={15} aria-hidden />
-      {copied ? 'Copied!' : 'Share'}
+    <button onClick={share} aria-label={copied ? 'Copied' : 'Share'}
+      className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent hover:border-stone-300 dark:hover:border-stone-700">
+      {copied ? <Check size={16} aria-hidden /> : <Share size={16} aria-hidden />}
     </button>
   );
 }
