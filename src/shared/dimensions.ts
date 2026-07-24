@@ -42,6 +42,13 @@ export function formatLength(mm: number, units: Units): string {
   return `${ft} ft ${rest} in`;
 }
 
+// Bare numeric value with no unit, for compact side-by-side display like "71.9 × 150". Falls back to
+// the full unit-bearing string for the imperial ft+in compound, whose interleaved units can't drop.
+export function formatLengthValue(mm: number, units: Units): string {
+  const part = splitLength(mm, units);
+  return part ? part.value : formatLength(mm, units);
+}
+
 export function formatDims(item: { h: number; w: number; d: number }, units: Units): string {
   const parts = [item.h, item.w, item.d].map((v) => splitLength(v, units));
   const unit = parts[0]?.unit;

@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LayoutMode, Units } from '../shared/types';
-import { formatLength } from '../shared/dimensions';
+import { formatLengthValue } from '../shared/dimensions';
 
 export type ViewName = '3d' | 'front' | 'side' | 'top';
 export interface SceneItem {
@@ -273,8 +273,9 @@ function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
   return shape;
 }
 
-function darken(hex: string, amount: number): THREE.Color {
-  return new THREE.Color(hex).multiplyScalar(1 - amount);
+// Mixes a colour toward white by `amount` (0 = unchanged, 1 = white).
+function tintToWhite(hex: string, amount: number): THREE.Color {
+  return new THREE.Color(hex).lerp(new THREE.Color(0xffffff), amount);
 }
 
 // Face-aligned text label: text rasterized (white) onto a canvas and mapped onto a plane sized in
@@ -616,6 +617,11 @@ export function createScene(container: HTMLElement): SizeScene {
     const c = bounds.getCenter(new THREE.Vector3());
     const span = Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, 1);
     grid = buildGrid(c, units, span);
+    // Devices sit on y=0 with the name label ("title") just below it; drop the ground plane to twice
+    // the device-bottom→title distance so the title sits midway between the devices and the floor.
+    const maxGap = Math.max(0, ...lastItems.map(labelGap));
+    const titleDist = maxGap + labelWorldH / 2; // bottom (y=0) → title centre
+    grid.position.y = -2 * titleDist;
     grid.visible = view !== 'front' && view !== 'side';
     scene.add(grid);
   }
@@ -667,7 +673,8 @@ export function createScene(container: HTMLElement): SizeScene {
   const WIREFRAME_OPACITY = 1; // banana/wireframe mesh — transparent is turned on unconditionally
   // (rather than only while fading) so an opacity tween works uniformly across mesh kinds; at
   // opacity 1 a transparent material renders identically to an opaque one.
-  const SCREEN_OPACITY = 0.5;
+  const SCREEN_OPACITY = 1; // opaque, so the pale screen reads cleanly against the body
+  const SCREEN_TINT = 0.6; // screen colour mixed 60% toward white → paler than the translucent body
 
   interface ItemHandle {
     keyId: string;
@@ -676,8 +683,9 @@ export function createScene(container: HTMLElement): SizeScene {
     seam: THREE.LineSegments | null;
     screenMesh: THREE.Mesh | null;
     nameLabel: THREE.Mesh;   // centered below the box (device colour)
-    widthLabel: THREE.Mesh;  // bottom-left, on the face (white)
-    heightLabel: THREE.Mesh; // bottom-right, on the face (white)
+    widthLabel: THREE.Mesh;  // bottom-left, on the face (white, unitless)
+    sepLabel: THREE.Mesh;    // "×" centered between width and height (white)
+    heightLabel: THREE.Mesh; // bottom-right, on the face (white, unitless)
     item: SceneItem;
     meshBaseOpacity: number;
     fading: boolean; // true while a fade-out (pending removal) is in flight
@@ -690,7 +698,7 @@ export function createScene(container: HTMLElement): SizeScene {
   let firstItems = true;
 
   function labelsOf(handle: ItemHandle): THREE.Mesh[] {
-    return [handle.nameLabel, handle.widthLabel, handle.heightLabel];
+    return [handle.nameLabel, handle.widthLabel, handle.sepLabel, handle.heightLabel];
   }
 
   function applyOpacityFactor(handle: ItemHandle, factor: number) {
@@ -736,7 +744,7 @@ export function createScene(container: HTMLElement): SizeScene {
     const fromSeam = seamMat?.color.clone();
     const screenMat = handle.screenMesh?.material as THREE.MeshBasicMaterial | undefined;
     const fromScreen = screenMat?.color.clone();
-    const toScreen = darken(toColorHex, 0.35);
+    const toScreen = tintToWhite(toColorHex, SCREEN_TINT); // matches the pale screen face
     // The name label is white text tinted by its material colour, so it tweens like the mesh/edges.
     const nameMat = handle.nameLabel.material as THREE.MeshBasicMaterial;
     const fromName = nameMat.color.clone();
@@ -773,7 +781,7 @@ export function createScene(container: HTMLElement): SizeScene {
   function makeDimLabel(item: SceneItem, which: 'w' | 'h'): THREE.Mesh {
     const mm = which === 'w' ? item.w : item.h;
     const inset = labelGap(item);
-    const plane = makeLabelPlane(formatLength(mm, units), labelWorldH, 500, '#ffffff');
+    const plane = makeLabelPlane(formatLengthValue(mm, units), labelWorldH, 500, '#ffffff');
     if (which === 'w') placeCorner(plane, -item.w / 2 + inset, -item.h / 2 + inset, labelFrontZ(item), 0, 1);
     else placeCorner(plane, item.w / 2 - inset, -item.h / 2 + inset, labelFrontZ(item), 1, 1);
     return plane;
@@ -787,11 +795,14 @@ export function createScene(container: HTMLElement): SizeScene {
     placeCorner(nameLabel, 0, -item.h / 2 - labelGap(item), labelFrontZ(item), 0.5, 0);
     const widthLabel = makeDimLabel(item, 'w');
     const heightLabel = makeDimLabel(item, 'h');
-    for (const l of [nameLabel, widthLabel, heightLabel]) {
+    // "×" centered along the bottom between the width and height numbers → reads "71.9 × 150".
+    const sepLabel = makeLabelPlane('×', labelWorldH, 500, '#ffffff');
+    placeCorner(sepLabel, 0, -item.h / 2 + labelGap(item), labelFrontZ(item), 0.5, 1);
+    for (const l of [nameLabel, widthLabel, sepLabel, heightLabel]) {
       l.renderOrder = renderOrder + LABEL_ORDER_BIAS;
       mesh.add(l);
     }
-    return { nameLabel, widthLabel, heightLabel };
+    return { nameLabel, widthLabel, sepLabel, heightLabel };
   }
 
   // Rebuilds a handle's three labels in place (after a unit switch or a content-size change that
@@ -828,7 +839,7 @@ export function createScene(container: HTMLElement): SizeScene {
 
     // Per-device annotations lying on the front face (local +z, the world z=0 plane the devices are
     // front-aligned to) so they foreshorten and rotate with the box rather than billboarding.
-    const { nameLabel, widthLabel, heightLabel } = buildLabels(mesh, item, target.renderOrder);
+    const { nameLabel, widthLabel, sepLabel, heightLabel } = buildLabels(mesh, item, target.renderOrder);
 
     let edges: THREE.LineSegments | null = null;
     if (!isWireframe && !isModel) {
@@ -860,7 +871,7 @@ export function createScene(container: HTMLElement): SizeScene {
       const screenR = Math.max(item.screen.radius ?? 0, item.radius ? item.radius - inset : 0);
       const screenGeo = new THREE.ShapeGeometry(roundedRectShape(item.screen.w, item.screen.h, screenR));
       const screenMat = new THREE.MeshBasicMaterial({
-        color: darken(item.color, 0.35),
+        color: tintToWhite(item.color, SCREEN_TINT), // paler than the body so the screen reads lighter
         transparent: true,
         opacity: 0,
         depthWrite: false,
@@ -886,7 +897,7 @@ export function createScene(container: HTMLElement): SizeScene {
         .catch(() => { /* fall back to the box placeholder */ });
     }
 
-    return { keyId, mesh, edges, seam, screenMesh, nameLabel, widthLabel, heightLabel, item, meshBaseOpacity, fading: false };
+    return { keyId, mesh, edges, seam, screenMesh, nameLabel, widthLabel, sepLabel, heightLabel, item, meshBaseOpacity, fading: false };
   }
 
   function applyDiff(items: SceneItem[]) {
