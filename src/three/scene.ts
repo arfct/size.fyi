@@ -595,8 +595,18 @@ export function createScene(container: HTMLElement): SizeScene {
       if (disposed) return;
       renderQueued = false;
       if (view === '3d') controls.update();
+      updateGroundVisibility(view);
       renderer.render(scene, camera);
     });
+  }
+
+  // The grid is hidden in the flat front/side views, and also whenever the camera drops below the
+  // ground plane (orbiting underneath) so its underside isn't shown. Re-evaluated every frame since
+  // it depends on the live camera position during an orbit.
+  function updateGroundVisibility(effectiveView: ViewName) {
+    if (!grid) return;
+    const inView = effectiveView !== 'front' && effectiveView !== 'side';
+    grid.visible = inView && camera.position.y >= grid.position.y;
   }
 
   // Meshes include label planes, whose material carries a CanvasTexture map that also needs freeing.
@@ -632,8 +642,8 @@ export function createScene(container: HTMLElement): SizeScene {
     const maxGap = Math.max(0, ...lastItems.map(labelGap));
     const titleDist = maxGap + labelWorldH / 2; // bottom (y=0) → title centre
     grid.position.y = -2 * titleDist;
-    grid.visible = view !== 'front' && view !== 'side';
     scene.add(grid);
+    updateGroundVisibility(view);
   }
 
   // --- item tween ticker ---------------------------------------------------------------
@@ -1066,7 +1076,7 @@ export function createScene(container: HTMLElement): SizeScene {
       camera = ortho;
       controls.enabled = false;
     }
-    if (grid) grid.visible = next !== 'front' && next !== 'side';
+    updateGroundVisibility(next);
     requestRender();
   }
 
@@ -1092,7 +1102,7 @@ export function createScene(container: HTMLElement): SizeScene {
       camera = ortho; // ortho's real position/quaternion/projectionMatrix were set by computeEnd
       controls.enabled = false;
     }
-    if (grid) grid.visible = next !== 'front' && next !== 'side';
+    updateGroundVisibility(next);
     requestRender();
   }
 
@@ -1105,11 +1115,8 @@ export function createScene(container: HTMLElement): SizeScene {
     lerpMatrix4(scratchProjection, animFrom.projectionMatrix, animTo.projectionMatrix, e);
     persp.projectionMatrix.copy(scratchProjection);
     persp.projectionMatrixInverse.copy(persp.projectionMatrix).invert();
-    if (grid) {
-      const gridView = t >= 0.5 ? animToView : animFromView;
-      grid.visible = gridView !== 'front' && gridView !== 'side';
-    }
     camera = persp;
+    updateGroundVisibility(t >= 0.5 ? animToView : animFromView);
     renderer.render(scene, camera);
     if (t >= 1) {
       finalizeTransition();
