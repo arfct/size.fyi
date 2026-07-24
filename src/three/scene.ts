@@ -553,7 +553,7 @@ export function createScene(container: HTMLElement): SizeScene {
   // so it always reads as a distinct panel against the background. Live-updated on theme change.
   const darkQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
   let darkMode = darkQuery?.matches ?? false;
-  const screenColor = (hex: string) => darkMode ? tintToBlack(hex, SCREEN_TINT) : tintToWhite(hex, SCREEN_TINT);
+  const screenColor = (hex: string) => darkMode ? tintToBlack(hex, SCREEN_TINT_DARK) : tintToWhite(hex, SCREEN_TINT_LIGHT);
 
   // --- view transition state ---
   interface CameraPose { position: THREE.Vector3; quaternion: THREE.Quaternion; projectionMatrix: THREE.Matrix4 }
@@ -684,7 +684,8 @@ export function createScene(container: HTMLElement): SizeScene {
   // (rather than only while fading) so an opacity tween works uniformly across mesh kinds; at
   // opacity 1 a transparent material renders identically to an opaque one.
   const SCREEN_OPACITY = 1; // opaque, so the tinted screen reads cleanly against the body
-  const SCREEN_TINT = 0.6; // how far the screen colour is mixed toward white (light) / black (dark)
+  const SCREEN_TINT_LIGHT = 0.6; // mix toward white in light mode → paler than the body
+  const SCREEN_TINT_DARK = 0.8; // mix toward black in dark mode → clearly darker than the body
 
   interface ItemHandle {
     keyId: string;
