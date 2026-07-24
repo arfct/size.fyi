@@ -314,7 +314,7 @@ function placeCorner(plane: THREE.Mesh, x: number, y: number, z: number, ax: num
   plane.position.set(x + (0.5 - ax) * width, y - (0.5 - ay) * height, z);
 }
 
-const labelFrontZ = (item: SceneItem) => item.d / 2 + 0.5; // just off the front face
+const labelFrontZ = (item: SceneItem) => item.d / 2 + 1.5; // clear of the face and screen plane (d/2+0.4) to avoid z-fighting
 const labelGap = (item: SceneItem) => Math.max(item.w, item.h) * 0.03; // clearance from the box edge
 const labelTextH = (item: SceneItem) => Math.max(item.w, item.h) * 0.05; // world text height
 
