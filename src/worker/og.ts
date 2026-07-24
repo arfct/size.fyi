@@ -5,7 +5,7 @@ import { formatDims } from '../shared/dimensions';
 
 // Mirror of the app palette (src/app/palette.ts). Kept in sync by hand so the Worker stays free of
 // app-layer imports.
-const PALETTE = ['#0072B2', '#D55E00', '#E69F00', '#56B4E9', '#009E73', '#CC79A7', '#999999'];
+const PALETTE = ['#0072B2', '#D55E00', '#E69F00', '#009E73', '#56B4E9', '#CC79A7', '#999999'];
 const BANANA_YELLOW = '#FFE135';
 function colorFor(item: ComparisonItem, i: number): string {
   return item.kind === 'device' && item.device.mesh === 'banana' ? BANANA_YELLOW : PALETTE[i % PALETTE.length]!;
