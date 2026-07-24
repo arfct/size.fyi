@@ -308,7 +308,7 @@ function labelAspect(text: string, weight: number): number {
   return w / h;
 }
 
-function makeLabelPlane(text: string, worldH: number, weight: number, colorHex: string): THREE.Mesh {
+function makeLabelPlane(text: string, worldH: number, weight: number, color: THREE.ColorRepresentation): THREE.Mesh {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
   const { w, h } = measureLabelPx(ctx, text, weight);
@@ -317,14 +317,14 @@ function makeLabelPlane(text: string, worldH: number, weight: number, colorHex: 
   ctx.font = labelFont(weight); // resizing the canvas resets the 2d context
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#ffffff'; // drawn white; the material colour tints it so it can tween/re-theme
   ctx.fillText(text, w / 2, h / 2);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false });
-  mat.color.set(colorHex);
+  mat.color.set(color);
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(worldH * (w / h), worldH), mat);
   return plane;
 }
@@ -347,8 +347,8 @@ const labelGap = (item: SceneItem) => Math.max(item.w, item.h) * 0.03; // cleara
 // Label text is one constant world height for the whole scene (not per-item). It's sized so that a
 // row of ~LABEL_CHARS characters spans the narrowest device's width — enough for the "w × h" line to
 // fit on even the smallest face, and scaled up in proportion on wider devices. Recomputed whenever
-// the set of devices changes. (11 rather than 9 → ~83% of the 9-char size, i.e. ~20% smaller.)
-const LABEL_CHARS = 11;
+// the set of devices changes. Higher = smaller text (more chars fit across the same width).
+const LABEL_CHARS = 14;
 
 // A closed foldable is two panels stacked in depth; this traces the w×h device outline at the
 // mid-thickness plane (local z=0) as line segments — the clamshell "parting line" that reads as
@@ -558,6 +558,16 @@ export function createScene(container: HTMLElement): SizeScene {
   controls.enableDamping = true;
   controls.addEventListener('change', requestRender);
 
+  // Don't let the canvas steal wheel/trackpad scroll unless the page is scrolled to the very top:
+  // once the user has scrolled down, wheel events pass through to scroll the page instead of zooming.
+  // A capture-phase listener on the container runs before OrbitControls' own (canvas) wheel handler,
+  // so stopping propagation there both bypasses the zoom and leaves the default page scroll intact.
+  function onContainerWheel(e: WheelEvent) {
+    const scrolled = window.scrollY || document.documentElement.scrollTop || 0;
+    if (scrolled > 0) e.stopPropagation();
+  }
+  container.addEventListener('wheel', onContainerWheel, { capture: true, passive: true });
+
   // Honor prefers-reduced-motion: collapse camera/item animation durations to ~instant (guarded for
   // jsdom, which lacks matchMedia). Read once at construction — the setting rarely toggles mid-visit.
   const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -568,6 +578,12 @@ export function createScene(container: HTMLElement): SizeScene {
   const darkQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
   let darkMode = darkQuery?.matches ?? false;
   const screenColor = (hex: string) => darkMode ? tintToBlack(hex, SCREEN_TINT_DARK) : tintToWhite(hex, SCREEN_TINT_LIGHT);
+  // Label text ink, theme-aware: dark mode keeps the name in the device colour and the dims white
+  // (readable on the dark face); light mode uses the device colour darkened for both, so they read
+  // against the pale face/background. Both live-update on a theme change.
+  const LABEL_DARKEN = 0.4;
+  const nameInk = (hex: string) => darkMode ? new THREE.Color(hex) : tintToBlack(hex, LABEL_DARKEN);
+  const dimInk = (hex: string) => darkMode ? new THREE.Color(0xffffff) : tintToBlack(hex, LABEL_DARKEN);
 
   // --- view transition state ---
   interface CameraPose { position: THREE.Vector3; quaternion: THREE.Quaternion; projectionMatrix: THREE.Matrix4 }
@@ -783,15 +799,21 @@ export function createScene(container: HTMLElement): SizeScene {
     const screenMat = handle.screenMesh?.material as THREE.MeshBasicMaterial | undefined;
     const fromScreen = screenMat?.color.clone();
     const toScreen = screenColor(toColorHex); // matches the current-theme screen face
-    // The name label is white text tinted by its material colour, so it tweens like the mesh/edges.
+    // Labels are white text tinted by material colour, so they tween like the mesh/edges. Name uses
+    // nameInk, the three dim labels use dimInk (both theme-aware).
     const nameMat = handle.nameLabel.material as THREE.MeshBasicMaterial;
     const fromName = nameMat.color.clone();
+    const toName = nameInk(toColorHex);
+    const dimMats = [handle.widthLabel, handle.sepLabel, handle.heightLabel].map((l) => l.material as THREE.MeshBasicMaterial);
+    const fromDims = dimMats.map((m) => m.color.clone());
+    const toDim = dimInk(toColorHex);
     addTween(`${handle.keyId}:color`, TWEEN_MS, (k) => {
       meshMat.color.copy(fromMesh).lerp(toMesh, k);
       if (edgesMat && fromEdges) edgesMat.color.copy(fromEdges).lerp(toEdges, k);
       if (seamMat && fromSeam) seamMat.color.copy(fromSeam).lerp(toEdges, k);
       if (screenMat && fromScreen) screenMat.color.copy(fromScreen).lerp(toScreen, k);
-      nameMat.color.copy(fromName).lerp(toMesh, k);
+      nameMat.color.copy(fromName).lerp(toName, k);
+      dimMats.forEach((m, i) => m.color.copy(fromDims[i]!).lerp(toDim, k));
     });
   }
 
@@ -814,27 +836,27 @@ export function createScene(container: HTMLElement): SizeScene {
     handle.mesh.removeFromParent();
   }
 
-  // Builds one dimension label (width or height) for the current units, in white and inset just
-  // inside the front face at a bottom corner: width bottom-left, height bottom-right.
+  // Builds one dimension label (width or height) for the current units, inset just inside the front
+  // face at a bottom corner: width bottom-left, height bottom-right.
   function makeDimLabel(item: SceneItem, which: 'w' | 'h'): THREE.Mesh {
     const mm = which === 'w' ? item.w : item.h;
     const inset = labelGap(item);
-    const plane = makeLabelPlane(formatLengthValue(mm, units), labelWorldH, 500, '#ffffff');
+    const plane = makeLabelPlane(formatLengthValue(mm, units), labelWorldH, 500, dimInk(item.color));
     if (which === 'w') placeCorner(plane, -item.w / 2 + inset, -item.h / 2 + inset, labelFrontZ(item), 0, 1);
     else placeCorner(plane, item.w / 2 - inset, -item.h / 2 + inset, labelFrontZ(item), 1, 1);
     return plane;
   }
 
-  // Builds the three labels for an item (name centered below in the device colour; width/height
-  // white in the bottom face corners), parents them to the mesh, and biases their render order so
-  // they draw over the face. Reused on create and on rebuilds (unit switch, content-size change).
+  // Builds the three labels for an item (name centered below; width/height in the bottom face
+  // corners), parents them to the mesh, and biases their render order so they draw over the face.
+  // Colours come from nameInk/dimInk (theme-aware). Reused on create and on rebuilds.
   function buildLabels(mesh: THREE.Mesh, item: SceneItem, renderOrder: number) {
-    const nameLabel = makeLabelPlane(item.name, labelWorldH, 600, item.color);
+    const nameLabel = makeLabelPlane(item.name, labelWorldH, 600, nameInk(item.color));
     placeCorner(nameLabel, 0, -item.h / 2 - labelGap(item), labelFrontZ(item), 0.5, 0);
     const widthLabel = makeDimLabel(item, 'w');
     const heightLabel = makeDimLabel(item, 'h');
     // "×" centered along the bottom between the width and height numbers → reads "71.9 × 150".
-    const sepLabel = makeLabelPlane('×', labelWorldH, 500, '#ffffff');
+    const sepLabel = makeLabelPlane('×', labelWorldH, 500, dimInk(item.color));
     placeCorner(sepLabel, 0, -item.h / 2 + labelGap(item), labelFrontZ(item), 0.5, 1);
     for (const l of [nameLabel, widthLabel, sepLabel, heightLabel]) {
       l.renderOrder = renderOrder + LABEL_ORDER_BIAS;
@@ -1193,11 +1215,13 @@ export function createScene(container: HTMLElement): SizeScene {
   ro.observe(container);
   resize();
 
-  // Re-tint every live screen face when the OS/app theme flips (no rebuild needed — just the colour).
+  // Re-colour every live screen face and label when the OS/app theme flips (no rebuild — just colour).
   function onThemeChange(e: MediaQueryListEvent) {
     darkMode = e.matches;
     for (const h of handles.values()) {
       if (h.screenMesh) (h.screenMesh.material as THREE.MeshBasicMaterial).color.copy(screenColor(h.item.color));
+      (h.nameLabel.material as THREE.MeshBasicMaterial).color.copy(nameInk(h.item.color));
+      for (const l of [h.widthLabel, h.sepLabel, h.heightLabel]) (l.material as THREE.MeshBasicMaterial).color.copy(dimInk(h.item.color));
     }
     requestRender();
   }
@@ -1226,6 +1250,7 @@ export function createScene(container: HTMLElement): SizeScene {
       handles.clear();
       ro.disconnect();
       darkQuery?.removeEventListener('change', onThemeChange);
+      container.removeEventListener('wheel', onContainerWheel, { capture: true });
       controls.removeEventListener('change', requestRender);
       controls.dispose();
       clearGroup();
