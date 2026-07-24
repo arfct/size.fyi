@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LayoutMode, Units } from '../shared/types';
+import { formatLength } from '../shared/dimensions';
 
 export type ViewName = '3d' | 'front' | 'side' | 'top';
 export interface SceneItem {
@@ -113,10 +114,9 @@ export function gridSpec(units: Units, span: number) {
 }
 
 // A ground grid centered under the content: major + minor lines that fade out radially from the
-// center (per-fragment, by world distance) plus numeric tick labels along the +x axis only, sitting
-// just in front of the content's front plane (frontZ, world). Built fresh whenever the content
-// bounds or unit system change.
-function buildGrid(center: THREE.Vector3, units: Units, span: number, frontZ: number): THREE.Group {
+// center (per-fragment, by world distance). Dimensions are annotated per-device (see createHandle),
+// not on the grid. Built fresh whenever the content bounds or unit system change.
+function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Group {
   const { unitMM, minorMM, majorCount, halfExtent } = gridSpec(units, span);
   const g = new THREE.Group();
   g.position.set(center.x, 0, center.z);
@@ -167,24 +167,6 @@ function buildGrid(center: THREE.Vector3, units: Units, span: number, frontZ: nu
     g.add(new THREE.LineSegments(geo, lineMaterial(opacity)));
   }
 
-  // Bare numeric labels (no unit) along the +x axis only: metric shows the distance in mm, imperial
-  // in whole inches. Placed a touch in front (+z, toward the camera) of the content's front plane so
-  // the row of numbers sits just ahead of the front-aligned devices rather than under them.
-  const stride = Math.max(1, Math.ceil(majorCount / 8));
-  const labelZ = (frontZ - center.z) + unitMM * 0.5; // front plane in grid-local space, nudged forward
-  for (let k = stride; k <= majorCount; k += stride) {
-    const dist = k * unitMM;
-    const opacity = Math.max(0, 1 - dist / halfExtent) ** 2 * 0.9;
-    if (opacity < 0.05) continue;
-    const labelValue = units === 'imperial' ? k : Math.round(dist);
-    const el = document.createElement('div');
-    el.textContent = `${labelValue}`;
-    el.style.cssText =
-      `font:11px ui-sans-serif,system-ui;color:#8a8a8a;pointer-events:none;white-space:nowrap;opacity:${opacity.toFixed(3)}`;
-    const label = new CSS2DObject(el);
-    label.position.set(dist, 0, labelZ);
-    g.add(label);
-  }
   return g;
 }
 
@@ -505,8 +487,6 @@ export function createScene(container: HTMLElement): SizeScene {
   const controls = new OrbitControls(persp, renderer.domElement);
   controls.enableDamping = true;
   controls.addEventListener('change', requestRender);
-  renderer.domElement.addEventListener('pointerdown', onPointerDown);
-  renderer.domElement.addEventListener('pointerup', onPointerUp);
 
   // Honor prefers-reduced-motion: collapse camera/item animation durations to ~instant (guarded for
   // jsdom, which lacks matchMedia). Read once at construction — the setting rarely toggles mid-visit.
@@ -580,7 +560,7 @@ export function createScene(container: HTMLElement): SizeScene {
     removeGrid();
     const c = bounds.getCenter(new THREE.Vector3());
     const span = Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, 1);
-    grid = buildGrid(c, units, span, bounds.max.z);
+    grid = buildGrid(c, units, span);
     grid.visible = view !== 'front' && view !== 'side';
     scene.add(grid);
   }
@@ -625,7 +605,7 @@ export function createScene(container: HTMLElement): SizeScene {
   }
 
   // --- item handles ---------------------------------------------------------------------
-  // mesh is the sole child of `group`; edges/screenMesh/label all hang off mesh as children (in
+  // mesh is the sole child of `group`; edges/screenMesh/labels all hang off mesh as children (in
   // its local, geometry-centered space) so a single mesh.position/scale tween carries all of them
   // along for free. clearGroup()'s traverse() still finds and disposes every descendant.
   const MESH_OPACITY = 0.55; // MeshLambertMaterial "solid" items
@@ -640,7 +620,9 @@ export function createScene(container: HTMLElement): SizeScene {
     edges: THREE.LineSegments | null;
     seam: THREE.LineSegments | null;
     screenMesh: THREE.Mesh | null;
-    label: CSS2DObject;
+    nameLabel: CSS2DObject;   // bottom-left, below the box
+    widthLabel: CSS2DObject;  // bottom-right, below the box
+    heightLabel: CSS2DObject; // top-right, above the box
     item: SceneItem;
     meshBaseOpacity: number;
     fading: boolean; // true while a fade-out (pending removal) is in flight
@@ -652,35 +634,8 @@ export function createScene(container: HTMLElement): SizeScene {
   let layoutMode: LayoutMode = 'row';
   let firstItems = true;
 
-  // Selection: name labels are hidden until an item is tapped. A tap raycasts against the item
-  // meshes; hitting a new item selects it (shows only its label), tapping it again or tapping empty
-  // space deselects. Drags (orbit) are ignored via a small movement threshold.
-  const raycaster = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
-  let selectedKey: string | null = null;
-  let downX = 0, downY = 0;
-
-  function refreshLabels() {
-    for (const [key, h] of handles) h.label.visible = key === selectedKey;
-  }
-  function onPointerDown(e: PointerEvent) { downX = e.clientX; downY = e.clientY; }
-  function onPointerUp(e: PointerEvent) {
-    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return; // a drag, not a tap
-    const rect = renderer.domElement.getBoundingClientRect();
-    pointer.set(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1,
-    );
-    raycaster.setFromCamera(pointer, camera);
-    let hitKey: string | null = null;
-    for (const hit of raycaster.intersectObjects(group.children, true)) {
-      for (let o: THREE.Object3D | null = hit.object; o; o = o.parent) {
-        if (typeof o.userData.key === 'string') { hitKey = o.userData.key; break; }
-      }
-      if (hitKey) break;
-    }
-    const next = hitKey && hitKey !== selectedKey ? hitKey : null;
-    if (next !== selectedKey) { selectedKey = next; refreshLabels(); requestRender(); }
+  function labelsOf(handle: ItemHandle): CSS2DObject[] {
+    return [handle.nameLabel, handle.widthLabel, handle.heightLabel];
   }
 
   function applyOpacityFactor(handle: ItemHandle, factor: number) {
@@ -688,6 +643,7 @@ export function createScene(container: HTMLElement): SizeScene {
     if (handle.edges) (handle.edges.material as THREE.Material).opacity = factor;
     if (handle.seam) (handle.seam.material as THREE.Material).opacity = factor;
     if (handle.screenMesh) (handle.screenMesh.material as THREE.Material).opacity = SCREEN_OPACITY * factor;
+    for (const l of labelsOf(handle)) l.element.style.opacity = `${factor}`;
   }
 
   function currentOpacityFactor(handle: ItemHandle): number {
@@ -732,25 +688,24 @@ export function createScene(container: HTMLElement): SizeScene {
       if (seamMat && fromSeam) seamMat.color.copy(fromSeam).lerp(toEdges, k);
       if (screenMat && fromScreen) screenMat.color.copy(fromScreen).lerp(toScreen, k);
     }, () => {
-      // Label background isn't tweened frame-by-frame (a CSS color string, not a THREE.Color) —
-      // it swaps once the material tween settles.
-      handle.label.element.style.background = `${toColorHex}cc`;
+      // The name-label colour is a CSS string, not a THREE.Color, so it isn't tweened frame-by-frame
+      // — it swaps once the material tween settles.
+      handle.nameLabel.element.style.color = toColorHex;
     });
   }
 
   function disposeHandle(handle: ItemHandle) {
-    if (selectedKey === handle.keyId) selectedKey = null;
     cancelTweensFor(handle.keyId);
     handle.mesh.geometry.dispose();
     (handle.mesh.material as THREE.Material).dispose();
     if (handle.edges) { handle.edges.geometry.dispose(); (handle.edges.material as THREE.Material).dispose(); }
     if (handle.seam) { handle.seam.geometry.dispose(); (handle.seam.material as THREE.Material).dispose(); }
     if (handle.screenMesh) { handle.screenMesh.geometry.dispose(); (handle.screenMesh.material as THREE.Material).dispose(); }
-    handle.label.element.remove();
+    for (const l of labelsOf(handle)) l.element.remove();
     handle.mesh.removeFromParent();
   }
 
-  function createHandle(item: SceneItem, keyId: string, target: Target, maxDim: number): ItemHandle {
+  function createHandle(item: SceneItem, keyId: string, target: Target): ItemHandle {
     const isModel = item.model3d != null;
     // Model items start as a box placeholder (fit to w×h×d) and swap to the loaded geometry when
     // it arrives, keeping the box as the fallback if the load fails.
@@ -771,16 +726,31 @@ export function createScene(container: HTMLElement): SizeScene {
     mesh.position.copy(target.pos);
     mesh.renderOrder = target.renderOrder;
     mesh.scale.setScalar(0.01);
-    mesh.userData.key = keyId; // for tap-to-select raycasting
 
-    const labelEl = document.createElement('div');
-    labelEl.textContent = item.name;
-    labelEl.style.cssText =
-      `font:12px ui-sans-serif,system-ui;padding:1px 6px;border-radius:4px;color:#fff;background:${item.color}cc`;
-    const label = new CSS2DObject(labelEl);
-    label.position.set(0, item.h / 2 + maxDim * 0.04, 0);
-    label.visible = keyId === selectedKey; // hidden unless this item is selected
-    mesh.add(label);
+    // Per-device annotations anchored to the front-face corners (local +z = d/2, the world z=0 plane
+    // the devices are front-aligned to). CSS2DObject.center picks which corner of the label element
+    // sits on its anchor point, so each label reads cleanly outside the box: name below-left, width
+    // below-right, height above-right.
+    const front = item.d / 2;
+    const gap = Math.max(item.w, item.h) * 0.03; // small offset so text clears the box edge
+    const dimCss = 'font:11px ui-sans-serif,system-ui;color:#78716c;pointer-events:none;white-space:nowrap';
+    const makeLabel = (text: string, css: string, pos: [number, number, number], cx: number, cy: number) => {
+      const el = document.createElement('div');
+      el.textContent = text;
+      el.style.cssText = css;
+      const l = new CSS2DObject(el);
+      l.position.set(pos[0], pos[1], pos[2]);
+      l.center.set(cx, cy);
+      mesh.add(l);
+      return l;
+    };
+    const nameLabel = makeLabel(
+      item.name,
+      `font:12px ui-sans-serif,system-ui;font-weight:600;color:${item.color};pointer-events:none;white-space:nowrap`,
+      [-item.w / 2, -item.h / 2 - gap, front], 0, 0,
+    );
+    const widthLabel = makeLabel(formatLength(item.w, units), dimCss, [item.w / 2, -item.h / 2 - gap, front], 1, 0);
+    const heightLabel = makeLabel(formatLength(item.h, units), dimCss, [item.w / 2, item.h / 2 + gap, front], 1, 1);
 
     let edges: THREE.LineSegments | null = null;
     if (!isWireframe && !isModel) {
@@ -838,13 +808,12 @@ export function createScene(container: HTMLElement): SizeScene {
         .catch(() => { /* fall back to the box placeholder */ });
     }
 
-    return { keyId, mesh, edges, seam, screenMesh, label, item, meshBaseOpacity, fading: false };
+    return { keyId, mesh, edges, seam, screenMesh, nameLabel, widthLabel, heightLabel, item, meshBaseOpacity, fading: false };
   }
 
   function applyDiff(items: SceneItem[]) {
     lastItems = items;
     const keys = computeKeys(items);
-    const maxDim = Math.max(1, ...items.flatMap((i) => [i.h, i.w, i.d]));
     const targets = computeTargets(items, keys, layoutMode);
     const newKeySet = new Set(keys);
 
@@ -866,7 +835,7 @@ export function createScene(container: HTMLElement): SizeScene {
       const target = targets.get(key)!;
       const existing = handles.get(key);
       if (!existing) {
-        const handle = createHandle(item, key, target, maxDim);
+        const handle = createHandle(item, key, target);
         handles.set(key, handle);
         if (firstItems) {
           // Initial paint is instant (like the camera's firstItems/firstView jump) — no fade/scale
@@ -1099,6 +1068,10 @@ export function createScene(container: HTMLElement): SizeScene {
     setUnits(next: Units) {
       if (next === units) return;
       units = next;
+      for (const h of handles.values()) {
+        h.widthLabel.element.textContent = formatLength(h.item.w, units);
+        h.heightLabel.element.textContent = formatLength(h.item.h, units);
+      }
       rebuildGrid();
       requestRender();
     },
@@ -1111,8 +1084,6 @@ export function createScene(container: HTMLElement): SizeScene {
       activeTweens = [];
       handles.clear();
       ro.disconnect();
-      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
-      renderer.domElement.removeEventListener('pointerup', onPointerUp);
       controls.removeEventListener('change', requestRender);
       controls.dispose();
       clearGroup();
