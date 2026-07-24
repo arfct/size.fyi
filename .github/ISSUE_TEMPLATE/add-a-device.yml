@@ -1,0 +1,33 @@
+name: Add a device or object
+description: Request an item to be added to the size.fyi catalog.
+title: "Add: "
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the suggestion! A source link with the dimensions is the most important part.
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      placeholder: e.g. iPhone 17 Pro, Nintendo Switch 2, Coffee mug
+    validations:
+      required: true
+  - type: input
+    id: dimensions
+    attributes:
+      label: Dimensions — height × width × depth
+      description: In millimetres if you can; otherwise include the units you have.
+      placeholder: e.g. 150 × 71.9 × 8.75 mm
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Where the dimensions come from — a manufacturer spec page or product listing.
+      placeholder: https://…
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else (optional)
+      description: Category (phone / tablet / laptop / console / watch / audio / everyday …), alternate names, or other notes.
