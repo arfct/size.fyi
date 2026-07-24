@@ -583,7 +583,9 @@ export function createScene(container: HTMLElement): SizeScene {
   // against the pale face/background. Both live-update on a theme change.
   const LABEL_DARKEN = 0.4;
   const nameInk = (hex: string) => darkMode ? new THREE.Color(hex) : tintToBlack(hex, LABEL_DARKEN);
-  const dimInk = (hex: string) => darkMode ? new THREE.Color(0xffffff) : tintToBlack(hex, LABEL_DARKEN);
+  // Measurement labels are darker than the name in light mode: the same darkened device colour, then
+  // halved again (50% darker) for stronger contrast on the pale screen. Dark mode keeps them white.
+  const dimInk = (hex: string) => darkMode ? new THREE.Color(0xffffff) : tintToBlack(hex, LABEL_DARKEN).multiplyScalar(0.5);
 
   // --- view transition state ---
   interface CameraPose { position: THREE.Vector3; quaternion: THREE.Quaternion; projectionMatrix: THREE.Matrix4 }
