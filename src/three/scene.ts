@@ -658,9 +658,9 @@ export function createScene(container: HTMLElement): SizeScene {
     edges: THREE.LineSegments | null;
     seam: THREE.LineSegments | null;
     screenMesh: THREE.Mesh | null;
-    nameLabel: THREE.Mesh;   // bottom-left, below the box (device colour)
-    widthLabel: THREE.Mesh;  // bottom-right, below the box
-    heightLabel: THREE.Mesh; // top-right, above the box
+    nameLabel: THREE.Mesh;   // centered below the box (device colour)
+    widthLabel: THREE.Mesh;  // bottom-left, on the face (white)
+    heightLabel: THREE.Mesh; // bottom-right, on the face (white)
     item: SceneItem;
     meshBaseOpacity: number;
     fading: boolean; // true while a fade-out (pending removal) is in flight
@@ -751,15 +751,15 @@ export function createScene(container: HTMLElement): SizeScene {
     handle.mesh.removeFromParent();
   }
 
-  const LABEL_GRAY = '#78716c';
-
-  // Builds one dimension label (width or height) for the current units, anchored at its front-face
-  // corner. Reused by createHandle and by setUnits, which rebuilds them when the unit system flips.
+  // Builds one dimension label (width or height) for the current units, in white and inset just
+  // inside the front face at a bottom corner: width bottom-left, height bottom-right. Reused by
+  // createHandle and by setUnits, which rebuilds them when the unit system flips.
   function makeDimLabel(item: SceneItem, which: 'w' | 'h'): THREE.Mesh {
     const mm = which === 'w' ? item.w : item.h;
-    const plane = makeLabelPlane(formatLength(mm, units), labelTextH(item), 500, LABEL_GRAY);
-    if (which === 'w') placeCorner(plane, item.w / 2, -item.h / 2 - labelGap(item), labelFrontZ(item), 1, 0);
-    else placeCorner(plane, item.w / 2, item.h / 2 + labelGap(item), labelFrontZ(item), 1, 1);
+    const inset = labelGap(item);
+    const plane = makeLabelPlane(formatLength(mm, units), labelTextH(item), 500, '#ffffff');
+    if (which === 'w') placeCorner(plane, -item.w / 2 + inset, -item.h / 2 + inset, labelFrontZ(item), 0, 1);
+    else placeCorner(plane, item.w / 2 - inset, -item.h / 2 + inset, labelFrontZ(item), 1, 1);
     return plane;
   }
 
@@ -786,11 +786,11 @@ export function createScene(container: HTMLElement): SizeScene {
     mesh.scale.setScalar(0.01);
 
     // Per-device annotations lying on the front face (local +z, the world z=0 plane the devices are
-    // front-aligned to) so they foreshorten and rotate with the box rather than billboarding. Each
-    // is anchored by a corner (see placeCorner): name below-left, width below-right, height
-    // above-right.
+    // front-aligned to) so they foreshorten and rotate with the box rather than billboarding. The
+    // name sits centered just below the box in its device colour; width/height are white, inside the
+    // bottom corners of the face (see makeDimLabel).
     const nameLabel = makeLabelPlane(item.name, labelTextH(item), 600, item.color);
-    placeCorner(nameLabel, -item.w / 2, -item.h / 2 - labelGap(item), labelFrontZ(item), 0, 0);
+    placeCorner(nameLabel, 0, -item.h / 2 - labelGap(item), labelFrontZ(item), 0.5, 0);
     const widthLabel = makeDimLabel(item, 'w');
     const heightLabel = makeDimLabel(item, 'h');
     mesh.add(nameLabel, widthLabel, heightLabel);
