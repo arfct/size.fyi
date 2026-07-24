@@ -71,7 +71,7 @@ test('stack targets: largest at the back (z=0) down to smallest at the front, pe
 
   // Largest→smallest along +z: b, a, c. Gaps: b→a = min(20,10)=10, a→c = min(10,5)=5.
   const tb = targets.get(keys[1]!)!;
-  expect(tb.pos.x).toBe(0);
+  expect(tb.pos.x).toBeCloseTo(b.w / 2); // left edge at x=0
   expect(tb.pos.y).toBeCloseTo(b.h / 2);
   expect(tb.pos.z).toBeCloseTo(b.d / 2); // 15
   expect(tb.renderOrder).toBe(0);
@@ -83,6 +83,9 @@ test('stack targets: largest at the back (z=0) down to smallest at the front, pe
   const tc = targets.get(keys[2]!)!;
   expect(tc.pos.z).toBeCloseTo(b.d + 10 + a.d + 5 + c.d / 2); // 30 + 10 + 10 + 5 + 2.5 = 57.5
   expect(tc.renderOrder).toBe(2);
+
+  // All stacked items share the bottom-left corner: left edge at x=0.
+  for (const [it, t] of [[a, ta], [b, tb], [c, tc]] as const) expect(t.pos.x - it.w / 2).toBeCloseTo(0);
 
   // No overlap in depth along the placement order b → a → c.
   expect(ta.pos.z - a.d / 2).toBeGreaterThanOrEqual(tb.pos.z + b.d / 2 - 1e-9);

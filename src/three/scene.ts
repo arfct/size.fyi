@@ -456,7 +456,8 @@ const MAX_STACK_GAP = 10; // mm (1 cm) — ceiling on the depth gap between stac
 // z=0 plane and extending back (nearest face at z=0, so the ruler along the front reads cleanly).
 // Stack = sequential along +z with the LARGEST at the back (z=0) and the smallest at the front
 // (nearest the camera), so the size progression reads front-to-back small→large and the largest
-// doesn't occlude the rest. Either way each item sits with its bottom on the ground (y=h/2) and the
+// doesn't occlude the rest; stacked items share a bottom-left corner (left edge at x=0) so their
+// origins line up. Either way each item sits with its bottom on the ground (y=h/2) and the
 // gap between two neighbours equals the smaller of their smallest dimensions. Stack renderOrder increases along z
 // (nearer items drawn later) so the translucent items blend front-to-back correctly (paired with
 // depthWrite:false on the transparent materials in createScene). Pure — exported for direct testing.
@@ -473,7 +474,8 @@ export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutM
     const seq = [...order].reverse(); // largest first (back), smallest last (front)
     let z = 0;
     seq.forEach(({ item, key }, idx) => {
-      targets.set(key, { pos: new THREE.Vector3(0, item.h / 2, z + item.d / 2), renderOrder: idx });
+      // Left edge at x=0 (center at w/2) so items align at the bottom-left corner, not centered.
+      targets.set(key, { pos: new THREE.Vector3(item.w / 2, item.h / 2, z + item.d / 2), renderOrder: idx });
       z += item.d + Math.min(gapBetween(seq, idx), MAX_STACK_GAP); // cap the stack gap at 1 cm
     });
   } else {
