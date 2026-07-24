@@ -347,8 +347,8 @@ const labelGap = (item: SceneItem) => Math.max(item.w, item.h) * 0.03; // cleara
 // Label text is one constant world height for the whole scene (not per-item). It's sized so that a
 // row of ~LABEL_CHARS characters spans the narrowest device's width — enough for the "w × h" line to
 // fit on even the smallest face, and scaled up in proportion on wider devices. Recomputed whenever
-// the set of devices changes.
-const LABEL_CHARS = 9;
+// the set of devices changes. (11 rather than 9 → ~83% of the 9-char size, i.e. ~20% smaller.)
+const LABEL_CHARS = 11;
 
 // A closed foldable is two panels stacked in depth; this traces the w×h device outline at the
 // mid-thickness plane (local z=0) as line segments — the clamshell "parting line" that reads as
