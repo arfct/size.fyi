@@ -37,7 +37,7 @@ function validateGeometry(g, id) {
     if (typeof g.screen !== 'object' || g.screen === null || Array.isArray(g.screen)) {
       errors.push(`${id}: screen must be an object`);
     } else {
-      const screenAllowed = new Set(['h', 'w', 'radius']);
+      const screenAllowed = new Set(['h', 'w', 'radius', 'px', 'pixelRatio']);
       for (const k of Object.keys(g.screen)) if (!screenAllowed.has(k)) errors.push(`${id}: unknown key screen.${k}`);
       const sh = g.screen.h, sw = g.screen.w;
       if (typeof sh !== 'number' || sh <= 0) errors.push(`${id}: screen.h missing or invalid`);
@@ -49,6 +49,16 @@ function validateGeometry(g, id) {
           || (typeof sh === 'number' && typeof sw === 'number' && g.screen.radius > Math.min(sh, sw) / 2 + 0.01))
           errors.push(`${id}: screen.radius out of range`);
       }
+      if (g.screen.px !== undefined) {
+        const px = g.screen.px;
+        if (typeof px !== 'object' || px === null || Array.isArray(px)) errors.push(`${id}: screen.px must be an object`);
+        else {
+          for (const k of Object.keys(px)) if (k !== 'w' && k !== 'h') errors.push(`${id}: unknown key screen.px.${k}`);
+          for (const k of ['w', 'h']) if (!Number.isInteger(px[k]) || px[k] <= 0) errors.push(`${id}: screen.px.${k} must be a positive integer`);
+        }
+      }
+      if (g.screen.pixelRatio !== undefined && (typeof g.screen.pixelRatio !== 'number' || g.screen.pixelRatio <= 0))
+        errors.push(`${id}: screen.pixelRatio must be a positive number`);
     }
   }
 }

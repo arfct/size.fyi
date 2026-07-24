@@ -19,6 +19,11 @@
   "screen": {
     "h": 140.6,
     "w": 65,
-    "radius": 8
+    "radius": 8,
+    "px": {
+      "w": 1170,
+      "h": 2532
+    },
+    "pixelRatio": 3
   }
 }

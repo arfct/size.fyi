@@ -33,7 +33,12 @@ One device per file keeps pull requests small, reviewable, and conflict-free —
   "radius": 12,                   // optional: corner/edge fillet radius in mm
   "radiusAxis": "z",              // optional: axis the rounded edges run parallel to — x | y | z.
                                   //   Omit radiusAxis to round ALL edges (like an AirPods case).
-  "screen": { "h": 145, "w": 68, "radius": 12 }  // optional: front screen cutout (must fit within h/w)
+  "screen": {                     // optional: front screen cutout (must fit within h/w)
+    "h": 145, "w": 68,            //   active-area size in mm
+    "radius": 12,                 //   optional: corner radius in mm
+    "px": { "w": 1206, "h": 2622 }, // optional: native resolution in device pixels (portrait: h ≥ w)
+    "pixelRatio": 3               //   optional: logical-to-physical scale factor (e.g. 3 = @3x)
+  }
 }
 ```
 

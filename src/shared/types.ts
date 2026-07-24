@@ -1,7 +1,7 @@
 export type Category = 'everyday' | 'paper' | 'phone' | 'tablet' | 'laptop'
   | 'console' | 'pc-case' | 'audio' | 'camera' | 'watch';
 export type RadiusAxis = 'x' | 'y' | 'z';
-export interface Screen { h: number; w: number; radius?: number }
+export interface Screen { h: number; w: number; radius?: number; px?: { w: number; h: number }; pixelRatio?: number }
 
 // One selectable configuration of a multi-state device (e.g. a foldable's "closed" / "open").
 // Carries the geometry that varies between states; the toggle in the item list switches between them.
