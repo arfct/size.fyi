@@ -113,9 +113,10 @@ export function gridSpec(units: Units, span: number) {
 }
 
 // A ground grid centered under the content: major + minor lines that fade out radially from the
-// center (per-fragment, by world distance) plus numeric tick labels along the +x/+z axes. Built
-// fresh whenever the content bounds or unit system change.
-function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Group {
+// center (per-fragment, by world distance) plus numeric tick labels along the +x axis only, sitting
+// just in front of the content's front plane (frontZ, world). Built fresh whenever the content
+// bounds or unit system change.
+function buildGrid(center: THREE.Vector3, units: Units, span: number, frontZ: number): THREE.Group {
   const { unitMM, minorMM, majorCount, halfExtent } = gridSpec(units, span);
   const g = new THREE.Group();
   g.position.set(center.x, 0, center.z);
@@ -166,22 +167,23 @@ function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Gro
     g.add(new THREE.LineSegments(geo, lineMaterial(opacity)));
   }
 
-  // Bare numeric labels (no unit): metric shows the distance in mm, imperial in whole inches.
+  // Bare numeric labels (no unit) along the +x axis only: metric shows the distance in mm, imperial
+  // in whole inches. Placed a touch in front (+z, toward the camera) of the content's front plane so
+  // the row of numbers sits just ahead of the front-aligned devices rather than under them.
   const stride = Math.max(1, Math.ceil(majorCount / 8));
+  const labelZ = (frontZ - center.z) + unitMM * 0.5; // front plane in grid-local space, nudged forward
   for (let k = stride; k <= majorCount; k += stride) {
     const dist = k * unitMM;
     const opacity = Math.max(0, 1 - dist / halfExtent) ** 2 * 0.9;
     if (opacity < 0.05) continue;
     const labelValue = units === 'imperial' ? k : Math.round(dist);
-    for (const [lx, lz] of [[dist, 0], [0, dist]] as const) {
-      const el = document.createElement('div');
-      el.textContent = `${labelValue}`;
-      el.style.cssText =
-        `font:11px ui-sans-serif,system-ui;color:#8a8a8a;pointer-events:none;white-space:nowrap;opacity:${opacity.toFixed(3)}`;
-      const label = new CSS2DObject(el);
-      label.position.set(lx, 0, lz);
-      g.add(label);
-    }
+    const el = document.createElement('div');
+    el.textContent = `${labelValue}`;
+    el.style.cssText =
+      `font:11px ui-sans-serif,system-ui;color:#8a8a8a;pointer-events:none;white-space:nowrap;opacity:${opacity.toFixed(3)}`;
+    const label = new CSS2DObject(el);
+    label.position.set(dist, 0, labelZ);
+    g.add(label);
   }
   return g;
 }
@@ -423,11 +425,12 @@ const volumeOf = (i: SceneItem) => i.h * i.w * i.d;
 const minDimOf = (i: SceneItem) => Math.min(i.h, i.w, i.d);
 const MAX_STACK_GAP = 10; // mm (1 cm) — ceiling on the depth gap between stacked items
 
-// Items are sorted by volume. Row = sequential along +x smallest→largest (all at z=0). Stack =
-// sequential along +z with the LARGEST at the back (z=0) and the smallest at the front (nearest the
-// camera), so the size progression reads front-to-back small→large and the largest doesn't occlude
-// the rest. Either way each item sits with its bottom on the ground (y=h/2) and the gap between two
-// neighbours equals the smaller of their smallest dimensions. Stack renderOrder increases along z
+// Items are sorted by volume. Row = sequential along +x smallest→largest, all front-aligned to the
+// z=0 plane and extending back (nearest face at z=0, so the ruler along the front reads cleanly).
+// Stack = sequential along +z with the LARGEST at the back (z=0) and the smallest at the front
+// (nearest the camera), so the size progression reads front-to-back small→large and the largest
+// doesn't occlude the rest. Either way each item sits with its bottom on the ground (y=h/2) and the
+// gap between two neighbours equals the smaller of their smallest dimensions. Stack renderOrder increases along z
 // (nearer items drawn later) so the translucent items blend front-to-back correctly (paired with
 // depthWrite:false on the transparent materials in createScene). Pure — exported for direct testing.
 export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutMode): Map<string, LayoutTarget> {
@@ -449,7 +452,7 @@ export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutM
   } else {
     let x = 0;
     order.forEach(({ item, key }, idx) => {
-      targets.set(key, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, 0), renderOrder: 0 });
+      targets.set(key, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, -item.d / 2), renderOrder: 0 });
       x += item.w + gapBetween(order, idx);
     });
   }
@@ -577,7 +580,7 @@ export function createScene(container: HTMLElement): SizeScene {
     removeGrid();
     const c = bounds.getCenter(new THREE.Vector3());
     const span = Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, 1);
-    grid = buildGrid(c, units, span);
+    grid = buildGrid(c, units, span, bounds.max.z);
     grid.visible = view !== 'front' && view !== 'side';
     scene.add(grid);
   }

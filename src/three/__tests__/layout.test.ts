@@ -26,7 +26,7 @@ test('computeKeys distinguishes same dims by seam state (foldable open vs closed
   expect(computeKeys([closed, open])).toEqual(['Fold|150x75x8||seam', 'Fold|150x75x8||']);
 });
 
-test('row targets: sequential x, gap = smaller neighbour min-dimension, all at z=0, renderOrder 0', () => {
+test('row targets: sequential x, gap = smaller neighbour min-dimension, front-aligned to z=0 (center at -d/2), renderOrder 0', () => {
   const a = item({ name: 'A', h: 10, w: 10, d: 10 }); // vol 1000, minDim 10
   const b = item({ name: 'B', h: 10, w: 20, d: 10 }); // vol 2000, minDim 10
   const keys = computeKeys([a, b]);
@@ -37,14 +37,14 @@ test('row targets: sequential x, gap = smaller neighbour min-dimension, all at z
   const ta = targets.get(keys[0]!)!;
   expect(ta.pos.x).toBeCloseTo(0 + a.w / 2); // 5
   expect(ta.pos.y).toBeCloseTo(a.h / 2);
-  expect(ta.pos.z).toBe(0);
+  expect(ta.pos.z).toBeCloseTo(-a.d / 2); // front face at z=0, extending back
   expect(ta.renderOrder).toBe(0);
 
   const expectedBx = a.w + gap + b.w / 2; // 10 + 10 + 10 = 30
   const tb = targets.get(keys[1]!)!;
   expect(tb.pos.x).toBeCloseTo(expectedBx);
   expect(tb.pos.y).toBeCloseTo(b.h / 2);
-  expect(tb.pos.z).toBe(0);
+  expect(tb.pos.z).toBeCloseTo(-b.d / 2); // front face at z=0, extending back
   expect(tb.renderOrder).toBe(0);
 });
 
@@ -118,8 +118,8 @@ test('computeTargetBounds matches the expected Box3 for a known row fixture', ()
   const box = computeTargetBounds([a, b], keys, targets);
 
   const expected = new THREE.Box3(
-    new THREE.Vector3(0, 0, -5),
-    new THREE.Vector3(40, 10, 5),
+    new THREE.Vector3(0, 0, -10), // front-aligned: centers at z=-d/2, so each item spans [-d, 0]
+    new THREE.Vector3(40, 10, 0),
   );
   expect(box.min.x).toBeCloseTo(expected.min.x);
   expect(box.min.y).toBeCloseTo(expected.min.y);
