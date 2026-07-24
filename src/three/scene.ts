@@ -285,18 +285,36 @@ function tintToBlack(hex: string, amount: number): THREE.Color {
 // world mm, so it lies flat on the device's front face and rotates/foreshortens with the scene
 // rather than billboarding toward the camera. White text tinted by material.color lets the colour
 // tween like the mesh/edges. worldH sets the text's world-space height (mm).
+const LABEL_FONT_PX = 96;
+const labelFont = (weight: number) => `${weight} ${LABEL_FONT_PX}px ui-sans-serif, system-ui, sans-serif`;
+const LABEL_PAD = LABEL_FONT_PX * 0.25;
+
+// Canvas pixel size of a rendered label (text width + symmetric padding). Sets the text ctx.font so
+// the returned width matches what makeLabelPlane will draw.
+function measureLabelPx(ctx: CanvasRenderingContext2D, text: string, weight: number) {
+  ctx.font = labelFont(weight);
+  return {
+    w: Math.max(1, Math.ceil(ctx.measureText(text).width + LABEL_PAD * 2)),
+    h: Math.ceil(LABEL_FONT_PX + LABEL_PAD * 2),
+  };
+}
+
+// Width/height ratio of a rendered string, so a caller can pick a worldH that makes the string span
+// a target world width (worldW = worldH * aspect). Returns 0 if a 2d context isn't available (jsdom).
+function labelAspect(text: string, weight: number): number {
+  const ctx = document.createElement('canvas').getContext('2d');
+  if (!ctx) return 0;
+  const { w, h } = measureLabelPx(ctx, text, weight);
+  return w / h;
+}
+
 function makeLabelPlane(text: string, worldH: number, weight: number, colorHex: string): THREE.Mesh {
-  const FONT_PX = 96;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
-  const font = `${weight} ${FONT_PX}px ui-sans-serif, system-ui, sans-serif`;
-  ctx.font = font;
-  const pad = FONT_PX * 0.25;
-  const w = Math.max(1, Math.ceil(ctx.measureText(text).width + pad * 2));
-  const h = Math.ceil(FONT_PX + pad * 2);
+  const { w, h } = measureLabelPx(ctx, text, weight);
   canvas.width = w;
   canvas.height = h;
-  ctx.font = font; // resizing the canvas resets the 2d context
+  ctx.font = labelFont(weight); // resizing the canvas resets the 2d context
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffffff';
@@ -326,15 +344,11 @@ const labelFrontZ = (item: SceneItem) => item.d / 2 + 1.5; // sit a little off t
 const LABEL_ORDER_BIAS = 0.5;
 const labelGap = (item: SceneItem) => Math.max(item.w, item.h) * 0.03; // clearance from the box edge
 
-// Label text is one constant world height for the whole scene (not per-item), sized as a fraction
-// of the fit extent — the same max(size) the 3D camera frames to — so it reads at a constant
-// on-screen size (~13px) at the default fit-all zoom regardless of how big the devices are, and
-// scales with the content like a decal when you zoom. Recomputed whenever the content bounds change.
-const LABEL_FIT_FRACTION = 0.045;
-const fitLabelHeight = (box: THREE.Box3) => {
-  const s = box.getSize(new THREE.Vector3());
-  return Math.max(s.x, s.y, s.z, 1) * LABEL_FIT_FRACTION;
-};
+// Label text is one constant world height for the whole scene (not per-item). It's sized so that a
+// row of ~LABEL_CHARS characters spans the narrowest device's width — enough for the "w × h" line to
+// fit on even the smallest face, and scaled up in proportion on wider devices. Recomputed whenever
+// the set of devices changes.
+const LABEL_CHARS = 9;
 
 // A closed foldable is two panels stacked in depth; this traces the w×h device outline at the
 // mid-thickness plane (local z=0) as line segments — the clamshell "parting line" that reads as
@@ -583,7 +597,10 @@ export function createScene(container: HTMLElement): SizeScene {
   let grid: THREE.Group | null = null;
   let units: Units = 'metric';
   let bounds = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
-  let labelWorldH = fitLabelHeight(bounds); // constant text height (mm) for the current content fit
+  // Width/height ratio of a LABEL_CHARS-long dim string; labelWorldH = minDeviceWidth / this makes
+  // that many characters span the narrowest device. Measured once (fallback for jsdom in tests).
+  const labelRowAspect = labelAspect('0'.repeat(LABEL_CHARS), 500) || 3.65;
+  let labelWorldH = 20; // recomputed from the device set in applyDiff
 
   let renderQueued = false;
   let rafHandle = 0;
@@ -925,11 +942,13 @@ export function createScene(container: HTMLElement): SizeScene {
     lastItems = items;
     const keys = computeKeys(items);
     const targets = computeTargets(items, keys, layoutMode);
-    // Bounds (and the fit-based label height derived from them) are needed before handles are built
-    // so new labels get the right world size and existing ones can be rebuilt if the fit changed.
     bounds = computeTargetBounds(items, keys, targets);
+    // Label height is derived from the narrowest device (so ~LABEL_CHARS chars span its width);
+    // recompute before building handles so new labels get the right size and existing ones rebuild
+    // if it changed.
     const prevLabelH = labelWorldH;
-    labelWorldH = fitLabelHeight(bounds);
+    const minWidth = items.length ? Math.min(...items.map((i) => i.w)) : 100;
+    labelWorldH = minWidth / labelRowAspect;
     const labelSizeChanged = Math.abs(labelWorldH - prevLabelH) > 1e-6;
     const newKeySet = new Set(keys);
 
