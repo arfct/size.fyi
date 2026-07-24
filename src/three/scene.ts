@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -278,6 +277,47 @@ function darken(hex: string, amount: number): THREE.Color {
   return new THREE.Color(hex).multiplyScalar(1 - amount);
 }
 
+// Face-aligned text label: text rasterized (white) onto a canvas and mapped onto a plane sized in
+// world mm, so it lies flat on the device's front face and rotates/foreshortens with the scene
+// rather than billboarding toward the camera. White text tinted by material.color lets the colour
+// tween like the mesh/edges. worldH sets the text's world-space height (mm).
+function makeLabelPlane(text: string, worldH: number, weight: number, colorHex: string): THREE.Mesh {
+  const FONT_PX = 96;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
+  const font = `${weight} ${FONT_PX}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.font = font;
+  const pad = FONT_PX * 0.25;
+  const w = Math.max(1, Math.ceil(ctx.measureText(text).width + pad * 2));
+  const h = Math.ceil(FONT_PX + pad * 2);
+  canvas.width = w;
+  canvas.height = h;
+  ctx.font = font; // resizing the canvas resets the 2d context
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(text, w / 2, h / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false });
+  mat.color.set(colorHex);
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(worldH * (w / h), worldH), mat);
+  return plane;
+}
+
+// Positions a label plane so a chosen corner sits at (x, y, z) in the mesh's local space.
+// ax: 0 = plane's left edge at x, 1 = right edge. ay: 0 = top edge at y, 1 = bottom edge.
+function placeCorner(plane: THREE.Mesh, x: number, y: number, z: number, ax: number, ay: number) {
+  const { width, height } = (plane.geometry as THREE.PlaneGeometry).parameters;
+  plane.position.set(x + (0.5 - ax) * width, y - (0.5 - ay) * height, z);
+}
+
+const labelFrontZ = (item: SceneItem) => item.d / 2 + 0.5; // just off the front face
+const labelGap = (item: SceneItem) => Math.max(item.w, item.h) * 0.03; // clearance from the box edge
+const labelTextH = (item: SceneItem) => Math.max(item.w, item.h) * 0.05; // world text height
+
 // A closed foldable is two panels stacked in depth; this traces the w×h device outline at the
 // mid-thickness plane (local z=0) as line segments — the clamshell "parting line" that reads as
 // "this opens". Added as a child of the mesh so it inherits position/scale/fade like the edges.
@@ -468,10 +508,6 @@ export function createScene(container: HTMLElement): SizeScene {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
 
-  const labelRenderer = new CSS2DRenderer();
-  labelRenderer.domElement.style.cssText = 'position:absolute;inset:0;pointer-events:none';
-  container.appendChild(labelRenderer.domElement);
-
   scene.add(new THREE.AmbientLight(0xffffff, 1.6));
   const sun = new THREE.DirectionalLight(0xffffff, 1.4);
   sun.position.set(1, 2, 1.5);
@@ -532,25 +568,27 @@ export function createScene(container: HTMLElement): SizeScene {
       renderQueued = false;
       if (view === '3d') controls.update();
       renderer.render(scene, camera);
-      labelRenderer.render(scene, camera);
     });
   }
 
+  // Meshes include label planes, whose material carries a CanvasTexture map that also needs freeing.
+  function disposeObject(o: THREE.Object3D) {
+    if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
+      o.geometry.dispose();
+      const mat = o.material as THREE.Material & { map?: THREE.Texture | null };
+      mat.map?.dispose();
+      mat.dispose();
+    }
+  }
+
   function clearGroup() {
-    group.traverse((o) => {
-      if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
-      if (o instanceof THREE.LineSegments) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
-      if (o instanceof CSS2DObject) o.element.remove();
-    });
+    group.traverse(disposeObject);
     group.clear();
   }
 
   function removeGrid() {
     if (!grid) return;
-    grid.traverse((o) => {
-      if (o instanceof THREE.LineSegments) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
-      if (o instanceof CSS2DObject) o.element.remove();
-    });
+    grid.traverse(disposeObject);
     scene.remove(grid);
     grid = null;
   }
@@ -620,9 +658,9 @@ export function createScene(container: HTMLElement): SizeScene {
     edges: THREE.LineSegments | null;
     seam: THREE.LineSegments | null;
     screenMesh: THREE.Mesh | null;
-    nameLabel: CSS2DObject;   // bottom-left, below the box
-    widthLabel: CSS2DObject;  // bottom-right, below the box
-    heightLabel: CSS2DObject; // top-right, above the box
+    nameLabel: THREE.Mesh;   // bottom-left, below the box (device colour)
+    widthLabel: THREE.Mesh;  // bottom-right, below the box
+    heightLabel: THREE.Mesh; // top-right, above the box
     item: SceneItem;
     meshBaseOpacity: number;
     fading: boolean; // true while a fade-out (pending removal) is in flight
@@ -634,7 +672,7 @@ export function createScene(container: HTMLElement): SizeScene {
   let layoutMode: LayoutMode = 'row';
   let firstItems = true;
 
-  function labelsOf(handle: ItemHandle): CSS2DObject[] {
+  function labelsOf(handle: ItemHandle): THREE.Mesh[] {
     return [handle.nameLabel, handle.widthLabel, handle.heightLabel];
   }
 
@@ -643,7 +681,7 @@ export function createScene(container: HTMLElement): SizeScene {
     if (handle.edges) (handle.edges.material as THREE.Material).opacity = factor;
     if (handle.seam) (handle.seam.material as THREE.Material).opacity = factor;
     if (handle.screenMesh) (handle.screenMesh.material as THREE.Material).opacity = SCREEN_OPACITY * factor;
-    for (const l of labelsOf(handle)) l.element.style.opacity = `${factor}`;
+    for (const l of labelsOf(handle)) (l.material as THREE.Material).opacity = factor;
   }
 
   function currentOpacityFactor(handle: ItemHandle): number {
@@ -682,16 +720,24 @@ export function createScene(container: HTMLElement): SizeScene {
     const screenMat = handle.screenMesh?.material as THREE.MeshBasicMaterial | undefined;
     const fromScreen = screenMat?.color.clone();
     const toScreen = darken(toColorHex, 0.35);
+    // The name label is white text tinted by its material colour, so it tweens like the mesh/edges.
+    const nameMat = handle.nameLabel.material as THREE.MeshBasicMaterial;
+    const fromName = nameMat.color.clone();
     addTween(`${handle.keyId}:color`, TWEEN_MS, (k) => {
       meshMat.color.copy(fromMesh).lerp(toMesh, k);
       if (edgesMat && fromEdges) edgesMat.color.copy(fromEdges).lerp(toEdges, k);
       if (seamMat && fromSeam) seamMat.color.copy(fromSeam).lerp(toEdges, k);
       if (screenMat && fromScreen) screenMat.color.copy(fromScreen).lerp(toScreen, k);
-    }, () => {
-      // The name-label colour is a CSS string, not a THREE.Color, so it isn't tweened frame-by-frame
-      // — it swaps once the material tween settles.
-      handle.nameLabel.element.style.color = toColorHex;
+      nameMat.color.copy(fromName).lerp(toMesh, k);
     });
+  }
+
+  function disposeLabel(label: THREE.Mesh) {
+    label.geometry.dispose();
+    const mat = label.material as THREE.MeshBasicMaterial;
+    mat.map?.dispose();
+    mat.dispose();
+    label.removeFromParent();
   }
 
   function disposeHandle(handle: ItemHandle) {
@@ -701,8 +747,20 @@ export function createScene(container: HTMLElement): SizeScene {
     if (handle.edges) { handle.edges.geometry.dispose(); (handle.edges.material as THREE.Material).dispose(); }
     if (handle.seam) { handle.seam.geometry.dispose(); (handle.seam.material as THREE.Material).dispose(); }
     if (handle.screenMesh) { handle.screenMesh.geometry.dispose(); (handle.screenMesh.material as THREE.Material).dispose(); }
-    for (const l of labelsOf(handle)) l.element.remove();
+    for (const l of labelsOf(handle)) disposeLabel(l);
     handle.mesh.removeFromParent();
+  }
+
+  const LABEL_GRAY = '#78716c';
+
+  // Builds one dimension label (width or height) for the current units, anchored at its front-face
+  // corner. Reused by createHandle and by setUnits, which rebuilds them when the unit system flips.
+  function makeDimLabel(item: SceneItem, which: 'w' | 'h'): THREE.Mesh {
+    const mm = which === 'w' ? item.w : item.h;
+    const plane = makeLabelPlane(formatLength(mm, units), labelTextH(item), 500, LABEL_GRAY);
+    if (which === 'w') placeCorner(plane, item.w / 2, -item.h / 2 - labelGap(item), labelFrontZ(item), 1, 0);
+    else placeCorner(plane, item.w / 2, item.h / 2 + labelGap(item), labelFrontZ(item), 1, 1);
+    return plane;
   }
 
   function createHandle(item: SceneItem, keyId: string, target: Target): ItemHandle {
@@ -727,30 +785,15 @@ export function createScene(container: HTMLElement): SizeScene {
     mesh.renderOrder = target.renderOrder;
     mesh.scale.setScalar(0.01);
 
-    // Per-device annotations anchored to the front-face corners (local +z = d/2, the world z=0 plane
-    // the devices are front-aligned to). CSS2DObject.center picks which corner of the label element
-    // sits on its anchor point, so each label reads cleanly outside the box: name below-left, width
-    // below-right, height above-right.
-    const front = item.d / 2;
-    const gap = Math.max(item.w, item.h) * 0.03; // small offset so text clears the box edge
-    const dimCss = 'font:11px ui-sans-serif,system-ui;color:#78716c;pointer-events:none;white-space:nowrap';
-    const makeLabel = (text: string, css: string, pos: [number, number, number], cx: number, cy: number) => {
-      const el = document.createElement('div');
-      el.textContent = text;
-      el.style.cssText = css;
-      const l = new CSS2DObject(el);
-      l.position.set(pos[0], pos[1], pos[2]);
-      l.center.set(cx, cy);
-      mesh.add(l);
-      return l;
-    };
-    const nameLabel = makeLabel(
-      item.name,
-      `font:12px ui-sans-serif,system-ui;font-weight:600;color:${item.color};pointer-events:none;white-space:nowrap`,
-      [-item.w / 2, -item.h / 2 - gap, front], 0, 0,
-    );
-    const widthLabel = makeLabel(formatLength(item.w, units), dimCss, [item.w / 2, -item.h / 2 - gap, front], 1, 0);
-    const heightLabel = makeLabel(formatLength(item.h, units), dimCss, [item.w / 2, item.h / 2 + gap, front], 1, 1);
+    // Per-device annotations lying on the front face (local +z, the world z=0 plane the devices are
+    // front-aligned to) so they foreshorten and rotate with the box rather than billboarding. Each
+    // is anchored by a corner (see placeCorner): name below-left, width below-right, height
+    // above-right.
+    const nameLabel = makeLabelPlane(item.name, labelTextH(item), 600, item.color);
+    placeCorner(nameLabel, -item.w / 2, -item.h / 2 - labelGap(item), labelFrontZ(item), 0, 0);
+    const widthLabel = makeDimLabel(item, 'w');
+    const heightLabel = makeDimLabel(item, 'h');
+    mesh.add(nameLabel, widthLabel, heightLabel);
 
     let edges: THREE.LineSegments | null = null;
     if (!isWireframe && !isModel) {
@@ -908,7 +951,10 @@ export function createScene(container: HTMLElement): SizeScene {
         ortho.bottom = -ortho.top;
       };
       const far = Math.max(s.x, s.y, s.z) * 4 + 1000;
-      if (next === 'front') { fit(s.x, s.y); ortho.position.set(c.x, c.y, c.z + far / 2); }
+      // Front view is fit tightly to the geometry; the face labels sit just outside the box (above
+      // the top, below the bottom), so leave room for their overhang or they clip at the edges.
+      const labelPad = 2 * Math.max(0, ...lastItems.map((i) => labelGap(i) + labelTextH(i)));
+      if (next === 'front') { fit(s.x + labelPad, s.y + labelPad); ortho.position.set(c.x, c.y, c.z + far / 2); }
       if (next === 'side') { fit(s.z, s.y); ortho.position.set(c.x + far / 2, c.y, c.z); }
       if (next === 'top') { fit(s.x, s.z); ortho.position.set(c.x, c.y + far / 2, c.z); }
       ortho.lookAt(c);
@@ -1002,7 +1048,6 @@ export function createScene(container: HTMLElement): SizeScene {
     }
     camera = persp;
     renderer.render(scene, camera);
-    labelRenderer.render(scene, camera);
     if (t >= 1) {
       finalizeTransition();
     } else {
@@ -1039,7 +1084,6 @@ export function createScene(container: HTMLElement): SizeScene {
   function resize() {
     const { width, height } = container.getBoundingClientRect();
     renderer.setSize(width, height);
-    labelRenderer.setSize(width, height);
     // Cancel-and-jump: a resize mid-flight recomputes the end state for the new size and
     // snaps to it rather than continuing to animate through a resized viewport.
     applyInstant(view);
@@ -1068,9 +1112,17 @@ export function createScene(container: HTMLElement): SizeScene {
     setUnits(next: Units) {
       if (next === units) return;
       units = next;
+      // The label text is baked into a texture, so a unit switch rebuilds the two dim planes in
+      // place, preserving the item's current fade opacity.
       for (const h of handles.values()) {
-        h.widthLabel.element.textContent = formatLength(h.item.w, units);
-        h.heightLabel.element.textContent = formatLength(h.item.h, units);
+        const factor = currentOpacityFactor(h);
+        disposeLabel(h.widthLabel);
+        disposeLabel(h.heightLabel);
+        h.widthLabel = makeDimLabel(h.item, 'w');
+        h.heightLabel = makeDimLabel(h.item, 'h');
+        (h.widthLabel.material as THREE.Material).opacity = factor;
+        (h.heightLabel.material as THREE.Material).opacity = factor;
+        h.mesh.add(h.widthLabel, h.heightLabel);
       }
       rebuildGrid();
       requestRender();
