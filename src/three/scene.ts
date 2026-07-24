@@ -112,13 +112,17 @@ export function gridSpec(units: Units, span: number) {
   return { unitMM, minorMM, majorCount, halfExtent: majorCount * unitMM };
 }
 
-// A ground grid centered under the content: major + minor lines that fade out radially from the
-// center (per-fragment, by world distance). Dimensions are annotated per-device (see createHandle),
-// not on the grid. Built fresh whenever the content bounds or unit system change.
-function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Group {
-  const { unitMM, minorMM, majorCount, halfExtent } = gridSpec(units, span);
+const GRID_REACH = 1.4; // line + fade extent multiplier over gridSpec's halfExtent — reaches farther out
+
+// A square reference grid built in its LOCAL x–z plane, centred on the origin: major + minor lines
+// that fade out radially by LOCAL distance, so the fade is independent of how the caller orients the
+// group (the same grid is reused as the floor and as the two vertical walls). `uViewOpacity` scales
+// the whole grid and is driven per frame by how head-on the camera is to this plane. Built fresh
+// whenever the content bounds or unit system change.
+function buildGrid(units: Units, span: number): THREE.Group {
+  const { unitMM, minorMM, majorCount } = gridSpec(units, span);
+  const reach = majorCount * unitMM * GRID_REACH;
   const g = new THREE.Group();
-  g.position.set(center.x, 0, center.z);
 
   const lineMaterial = (baseOpacity: number) =>
     new THREE.ShaderMaterial({
@@ -127,22 +131,21 @@ function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Gro
       uniforms: {
         uColor: { value: new THREE.Color(0x8a8a8a) },
         uOpacity: { value: baseOpacity },
-        uCenter: { value: new THREE.Vector2(center.x, center.z) },
-        uExtent: { value: halfExtent },
+        uExtent: { value: reach },
+        uViewOpacity: { value: 1 },
       },
       vertexShader:
-        'varying vec3 vWorld;\n' +
+        'varying vec2 vLocal;\n' +
         'void main() {\n' +
-        '  vWorld = (modelMatrix * vec4(position, 1.0)).xyz;\n' +
+        '  vLocal = position.xz;\n' + // interpolate position, not distance, so long lines fade per-fragment
         '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n' +
         '}',
       fragmentShader:
-        'uniform vec3 uColor; uniform float uOpacity; uniform vec2 uCenter; uniform float uExtent;\n' +
-        'varying vec3 vWorld;\n' +
+        'uniform vec3 uColor; uniform float uOpacity; uniform float uExtent; uniform float uViewOpacity;\n' +
+        'varying vec2 vLocal;\n' +
         'void main() {\n' +
-        '  float r = distance(vWorld.xz, uCenter);\n' +
-        '  float a = clamp(1.0 - r / uExtent, 0.0, 1.0);\n' +
-        '  gl_FragColor = vec4(uColor, a * a * uOpacity);\n' +
+        '  float a = clamp(1.0 - length(vLocal) / uExtent, 0.0, 1.0);\n' + // true distance in the grid plane
+        '  gl_FragColor = vec4(uColor, pow(a, 1.5) * uOpacity * uViewOpacity);\n' +
         '}',
     });
 
@@ -150,14 +153,14 @@ function buildGrid(center: THREE.Vector3, units: Units, span: number): THREE.Gro
   const showMinor = units === 'imperial';
   const majorPos: number[] = [];
   const minorPos: number[] = [];
-  const steps = Math.round(halfExtent / minorMM);
+  const steps = Math.round(reach / minorMM);
   for (let i = -steps; i <= steps; i++) {
     const p = i * minorMM;
     const isMajor = Math.abs(Math.round(p / unitMM) * unitMM - p) < 1e-6;
     if (!isMajor && !showMinor) continue;
     const arr = isMajor ? majorPos : minorPos;
-    arr.push(-halfExtent, 0, p, halfExtent, 0, p); // parallel to X
-    arr.push(p, 0, -halfExtent, p, 0, halfExtent); // parallel to Z
+    arr.push(-reach, 0, p, reach, 0, p); // parallel to local x
+    arr.push(p, 0, -reach, p, 0, reach); // parallel to local z
   }
   for (const [pos, opacity] of [[majorPos, 0.55], [minorPos, 0.22]] as const) {
     if (pos.length === 0) continue;
@@ -612,7 +615,9 @@ export function createScene(container: HTMLElement): SizeScene {
 
   const group = new THREE.Group();
   scene.add(group);
-  let grid: THREE.Group | null = null;
+  // Three reference grids: the xz floor (default) plus xy/zy walls that fade in as the camera gets
+  // head-on to them (front → xy, side → zy). Their per-plane opacity is set every frame.
+  let grids: { floor: THREE.Group; front: THREE.Group; side: THREE.Group } | null = null;
   let units: Units = 'metric';
   let bounds = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
   // Width/height ratio of a LABEL_CHARS-long dim string; labelWorldH = minDeviceWidth / this makes
@@ -630,18 +635,37 @@ export function createScene(container: HTMLElement): SizeScene {
       if (disposed) return;
       renderQueued = false;
       if (view === '3d') controls.update();
-      updateGroundVisibility(view);
+      updateGridOpacity();
       renderer.render(scene, camera);
     });
   }
 
-  // The grid is hidden in the flat front/side views, and also whenever the camera drops below the
-  // ground plane (orbiting underneath) so its underside isn't shown. Re-evaluated every frame since
-  // it depends on the live camera position during an orbit.
-  function updateGroundVisibility(effectiveView: ViewName) {
-    if (!grid) return;
-    const inView = effectiveView !== 'front' && effectiveView !== 'side';
-    grid.visible = inView && camera.position.y >= grid.position.y;
+  const _viewDir = new THREE.Vector3();
+  function setGridViewOpacity(grid: THREE.Group, value: number) {
+    grid.traverse((o) => {
+      const mat = (o as THREE.LineSegments).material as THREE.ShaderMaterial | undefined;
+      if (mat?.uniforms?.uViewOpacity) mat.uniforms.uViewOpacity.value = value;
+    });
+  }
+
+  // Fade each grid by how head-on the camera is to its plane: the xy wall as the view direction
+  // aligns with z (front/back), the zy wall as it aligns with x (side). The xz floor is the default,
+  // fading out as either wall takes over, and hidden when the camera drops below it. Re-evaluated
+  // every frame so the grids cross-fade smoothly as the camera moves.
+  function updateGridOpacity() {
+    if (!grids) return;
+    camera.getWorldDirection(_viewDir);
+    const headOn = (align: number) => { // 0 below ~0.86, ramping to 1 near dead-on
+      const t = Math.min(1, Math.max(0, (align - 0.86) / (0.985 - 0.86)));
+      return t * t * (3 - 2 * t);
+    };
+    const front = headOn(Math.abs(_viewDir.z));
+    const side = headOn(Math.abs(_viewDir.x));
+    const belowFloor = camera.position.y < grids.floor.position.y ? 0 : 1;
+    const floor = Math.max(0, 1 - Math.max(front, side)) * belowFloor;
+    setGridViewOpacity(grids.floor, floor);
+    setGridViewOpacity(grids.front, front);
+    setGridViewOpacity(grids.side, side);
   }
 
   // Meshes include label planes, whose material carries a CanvasTexture map that also needs freeing.
@@ -660,25 +684,36 @@ export function createScene(container: HTMLElement): SizeScene {
   }
 
   function removeGrid() {
-    if (!grid) return;
-    grid.traverse(disposeObject);
-    scene.remove(grid);
-    grid = null;
+    if (!grids) return;
+    for (const g of [grids.floor, grids.front, grids.side]) { g.traverse(disposeObject); scene.remove(g); }
+    grids = null;
   }
 
-  // Rebuilds the ground grid for the current bounds + unit system, preserving current visibility.
+  // Rebuilds all three reference grids for the current bounds + unit system. Each is the same local
+  // grid oriented into a different world plane: the xz floor (dropped below the devices), the xy
+  // wall behind them (front backdrop), and the zy wall to the side.
   function rebuildGrid() {
     removeGrid();
     const c = bounds.getCenter(new THREE.Vector3());
-    const span = Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, 1);
-    grid = buildGrid(c, units, span);
-    // Devices sit on y=0 with the name label ("title") just below it; drop the ground plane to twice
-    // the device-bottom→title distance so the title sits midway between the devices and the floor.
+    const s = bounds.getSize(new THREE.Vector3());
+    const span = Math.max(s.x, s.y, s.z, 1);
+    // Devices sit on y=0 with the name label ("title") just below it; drop the floor to twice the
+    // device-bottom→title distance so the title sits midway between the devices and the floor.
     const maxGap = Math.max(0, ...lastItems.map(labelGap));
-    const titleDist = maxGap + labelWorldH / 2; // bottom (y=0) → title centre
-    grid.position.y = -2 * titleDist;
-    scene.add(grid);
-    updateGroundVisibility(view);
+    const groundY = -2 * (maxGap + labelWorldH / 2);
+
+    const floor = buildGrid(units, span); // local xz plane → world xz (no rotation)
+    floor.position.set(c.x, groundY, c.z);
+    const front = buildGrid(units, span); // rotate local xz → world xy; backdrop behind the devices
+    front.rotation.x = Math.PI / 2;
+    front.position.set(c.x, c.y, bounds.min.z);
+    const side = buildGrid(units, span); // rotate local xz → world zy; backdrop to the side
+    side.rotation.z = Math.PI / 2;
+    side.position.set(bounds.min.x, c.y, c.z);
+
+    grids = { floor, front, side };
+    scene.add(floor, front, side);
+    updateGridOpacity();
   }
 
   // --- item tween ticker ---------------------------------------------------------------
@@ -1119,7 +1154,7 @@ export function createScene(container: HTMLElement): SizeScene {
       camera = ortho;
       controls.enabled = false;
     }
-    updateGroundVisibility(next);
+    updateGridOpacity();
     requestRender();
   }
 
@@ -1145,7 +1180,7 @@ export function createScene(container: HTMLElement): SizeScene {
       camera = ortho; // ortho's real position/quaternion/projectionMatrix were set by computeEnd
       controls.enabled = false;
     }
-    updateGroundVisibility(next);
+    updateGridOpacity();
     requestRender();
   }
 
@@ -1159,7 +1194,7 @@ export function createScene(container: HTMLElement): SizeScene {
     persp.projectionMatrix.copy(scratchProjection);
     persp.projectionMatrixInverse.copy(persp.projectionMatrix).invert();
     camera = persp;
-    updateGroundVisibility(t >= 0.5 ? animToView : animFromView);
+    updateGridOpacity();
     renderer.render(scene, camera);
     if (t >= 1) {
       finalizeTransition();
