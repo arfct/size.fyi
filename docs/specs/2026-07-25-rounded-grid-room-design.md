@@ -10,12 +10,14 @@ from three orthogonal stacks of rounded-rectangle line rings.
 
 ## Goals
 
-- One rounded box instead of six planes, sized to the content bounds + padding on all sides.
-- Corner rounding with a configurable radius (default 2 cm metric / 1 in imperial).
+- One rounded box instead of six planes, sized to the content bounds + 3 units padding per side.
+- Corner rounding with a configurable radius (default 2 units: 2 cm metric / 2 in imperial).
 - Grid ruling stays continuous across every rounded edge (lines wrap the fillets).
 - Only inner faces visible: near-facing walls fade out, far (inner) walls draw.
 - Preserve the existing integer-cm alignment — grid lines pass through object corners.
-- Snap the outer box to whole cm so fillet tangents fall on grid lines and corners read clean.
+- Snap the outer box to whole units so fillet tangents fall on grid lines and corners read clean.
+- In ortho views the face perpendicular to the view reads square (a byproduct of ortho +
+  facing fade); roundedness on the parallel side walls is fine.
 
 ## Non-goals
 
@@ -42,15 +44,14 @@ with the same corner construction already used by `roundedRectShape`.
 
 Let the content (target) bounds have half-extents `Hc = (Hx, Hy, Hz)`.
 
-Constants (both tunable independently, in mm):
+Constants (both tunable independently, as whole multiples of `unitMM`):
 
-- `GRID_PAD` — padding added on all sides. Default `2 cm` metric / `1 in` imperial.
-- `GRID_RADIUS` — corner fillet radius. Default `2 cm` metric / `1 in` imperial.
+- `GRID_PAD` — padding added on all sides. `3 * unitMM` (3 units: 3 cm metric / 3 in imperial).
+- `GRID_RADIUS` — corner fillet radius. `2 * unitMM` (2 units: 2 cm metric / 2 in imperial).
 
-Defaults are "2 cm metric / 1 in imperial", which resolve to a fixed mm value per unit system,
-not a multiple of `unitMM`: `pad = units === 'imperial' ? 25.4 : 20` (mm), and likewise
-`radius = units === 'imperial' ? 25.4 : 20`. They are two separate values so they can diverge
-later.
+Expressing both in whole units keeps everything on the grid lattice in either unit system: the
+outer faces snap to units, and because `r` is a whole number of units the fillet tangents
+`face ∓ r` also fall on grid lines. They are two separate values so they can diverge later.
 
 **Outer box snaps to the integer-cm (unit) lattice.** Object widths are not whole cm, so a raw
 `content + P` box would put the outer faces — and therefore the fillet tangent points — off the
@@ -102,6 +103,33 @@ Occlusion is unchanged in spirit: objects are translucent with `depthWrite: fals
 lines show through them (as the flat grids do now); near-wall lines are removed by the facing
 fade rather than by geometry.
 
+## Orthographic views: perpendicular face reads square (verified property)
+
+Requirement: in the orthographic axis views (`front`/`side`/`top`), the face **perpendicular
+to the view** must show a clean rectangular grid with no roundedness. Roundedness on the walls
+**parallel** to the view is acceptable.
+
+This holds as a byproduct of orthographic projection + the facing fade — no view-dependent
+geometry or radius switching is needed:
+
+- An orthographic camera has a single constant view direction for every fragment. On the flat
+  perpendicular face the surface normal is exactly ±view axis, so `dot(N, dir)` is uniform (= 1)
+  across the whole face → the grid renders at full, even opacity, crisp, with no vignette.
+- That flat face is a sharp-cornered rectangle spanning `[boxMin+r, boxMax−r]` per in-plane
+  axis. The rounding lives entirely on the fillets/corner-spheres that transition to the
+  parallel walls — geometry that is *not* on the perpendicular face.
+- Those fillets face perpendicular to the ortho view (`dot(N, dir) → 0`), so they fade out; any
+  residual roundedness that bleeds through the `smoothstep` band is on the parallel-side
+  transitions, which the requirement permits.
+
+In perspective 3D the view direction varies per fragment, so the same rings produce the soft
+vignetted rounded-room look. Same geometry, two reads.
+
+Implementation check: after building, switch to the `front` ortho view and confirm the far-wall
+grid corners are square and crisp (no arc on the perpendicular face). Tune the `smoothstep`
+thresholds (`edge0`, `edge1`) so the perpendicular face stays full-opacity and only the fillets
+fade.
+
 ## Replacement / removal
 
 Remove from `src/three/scene.ts`:
@@ -141,11 +169,14 @@ unit-tested without a GL context:
   `[pad, pad + unitMM)`; both fillet tangents (`boxMin + r`, `boxMax - r`) are on the lattice.
 - Add unit tests for `roundedGridRingSpecs`: per-axis ring count and spacing, ring coordinates
   on the lattice, core band endpoints, and rounded-rect outer bounds/radius.
+- Visual check (manual): in the `front` ortho view the perpendicular far-wall grid is square and
+  crisp (no arc); in 3D the corners read as a smooth rounded room.
 
 ## Risks / open points
 
 - Busy convergence at the 8 sphere-corners — accepted; revisit only if it reads poorly.
-- Line-count budget: three stacks over the content span at 1 cm spacing. For large content the
+- Line-count budget: three stacks over the content span at 1 unit spacing. For large content the
   ring count grows with span; reuse `gridSpec`'s `majorCount` clamp so it stays bounded.
-- Facing-fade `smoothstep` thresholds (`edge0`, `edge1`) need tuning for a pleasant silhouette
-  vignette; start near `dot` in `[0.0, 0.15]`.
+- Facing-fade `smoothstep` thresholds (`edge0`, `edge1`) need tuning: tight enough that the
+  perpendicular face stays full-opacity in ortho (see Orthographic-views section), loose enough
+  for a pleasant silhouette vignette in 3D; start near `dot` in `[0.0, 0.15]`.
