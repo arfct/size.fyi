@@ -119,6 +119,12 @@ const GRID_PAD_UNITS = 3;
 const GRID_RADIUS_UNITS = 2;
 const GRID_MAX_UNITS_PER_AXIS = 48; // coarsen the ring spacing past this so huge objects stay bounded
 const RING_ARC_SEGS = 10; // polyline segments per quarter-circle corner
+// Fade shaping. The angular power sets how fast a wall dims as it turns from perpendicular (full) to
+// parallel (gone); the near-fade band is in view-axis depth normalized to the box (-1 = nearest point,
+// +1 = farthest), and keeps the closest edges transparent so the near rim has no hard cutoff.
+const GRID_FACING_POWER = 1.6;
+const GRID_NEAR_FADE_START = -0.95;
+const GRID_NEAR_FADE_END = -0.1;
 
 interface Vec3 { x: number; y: number; z: number }
 
@@ -241,6 +247,10 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
     }
   }
 
+  const boxCenter = new THREE.Vector3(
+    (box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2,
+  );
+  const boxRadius = 0.5 * Math.hypot(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
   const lineMaterial = (baseOpacity: number) =>
     new THREE.ShaderMaterial({
       transparent: true,
@@ -251,6 +261,8 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
         uCameraPos: { value: new THREE.Vector3() },
         uViewDir: { value: new THREE.Vector3(0, 0, -1) },
         uOrtho: { value: 0 },
+        uBoxCenter: { value: boxCenter },
+        uBoxRadius: { value: boxRadius },
       },
       vertexShader:
         'varying vec3 vN; varying vec3 vW;\n' +
@@ -261,14 +273,22 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
         '}',
       fragmentShader:
         'uniform vec3 uColor; uniform float uOpacity; uniform vec3 uCameraPos; uniform vec3 uViewDir; uniform float uOrtho;\n' +
+        'uniform vec3 uBoxCenter; uniform float uBoxRadius;\n' +
         'varying vec3 vN; varying vec3 vW;\n' +
         'void main() {\n' +
         // A face is inner (far) when its outward normal points along the eye ray. Perspective uses the
         // true per-fragment ray (so every far wall shows, even at grazing angles); ortho uses the single
         // parallel view direction, so silhouette fillets collapse and the perpendicular face reads square.
         '  vec3 dir = uOrtho > 0.5 ? uViewDir : normalize(vW - uCameraPos);\n' +
-        '  float f = smoothstep(0.0, 0.2, dot(vN, dir));\n' +
-        '  gl_FragColor = vec4(uColor, f * uOpacity);\n' +
+        // Angular gradation: full where a face is perpendicular to the camera, fading as it turns
+        // parallel (grazing). Near-facing walls fall out via the clamp, and because dot reaches 0 exactly
+        // at the silhouette the terminator dissolves instead of ending on a hard line.
+        `  float facing = pow(clamp(dot(vN, dir), 0.0, 1.0), ${GRID_FACING_POWER.toFixed(2)});\n` +
+        // Depth along the view axis, normalized against the box (-1 at its nearest point, +1 farthest):
+        // fade out the closest edges so the near rim of the room doesn't cut off abruptly.
+        '  float depth = dot(vW - uBoxCenter, uViewDir) / uBoxRadius;\n' +
+        `  float near = smoothstep(${GRID_NEAR_FADE_START.toFixed(2)}, ${GRID_NEAR_FADE_END.toFixed(2)}, depth);\n` +
+        '  gl_FragColor = vec4(uColor, facing * near * uOpacity);\n' +
         '}',
     });
 

@@ -107,10 +107,17 @@ facing fade correct across the caps and corners.
 A single `ShaderMaterial` for all rings (transparent, `depthWrite: false`, like today).
 
 - Vertex shader passes the surface normal and world position to the fragment shader.
-- Fragment shader fades by facing: `f = smoothstep(0.0, 0.2, dot(N, dir))` where `N` is the
-  outward surface normal and `dir` the eye ray. Far-facing inner walls (`dot > 0`) draw;
-  near-facing walls fade to zero; a soft band at the silhouette gives a vignette. Multiply by
-  the base line opacity (major vs minor as today).
+- Fragment shader multiplies the base line opacity (major vs minor as today) by two fades:
+  - **Angular gradation** — `pow(clamp(dot(N, dir)), GRID_FACING_POWER)` where `N` is the outward
+    surface normal and `dir` the eye ray. Full where a face is perpendicular to the camera, fading
+    as it turns parallel (grazing). Near-facing walls drop out via the clamp, and since `dot`
+    reaches 0 exactly at the silhouette the terminator dissolves rather than ending on a hard line.
+  - **Near-depth fade** — `smoothstep(START, END, dot(worldPos − boxCenter, viewDir) / boxRadius)`,
+    i.e. view-axis depth normalized to the box (−1 at its nearest point, +1 farthest). Keeps the
+    closest edges transparent so the near rim of the room has no abrupt cutoff.
+- Both are alpha multipliers in this material, deliberately *not* `THREE.Fog`: scene fog mixes
+  fragment *color* toward a fog color (wrong on a transparent canvas, and wrong in both light and
+  dark themes) and would apply to the device meshes too.
 - **`dir` is projection-dependent** (a `uOrtho` flag selects): perspective uses the true
   per-fragment ray `normalize(worldPos - uCameraPos)`, so every far wall shows even at grazing
   angles; ortho uses the single parallel view direction `uViewDir`, so silhouette fillets
@@ -148,10 +155,13 @@ geometry or radius switching is needed:
 In perspective 3D the view direction varies per fragment, so the same rings produce the soft
 vignetted rounded-room look. Same geometry, two reads.
 
-Implementation check: after building, switch to the `front` ortho view and confirm the far-wall
-grid corners are square and crisp (no arc on the perpendicular face). Tune the `smoothstep`
-thresholds (`edge0`, `edge1`) so the perpendicular face stays full-opacity and only the fillets
-fade.
+Note the angular gradation preserves this: on the flat perpendicular face `dot` is exactly 1, so
+`pow(1, k) = 1` — full opacity, square and crisp — while the fillets fade off as they turn parallel,
+which also softens the rounded frame the old hard-band fade left around the ortho views.
+
+Implementation check: after building, switch to the `front` ortho view and confirm the far-wall grid
+is square and crisp at full strength (no arc across the perpendicular face). Tune
+`GRID_FACING_POWER` and the near-fade band for a pleasant 3D falloff.
 
 ## Replacement / removal
 
@@ -201,6 +211,6 @@ unit-tested without a GL context:
 - Busy convergence at the 8 sphere-corners — accepted; revisit only if it reads poorly.
 - Line-count budget: three stacks over the content span at 1 unit spacing. For large content the
   ring count grows with span; reuse `gridSpec`'s `majorCount` clamp so it stays bounded.
-- Facing-fade `smoothstep` thresholds (`edge0`, `edge1`) need tuning: tight enough that the
-  perpendicular face stays full-opacity in ortho (see Orthographic-views section), loose enough
-  for a pleasant silhouette vignette in 3D; start near `dot` in `[0.0, 0.15]`.
+- Fade shaping is taste: `GRID_FACING_POWER` (1.6) sets how fast grazing walls dim, and the
+  near-fade band (`[-0.95, -0.1]` in normalized view depth) how much of the near rim dissolves.
+  Raising the power or widening the band makes the room airier but the ruling fainter overall.
