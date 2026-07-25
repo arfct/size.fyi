@@ -85,16 +85,30 @@ Each ring is emitted as a closed polyline (`LineLoop` or `LineSegments`). Per ve
 the box's **outward surface normal**: the constant face normal along the straight runs, and
 the radial (outward-from-fillet-axis) direction along the corner arcs.
 
+**Longitude lines along the fillets.** The rings only *cross* each fillet (one wrapping arc per
+ring). To rule the curved strips in both directions, also emit straight lines running the length
+of each fillet at intermediate arc angles, spaced ~one major step of arc length
+(`nDiv = round((π/2)·radius / majorStep)`, interior angles only). Each runs from the fillet's
+tangent-to-tangent span (`min+r` to `max−r`) with the radial outward normal, so the facing fade
+treats them like the rest of the surface. This gives the corners a proper grid at roughly the
+same spacing as the flat faces.
+
 ## Rendering / visibility
 
 A single `ShaderMaterial` for all rings (transparent, `depthWrite: false`, like today).
 
 - Vertex shader passes the surface normal and world position to the fragment shader.
-- Fragment shader fades by facing: `f = smoothstep(edge0, edge1, dot(N, dir))` where `dir`
-  is the normalized camera→fragment direction and `N` the outward surface normal. Far-facing
-  inner walls (`dot > 0`) draw; near-facing walls fade to zero; a soft band at the silhouette
-  gives a vignette. Multiply by the base line opacity (major vs minor as today).
-- A `uCameraPos` uniform is updated every frame (replacing the per-plane opacity writes).
+- Fragment shader fades by facing: `f = smoothstep(0.0, 0.2, dot(N, dir))` where `N` is the
+  outward surface normal and `dir` the eye ray. Far-facing inner walls (`dot > 0`) draw;
+  near-facing walls fade to zero; a soft band at the silhouette gives a vignette. Multiply by
+  the base line opacity (major vs minor as today).
+- **`dir` is projection-dependent** (a `uOrtho` flag selects): perspective uses the true
+  per-fragment ray `normalize(worldPos - uCameraPos)`, so every far wall shows even at grazing
+  angles; ortho uses the single parallel view direction `uViewDir`, so silhouette fillets
+  collapse and the perpendicular face reads square (a uniform ray would fade grazing walls in
+  perspective; a per-fragment ray would leave a crisp rounded border in ortho — hence the split).
+- `uCameraPos`, `uViewDir`, and `uOrtho` are refreshed every frame (replacing the per-plane
+  opacity writes).
 
 This is the per-fragment analogue of today's `updateGridOpacity`, so the render loop still
 calls one update per frame — it sets `uCameraPos` instead of six `uViewOpacity` values.

@@ -112,17 +112,137 @@ export function gridSpec(units: Units, span: number) {
   return { unitMM, minorMM, majorCount, halfExtent: majorCount * unitMM };
 }
 
-const GRID_REACH = 1.4; // line + fade extent multiplier over gridSpec's halfExtent — reaches farther out
+// Rounded reference room: padding around the content and the corner fillet radius, both in whole grid
+// units so the snapped box faces AND the fillet tangents (face ∓ radius) all land on grid lines — the
+// wrapping ruling stays aligned and the corners read clean.
+const GRID_PAD_UNITS = 3;
+const GRID_RADIUS_UNITS = 2;
+const GRID_MAX_UNITS_PER_AXIS = 48; // coarsen the ring spacing past this so huge objects stay bounded
+const RING_ARC_SEGS = 10; // polyline segments per quarter-circle corner
 
-// A square reference grid built in its LOCAL x–z plane, centred on the origin: major + minor lines
-// that fade out radially by LOCAL distance, so the fade is independent of how the caller orients the
-// group (the same grid is reused as the floor and as the two vertical walls). `uViewOpacity` scales
-// the whole grid and is driven per frame by how head-on the camera is to this plane. Built fresh
-// whenever the content bounds or unit system change.
-function buildGrid(units: Units, span: number): THREE.Group {
-  const { unitMM, minorMM, majorCount } = gridSpec(units, span);
-  const reach = majorCount * unitMM * GRID_REACH;
-  const g = new THREE.Group();
+interface Vec3 { x: number; y: number; z: number }
+
+// Snap the content bounds outward onto the grid lattice, leaving at least `pad` clearance per side.
+// Faces land on unit lines; with a whole-unit radius the fillet tangents do too. Pure — for testing.
+export function roundedGridBox(min: Vec3, max: Vec3, pad: number, unitMM: number): { min: Vec3; max: Vec3 } {
+  const lo = (v: number) => Math.floor((v - pad) / unitMM) * unitMM;
+  const hi = (v: number) => Math.ceil((v + pad) / unitMM) * unitMM;
+  return {
+    min: { x: lo(min.x), y: lo(min.y), z: lo(min.z) },
+    max: { x: hi(max.x), y: hi(max.y), z: hi(max.z) },
+  };
+}
+
+// One family of grid rings: the coordinates along `axis` at which a rounded-rectangle ring is drawn in
+// the perpendicular plane, whether each is a major (unit-lattice) line, and that shared ring's extent
+// and radius. A grid wrapping a rounded box = three such families (one per axis): on any flat face the
+// two in-plane families cross to a normal grid, and every rounded edge is wrapped by the family
+// parallel to it, so the ruling is continuous over the corners. Pure — exported for unit testing.
+export interface RingFamily {
+  axis: 'x' | 'y' | 'z';
+  coords: number[];
+  major: boolean[];
+  uMin: number; uMax: number; // ring bounds in the first perpendicular axis
+  vMin: number; vMax: number; // ring bounds in the second perpendicular axis
+  radius: number;
+}
+
+// Ring coordinates run the flat core band `[min+radius, max-radius]` along each axis (beyond it the
+// surface curves to the perpendicular face, ruled by the other two families) at `fine` spacing, tagged
+// major on the unit lattice. Pure.
+export function roundedGridRingSpecs(min: Vec3, max: Vec3, radius: number, unitMM: number, fine: number): RingFamily[] {
+  const onUnit = (v: number) => Math.abs(Math.round(v / unitMM) * unitMM - v) < 1e-6;
+  const family = (
+    axis: 'x' | 'y' | 'z', a0: number, a1: number, uMin: number, uMax: number, vMin: number, vMax: number,
+  ): RingFamily => {
+    const coords: number[] = [];
+    const major: boolean[] = [];
+    const start = Math.ceil((a0 + radius) / fine - 1e-6) * fine;
+    for (let c = start; c <= a1 - radius + 1e-6; c += fine) {
+      coords.push(c);
+      major.push(onUnit(c));
+    }
+    return { axis, coords, major, uMin, uMax, vMin, vMax, radius };
+  };
+  return [
+    family('x', min.x, max.x, min.y, max.y, min.z, max.z),
+    family('y', min.y, max.y, min.x, max.x, min.z, max.z),
+    family('z', min.z, max.z, min.x, max.x, min.y, max.y),
+  ];
+}
+
+// Points and outward normals around a rounded rectangle centred at the origin in a (u,v) plane: four
+// straight edges joined by quarter-circle arcs of radius r, ordered CCW as a closed loop. The normal is
+// the radial direction on the arcs and the edge normal on the straights, so the caller can drive the
+// facing fade that hides near walls.
+function roundedRectLoop(hu: number, hv: number, r: number) {
+  r = Math.min(r, hu, hv);
+  const u: number[] = [], v: number[] = [], nu: number[] = [], nv: number[] = [];
+  const cu = hu - r, cv = hv - r; // corner-centre offsets
+  const corners = [[cu, cv, 0], [-cu, cv, Math.PI / 2], [-cu, -cv, Math.PI], [cu, -cv, 3 * Math.PI / 2]];
+  for (const [ou, ov, a0] of corners) {
+    for (let i = 0; i <= RING_ARC_SEGS; i++) {
+      const a = a0! + (Math.PI / 2) * (i / RING_ARC_SEGS);
+      const n0 = Math.cos(a), n1 = Math.sin(a);
+      nu.push(n0); nv.push(n1);
+      u.push(ou! + r * n0); v.push(ov! + r * n1);
+    }
+  }
+  return { u, v, nu, nv };
+}
+
+// Builds the rounded reference room as line rings for a snapped box: three families of concentric
+// rounded-rectangle rings whose ruling wraps continuously over every corner. A single shader fades each
+// fragment by how much its outward surface normal faces away from the camera, so only the far (inner)
+// walls draw — replacing the old six-plane angle fade. Spacing coarsens for very large content.
+function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, units: Units, span: number): THREE.Group {
+  const { unitMM, minorMM } = gridSpec(units, span);
+  const maxUnits = Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z) / unitMM;
+  const stepMul = Math.max(1, Math.ceil(maxUnits / GRID_MAX_UNITS_PER_AXIS));
+  const showMinor = units === 'imperial' && stepMul === 1; // half-unit lines only when not coarsened
+  const fine = showMinor ? minorMM : unitMM * stepMul;
+  const families = roundedGridRingSpecs(box.min, box.max, radius, unitMM, fine);
+
+  const majorStep = unitMM * stepMul;
+  const majorPos: number[] = [], majorNorm: number[] = [];
+  const minorPos: number[] = [], minorNorm: number[] = [];
+  // Push one vertex at (u, w) in the perpendicular plane and `coord` along the family axis, with its
+  // outward normal (nu, nw) mapped into 3D. `major` selects the bucket.
+  const vert = (fam: RingFamily, coord: number, u: number, w: number, nu: number, nw: number, major: boolean) => {
+    const pos = major ? majorPos : minorPos, norm = major ? majorNorm : minorNorm;
+    if (fam.axis === 'x') { pos.push(coord, u, w); norm.push(0, nu, nw); }
+    else if (fam.axis === 'y') { pos.push(u, coord, w); norm.push(nu, 0, nw); }
+    else { pos.push(u, w, coord); norm.push(nu, nw, 0); }
+  };
+  for (const fam of families) {
+    const cu = (fam.uMin + fam.uMax) / 2, cv = (fam.vMin + fam.vMax) / 2;
+    const loop = roundedRectLoop((fam.uMax - fam.uMin) / 2, (fam.vMax - fam.vMin) / 2, fam.radius);
+    const N = loop.u.length;
+    // Rings: each traces a rounded rect in the perpendicular plane; its corner arcs wrap the fillets.
+    // A LineSegments pair is emitted between each adjacent loop point at the ring's coord.
+    fam.coords.forEach((coord, ci) => {
+      for (let i = 0; i < N; i++) {
+        for (const k of [i, (i + 1) % N]) vert(fam, coord, cu + loop.u[k]!, cv + loop.v[k]!, loop.nu[k]!, loop.nv[k]!, fam.major[ci]!);
+      }
+    });
+    // Longitude lines running ALONG each fillet at intermediate arc angles, so the curved strips read
+    // as a grid in both directions (the rings only cross them). Spaced ~one major step of arc length.
+    const chu = (fam.uMax - fam.uMin) / 2 - fam.radius, chv = (fam.vMax - fam.vMin) / 2 - fam.radius;
+    const corners = [[cu + chu, cv + chv, 0], [cu - chu, cv + chv, Math.PI / 2], [cu - chu, cv - chv, Math.PI], [cu + chu, cv - chv, 3 * Math.PI / 2]];
+    const nDiv = Math.max(1, Math.round((Math.PI / 2) * fam.radius / majorStep));
+    const aLo = box.min[fam.axis] + fam.radius, aHi = box.max[fam.axis] - fam.radius;
+    if (aHi > aLo) {
+      for (const [ocu, ocv, a0] of corners) {
+        for (let i = 1; i < nDiv; i++) {
+          const ang = a0! + (Math.PI / 2) * (i / nDiv);
+          const nu = Math.cos(ang), nw = Math.sin(ang);
+          const u = ocu! + fam.radius * nu, w = ocv! + fam.radius * nw;
+          vert(fam, aLo, u, w, nu, nw, true);
+          vert(fam, aHi, u, w, nu, nw, true);
+        }
+      }
+    }
+  }
 
   const lineMaterial = (baseOpacity: number) =>
     new THREE.ShaderMaterial({
@@ -131,44 +251,38 @@ function buildGrid(units: Units, span: number): THREE.Group {
       uniforms: {
         uColor: { value: new THREE.Color(0x8a8a8a) },
         uOpacity: { value: baseOpacity },
-        uExtent: { value: reach },
-        uViewOpacity: { value: 1 },
+        uCameraPos: { value: new THREE.Vector3() },
+        uViewDir: { value: new THREE.Vector3(0, 0, -1) },
+        uOrtho: { value: 0 },
       },
       vertexShader:
-        'varying vec2 vLocal;\n' +
+        'varying vec3 vN; varying vec3 vW;\n' +
         'void main() {\n' +
-        '  vLocal = position.xz;\n' + // interpolate position, not distance, so long lines fade per-fragment
+        '  vN = normalize(mat3(modelMatrix) * normal);\n' +
+        '  vW = (modelMatrix * vec4(position, 1.0)).xyz;\n' +
         '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n' +
         '}',
       fragmentShader:
-        'uniform vec3 uColor; uniform float uOpacity; uniform float uExtent; uniform float uViewOpacity;\n' +
-        'varying vec2 vLocal;\n' +
+        'uniform vec3 uColor; uniform float uOpacity; uniform vec3 uCameraPos; uniform vec3 uViewDir; uniform float uOrtho;\n' +
+        'varying vec3 vN; varying vec3 vW;\n' +
         'void main() {\n' +
-        '  float a = clamp(1.0 - length(vLocal) / uExtent, 0.0, 1.0);\n' + // true distance in the grid plane
-        '  gl_FragColor = vec4(uColor, pow(a, 1.5) * uOpacity * uViewOpacity);\n' +
+        // A face is inner (far) when its outward normal points along the eye ray. Perspective uses the
+        // true per-fragment ray (so every far wall shows, even at grazing angles); ortho uses the single
+        // parallel view direction, so silhouette fillets collapse and the perpendicular face reads square.
+        '  vec3 dir = uOrtho > 0.5 ? uViewDir : normalize(vW - uCameraPos);\n' +
+        '  float f = smoothstep(0.0, 0.2, dot(vN, dir));\n' +
+        '  gl_FragColor = vec4(uColor, f * uOpacity);\n' +
         '}',
     });
 
-  // Minor lines only in imperial (half-inch); metric shows just the 1 cm major squares.
-  const showMinor = units === 'imperial';
-  const majorPos: number[] = [];
-  const minorPos: number[] = [];
-  const steps = Math.round(reach / minorMM);
-  for (let i = -steps; i <= steps; i++) {
-    const p = i * minorMM;
-    const isMajor = Math.abs(Math.round(p / unitMM) * unitMM - p) < 1e-6;
-    if (!isMajor && !showMinor) continue;
-    const arr = isMajor ? majorPos : minorPos;
-    arr.push(-reach, 0, p, reach, 0, p); // parallel to local x
-    arr.push(p, 0, -reach, p, 0, reach); // parallel to local z
-  }
-  for (const [pos, opacity] of [[majorPos, 0.55], [minorPos, 0.22]] as const) {
+  const g = new THREE.Group();
+  for (const [pos, norm, opacity] of [[majorPos, majorNorm, 0.55], [minorPos, minorNorm, 0.22]] as const) {
     if (pos.length === 0) continue;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
     g.add(new THREE.LineSegments(geo, lineMaterial(opacity)));
   }
-
   return g;
 }
 
@@ -481,14 +595,17 @@ export function computeKeys(items: SceneItem[]): string[] {
 const volumeOf = (i: SceneItem) => i.h * i.w * i.d;
 const minDimOf = (i: SceneItem) => Math.min(i.h, i.w, i.d);
 const MAX_STACK_GAP = 10; // mm (1 cm) — ceiling on the depth gap between stacked items
+const ROW_CM = 10; // mm — row items snap their left edge to this grid so front-left corners sit on cm lines
 
 // Items are sorted by volume. Row = sequential along +x smallest→largest, all front-aligned to the
 // z=0 plane and extending back (nearest face at z=0, so the ruler along the front reads cleanly).
-// Stack = sequential along +z with the LARGEST at the back (z=0) and the smallest at the front
-// (nearest the camera), so the size progression reads front-to-back small→large and the largest
-// doesn't occlude the rest; stacked items share a bottom-left corner (left edge at x=0) so their
-// origins line up. Either way each item sits with its bottom on the ground (y=h/2) and the
-// gap between two neighbours equals the smaller of their smallest dimensions. Stack renderOrder increases along z
+// Each row item's left edge snaps to the next whole-centimetre line past its predecessor, leaving a
+// 1–2 cm gap, so every front-left corner sits on a grid mark. Stack = sequential along +z with the
+// LARGEST at the back (z=0) and the smallest at the front (nearest the camera), so the size
+// progression reads front-to-back small→large and the largest doesn't occlude the rest; stacked
+// items share a bottom-left corner (left edge at x=0) so their origins line up. Either way each item
+// sits with its bottom on the ground (y=h/2); the stack gap is the smaller of the two neighbours'
+// smallest dimensions, capped at 1 cm. Stack renderOrder increases along z
 // (nearer items drawn later) so the translucent items blend front-to-back correctly (paired with
 // depthWrite:false on the transparent materials in createScene). Pure — exported for direct testing.
 export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutMode): Map<string, LayoutTarget> {
@@ -509,10 +626,10 @@ export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutM
       z += item.d + Math.min(gapBetween(seq, idx), MAX_STACK_GAP); // cap the stack gap at 1 cm
     });
   } else {
-    let x = 0;
+    let x = 0; // left edge; kept on a whole-centimetre line so each front-left corner lands on a grid mark
     order.forEach(({ item, key }, idx) => {
       targets.set(key, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, -item.d / 2), renderOrder: 0 });
-      x += item.w + gapBetween(order, idx);
+      x = Math.ceil((x + item.w) / ROW_CM) * ROW_CM + ROW_CM; // next corner on a cm line, 1–2 cm gap
     });
   }
   return targets;
@@ -615,9 +732,9 @@ export function createScene(container: HTMLElement): SizeScene {
 
   const group = new THREE.Group();
   scene.add(group);
-  // Three reference grids: the xz floor (default) plus xy/zy walls that fade in as the camera gets
-  // head-on to them (front → xy, side → zy). Their per-plane opacity is set every frame.
-  let grids: { floor: THREE.Group; front: THREE.Group; side: THREE.Group } | null = null;
+  // The rounded reference room (line rings). Only its inner faces show — the shader fades each fragment
+  // by how much its surface normal faces the view direction — so `uViewDir` is refreshed per frame.
+  let grids: THREE.Group | null = null;
   let units: Units = 'metric';
   let bounds = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
   // Width/height ratio of a LABEL_CHARS-long dim string; labelWorldH = minDeviceWidth / this makes
@@ -635,37 +752,28 @@ export function createScene(container: HTMLElement): SizeScene {
       if (disposed) return;
       renderQueued = false;
       if (view === '3d') controls.update();
-      updateGridOpacity();
+      updateGridCamera();
       renderer.render(scene, camera);
     });
   }
 
+  // Feed the room shader the camera state so it can fade each fragment by facing: far (inner) walls
+  // draw, near walls fade to nothing. Perspective uses the eye position (per-fragment ray); ortho uses
+  // the parallel view direction. Re-run every frame as the camera moves.
+  const _camPos = new THREE.Vector3();
   const _viewDir = new THREE.Vector3();
-  function setGridViewOpacity(grid: THREE.Group, value: number) {
-    grid.traverse((o) => {
-      const mat = (o as THREE.LineSegments).material as THREE.ShaderMaterial | undefined;
-      if (mat?.uniforms?.uViewOpacity) mat.uniforms.uViewOpacity.value = value;
-    });
-  }
-
-  // Fade each grid by how head-on the camera is to its plane: the xy wall as the view direction
-  // aligns with z (front/back), the zy wall as it aligns with x (side). The xz floor is the default,
-  // fading out as either wall takes over, and hidden when the camera drops below it. Re-evaluated
-  // every frame so the grids cross-fade smoothly as the camera moves.
-  function updateGridOpacity() {
+  function updateGridCamera() {
     if (!grids) return;
+    camera.getWorldPosition(_camPos);
     camera.getWorldDirection(_viewDir);
-    const headOn = (align: number) => { // 0 below ~0.86, ramping to 1 near dead-on
-      const t = Math.min(1, Math.max(0, (align - 0.86) / (0.985 - 0.86)));
-      return t * t * (3 - 2 * t);
-    };
-    const front = headOn(Math.abs(_viewDir.z));
-    const side = headOn(Math.abs(_viewDir.x));
-    const belowFloor = camera.position.y < grids.floor.position.y ? 0 : 1;
-    const floor = Math.max(0, 1 - Math.max(front, side)) * belowFloor;
-    setGridViewOpacity(grids.floor, floor);
-    setGridViewOpacity(grids.front, front);
-    setGridViewOpacity(grids.side, side);
+    const isOrtho = (camera as THREE.OrthographicCamera).isOrthographicCamera ? 1 : 0;
+    grids.traverse((o) => {
+      const u = ((o as THREE.LineSegments).material as THREE.ShaderMaterial | undefined)?.uniforms;
+      if (!u) return;
+      u.uCameraPos?.value.copy(_camPos);
+      u.uViewDir?.value.copy(_viewDir);
+      if (u.uOrtho) u.uOrtho.value = isOrtho;
+    });
   }
 
   // Meshes include label planes, whose material carries a CanvasTexture map that also needs freeing.
@@ -685,35 +793,23 @@ export function createScene(container: HTMLElement): SizeScene {
 
   function removeGrid() {
     if (!grids) return;
-    for (const g of [grids.floor, grids.front, grids.side]) { g.traverse(disposeObject); scene.remove(g); }
+    grids.traverse(disposeObject);
+    scene.remove(grids);
     grids = null;
   }
 
-  // Rebuilds all three reference grids for the current bounds + unit system. Each is the same local
-  // grid oriented into a different world plane: the xz floor (dropped below the devices), the xy
-  // wall behind them (front backdrop), and the zy wall to the side.
+  // Rebuild the rounded reference room for the current content bounds + unit system: snap an outer box
+  // to the grid lattice with padding, then build the three wrapping ring families inside it. The box
+  // faces (and the fillet tangents) land on grid lines, so the ruling stays aligned to object corners.
   function rebuildGrid() {
     removeGrid();
-    const c = bounds.getCenter(new THREE.Vector3());
     const s = bounds.getSize(new THREE.Vector3());
     const span = Math.max(s.x, s.y, s.z, 1);
-    // Devices sit on y=0 with the name label ("title") just below it; drop the floor to twice the
-    // device-bottom→title distance so the title sits midway between the devices and the floor.
-    const maxGap = Math.max(0, ...lastItems.map(labelGap));
-    const groundY = -2 * (maxGap + labelWorldH / 2);
-
-    const floor = buildGrid(units, span); // local xz plane → world xz (no rotation)
-    floor.position.set(c.x, groundY, c.z);
-    const front = buildGrid(units, span); // rotate local xz → world xy; backdrop behind the devices
-    front.rotation.x = Math.PI / 2;
-    front.position.set(c.x, c.y, bounds.min.z);
-    const side = buildGrid(units, span); // rotate local xz → world zy; backdrop to the side
-    side.rotation.z = Math.PI / 2;
-    side.position.set(bounds.min.x, c.y, c.z);
-
-    grids = { floor, front, side };
-    scene.add(floor, front, side);
-    updateGridOpacity();
+    const { unitMM } = gridSpec(units, span);
+    const box = roundedGridBox(bounds.min, bounds.max, GRID_PAD_UNITS * unitMM, unitMM);
+    grids = buildRoundedGridRings(box, GRID_RADIUS_UNITS * unitMM, units, span);
+    scene.add(grids);
+    updateGridCamera();
   }
 
   // --- item tween ticker ---------------------------------------------------------------
@@ -1154,7 +1250,7 @@ export function createScene(container: HTMLElement): SizeScene {
       camera = ortho;
       controls.enabled = false;
     }
-    updateGridOpacity();
+    updateGridCamera();
     requestRender();
   }
 
@@ -1180,7 +1276,7 @@ export function createScene(container: HTMLElement): SizeScene {
       camera = ortho; // ortho's real position/quaternion/projectionMatrix were set by computeEnd
       controls.enabled = false;
     }
-    updateGridOpacity();
+    updateGridCamera();
     requestRender();
   }
 
@@ -1194,7 +1290,7 @@ export function createScene(container: HTMLElement): SizeScene {
     persp.projectionMatrix.copy(scratchProjection);
     persp.projectionMatrixInverse.copy(persp.projectionMatrix).invert();
     camera = persp;
-    updateGridOpacity();
+    updateGridCamera();
     renderer.render(scene, camera);
     if (t >= 1) {
       finalizeTransition();
