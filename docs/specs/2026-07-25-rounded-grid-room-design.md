@@ -68,14 +68,11 @@ whole number of units (2 cm = 2 units metric; 1 in = 1 unit imperial), every fil
 and ends exactly on the ruling. The box is described by its `boxMin`/`boxMax` corners, not a
 symmetric centre + half-extent; it may be asymmetric about the content.
 
-For a ring family along axis A, each ring is a rounded rectangle in the plane perpendicular to
-A, with:
-
-- outer bounds spanning `[boxMin, boxMax]` in the other two axes,
-- corner radius `r = GRID_RADIUS`,
-- placed at each `unitMM` step along A within the flat core band
-  `[boxMin[A] + r, boxMax[A] - r]` (beyond it the surface curves to the ±A face, which is
-  ruled by the other two families).
+For a ring family along axis A, each ring is a rounded rectangle in the plane perpendicular to A,
+placed at each `unitMM` step along A across the full span `[boxMin[A], boxMax[A]]`. Across the
+flat core band `[boxMin[A] + r, boxMax[A] − r]` the ring is full-size (corner radius `r = GRID_RADIUS`,
+outer bounds `[boxMin, boxMax]` in the other two axes); through the caps its radius shrinks so the
+corner arcs trace the corner spheres (see "Full-span rings" below).
 
 Because both the box faces and the ring coordinates are on the `unitMM` lattice, lines still
 pass through the first object's corner at the world origin (the current alignment fix), and the
@@ -85,13 +82,25 @@ Each ring is emitted as a closed polyline (`LineLoop` or `LineSegments`). Per ve
 the box's **outward surface normal**: the constant face normal along the straight runs, and
 the radial (outward-from-fillet-axis) direction along the corner arcs.
 
-**Longitude lines along the fillets.** The rings only *cross* each fillet (one wrapping arc per
-ring). To rule the curved strips in both directions, also emit straight lines running the length
-of each fillet at intermediate arc angles, spaced ~one major step of arc length
-(`nDiv = round((π/2)·radius / majorStep)`, interior angles only). Each runs from the fillet's
-tangent-to-tangent span (`min+r` to `max−r`) with the radial outward normal, so the facing fade
-treats them like the rest of the surface. This gives the corners a proper grid at roughly the
-same spacing as the flat faces.
+**Full-span rings grid the fillets AND corners.** Rings run the *entire* axis span `[min, max]`,
+not just the flat core band. A grid line is a curve of constant world-coordinate on the surface,
+so each ring is that coordinate-plane's cross-section of the rounded box: in the core it is a full
+rounded rect of radius `radius`; through the caps (`|dAxis| < radius` from the core face) the
+perpendicular radius shrinks as `w = sqrt(radius² − dAxis²)` and the ring's corner arcs trace the
+corner spheres. Result:
+
+- flat faces: the two in-plane families cross to a normal grid (core rings);
+- fillets: wrapped by the parallel family's core-ring arcs, and ruled lengthwise by the other two
+  families' cap rings — so the curved strips read as a grid in both directions;
+- corner spheres: the three families' cap-ring corner arcs (constant-x/y/z curves) form a spherical
+  grid, continuous with the fillets.
+
+The degenerate near-zero rings at the very faces are dropped (that boundary is already drawn by the
+other two families).
+
+**Cap-ring normals.** A cap ring's outward normal tilts toward the face: axial component
+`dAxis/radius`, in-plane component scaled by `w/radius` (together unit length). This keeps the
+facing fade correct across the caps and corners.
 
 ## Rendering / visibility
 
@@ -170,21 +179,22 @@ three ring stacks into one group → add to scene. `removeGrid` disposes the sin
 ring specs) — generates the three ring families. Factor the ring math so a pure function can be
 unit-tested without a GL context:
 
-- `roundedBox(bounds, pad, unitMM)` returns the snapped `boxMin`/`boxMax` corners.
-- `roundedGridRingSpecs(boxMin, boxMax, radius, unitMM)` returns, per family, the list of ring
-  coordinates along that axis and the shared rounded-rect (outer bounds in the other two axes,
-  radius). Assertable: box faces on the `unitMM` lattice, ring counts per axis, 1-unit spacing,
-  ring coordinates on the lattice, core band = `[boxMin + r, boxMax - r]`, radius = `radius`.
+- `roundedGridBox(min, max, pad, unitMM)` returns the snapped `min`/`max` corners.
+- `roundedGridRingSpecs(min, max, radius, unitMM, fine)` returns, per family, its `axis`, centre
+  `(cu, cv)`, core half-extents, and a `rings[]` list — each `{coord, major, w, dAxis}` (radius `w`,
+  full in the core, shrinking through the caps). Assertable: full-span coords on the lattice with the
+  degenerate face rings dropped; core rings carry `w = radius`; cap rings shrink as
+  `sqrt(radius² − dAxis²)`; majors sit on the unit lattice.
 
 ## Testing
 
 - Keep existing `gridSpec` tests unchanged.
-- Add unit tests for `roundedBox`: box faces land on the `unitMM` lattice and padding is in
-  `[pad, pad + unitMM)`; both fillet tangents (`boxMin + r`, `boxMax - r`) are on the lattice.
-- Add unit tests for `roundedGridRingSpecs`: per-axis ring count and spacing, ring coordinates
-  on the lattice, core band endpoints, and rounded-rect outer bounds/radius.
-- Visual check (manual): in the `front` ortho view the perpendicular far-wall grid is square and
-  crisp (no arc); in 3D the corners read as a smooth rounded room.
+- Add unit tests for `roundedGridBox`: box faces land on the `unitMM` lattice and padding is in
+  `[pad, pad + unitMM)`; both fillet tangents (`min + r`, `max - r`) are on the lattice.
+- Add unit tests for `roundedGridRingSpecs`: full-span ring coords on the lattice, core `w = radius`,
+  cap-ring shrink profile, centre/core-half-extents, and major/minor split (imperial).
+- Visual check (manual): in the `front` ortho view the device-bearing perpendicular grid is square
+  and crisp; in 3D the faces, fillets, and corner spheres all read as one continuous rounded grid.
 
 ## Risks / open points
 

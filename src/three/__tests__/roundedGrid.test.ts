@@ -27,7 +27,7 @@ test('fillet tangents fall on the lattice when radius is a whole number of units
   }
 });
 
-test('ring specs: one family per axis, spanning the core band on the lattice at the given spacing', () => {
+test('ring specs: one family per axis; rings span the full axis with full-radius core, shrinking caps', () => {
   const unit = 10, radius = 20, fine = 10;
   const min = { x: -30, y: -30, z: -150 };
   const max = { x: 200, y: 120, z: 30 };
@@ -35,24 +35,30 @@ test('ring specs: one family per axis, spanning the core band on the lattice at 
   expect(families.map((f) => f.axis)).toEqual(['x', 'y', 'z']);
 
   const fx = families[0]!;
-  // core band is [min+radius, max-radius] = [-10, 180]; rings every 10mm → 20 rings inclusive
-  expect(fx.coords[0]).toBeCloseTo(-10);
-  expect(fx.coords[fx.coords.length - 1]!).toBeCloseTo(180);
-  expect(fx.coords.length).toBe(20);
-  expect(fx.coords.every((c) => onLattice(c, fine))).toBe(true);
-  // perpendicular ring bounds are the box extents in the other two axes
-  expect([fx.uMin, fx.uMax, fx.vMin, fx.vMax]).toEqual([min.y, max.y, min.z, max.z]);
-  expect(fx.radius).toBe(radius);
+  const coords = fx.rings.map((r) => r.coord);
+  // full span [min.x, max.x] minus the degenerate w≈0 endpoints (x=-30 and x=200 dropped)
+  expect(coords[0]).toBeCloseTo(-20);
+  expect(coords[coords.length - 1]!).toBeCloseTo(190);
+  expect(coords.every((c) => onLattice(c, fine))).toBe(true);
+  // core rings carry the full radius; cap rings shrink; none exceeds the radius
+  const core = fx.rings.filter((r) => r.dAxis === 0);
+  expect(core.length).toBeGreaterThan(0);
+  expect(core.every((r) => Math.abs(r.w - radius) < 1e-9)).toBe(true);
+  expect(fx.rings.every((r) => r.w > 0 && r.w <= radius + 1e-9)).toBe(true);
+  // a cap ring's shrink follows sqrt(radius² − dAxis²)
+  const cap = fx.rings.find((r) => r.dAxis !== 0)!;
+  expect(cap.w).toBeCloseTo(Math.sqrt(radius * radius - cap.dAxis * cap.dAxis));
+  // perpendicular centre and core half-extents come from the other two axes
+  expect([fx.cu, fx.cv]).toEqual([(min.y + max.y) / 2, (min.z + max.z) / 2]);
+  expect(fx.coreHalfU).toBeCloseTo((max.y - min.y) / 2 - radius);
 });
 
 test('ring specs: imperial half-unit spacing marks only whole-inch rings as major', () => {
   const unit = 25.4, radius = 50.8, fine = 12.7; // 1in unit, 2in radius, half-inch spacing
-  // a snapped box tall enough that the core band [min+r, max-r] spans several inches
   const { min, max } = roundedGridBox({ x: 0, y: 0, z: -101.6 }, { x: 152.4, y: 203.2, z: 0 }, 3 * unit, unit);
   const [, fy] = roundedGridRingSpecs(min, max, radius, unit, fine);
-  // majors sit on the 1in lattice, minors halfway between — so majors are a strict subset
-  const majors = fy!.coords.filter((_, i) => fy!.major[i]);
-  const minors = fy!.coords.filter((_, i) => !fy!.major[i]);
+  const majors = fy!.rings.filter((r) => r.major).map((r) => r.coord);
+  const minors = fy!.rings.filter((r) => !r.major).map((r) => r.coord);
   expect(majors.length).toBeGreaterThan(0);
   expect(minors.length).toBeGreaterThan(0);
   expect(majors.every((c) => onLattice(c, unit))).toBe(true);

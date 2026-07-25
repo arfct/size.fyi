@@ -138,31 +138,46 @@ export function roundedGridBox(min: Vec3, max: Vec3, pad: number, unitMM: number
 // and radius. A grid wrapping a rounded box = three such families (one per axis): on any flat face the
 // two in-plane families cross to a normal grid, and every rounded edge is wrapped by the family
 // parallel to it, so the ruling is continuous over the corners. Pure — exported for unit testing.
+// One ring in a family: its coordinate along the axis, whether it is a major (unit) line, its
+// perpendicular radius `w` (= `radius` across the flat core band, shrinking to 0 through the caps as
+// `sqrt(radius² − dAxis²)`), and the signed axial offset `dAxis` into the cap (0 in the core). The
+// shrinking cap rings are what let the ruling continue across the corner spheres.
+export interface RingSpec { coord: number; major: boolean; w: number; dAxis: number }
+
+// One family of rings, perpendicular to `axis`, centred at (cu, cv) in the other two axes. Each ring is
+// a rounded rectangle of half-extents (coreHalfU + w, coreHalfV + w) and corner radius w. A grid
+// wrapping a rounded box = three such families (one per axis): flat faces get the two in-plane
+// families crossing, fillets are wrapped by the parallel family, and the cap rings' corner arcs land on
+// the corner spheres — so the ruling is continuous over every edge and corner. Pure — for unit testing.
 export interface RingFamily {
   axis: 'x' | 'y' | 'z';
-  coords: number[];
-  major: boolean[];
-  uMin: number; uMax: number; // ring bounds in the first perpendicular axis
-  vMin: number; vMax: number; // ring bounds in the second perpendicular axis
-  radius: number;
+  cu: number; cv: number;
+  coreHalfU: number; coreHalfV: number;
+  rings: RingSpec[];
 }
 
-// Ring coordinates run the flat core band `[min+radius, max-radius]` along each axis (beyond it the
-// surface curves to the perpendicular face, ruled by the other two families) at `fine` spacing, tagged
-// major on the unit lattice. Pure.
+// Rings run the FULL axis span `[min, max]` at `fine` spacing (not just the flat core band): in the core
+// each is a full rounded rect of radius `radius`; through the caps the radius shrinks so the corner arcs
+// trace the corner spheres. Degenerate near-zero rings at the very faces are dropped (the flat face
+// boundary is already drawn by the other two families). Pure.
 export function roundedGridRingSpecs(min: Vec3, max: Vec3, radius: number, unitMM: number, fine: number): RingFamily[] {
   const onUnit = (v: number) => Math.abs(Math.round(v / unitMM) * unitMM - v) < 1e-6;
   const family = (
     axis: 'x' | 'y' | 'z', a0: number, a1: number, uMin: number, uMax: number, vMin: number, vMax: number,
   ): RingFamily => {
-    const coords: number[] = [];
-    const major: boolean[] = [];
-    const start = Math.ceil((a0 + radius) / fine - 1e-6) * fine;
-    for (let c = start; c <= a1 - radius + 1e-6; c += fine) {
-      coords.push(c);
-      major.push(onUnit(c));
+    const rings: RingSpec[] = [];
+    const start = Math.ceil(a0 / fine - 1e-6) * fine;
+    for (let c = start; c <= a1 + 1e-6; c += fine) {
+      const dAxis = c > a1 - radius ? c - (a1 - radius) : c < a0 + radius ? c - (a0 + radius) : 0;
+      const w = Math.sqrt(Math.max(0, radius * radius - dAxis * dAxis));
+      if (w < radius * 0.02) continue; // skip the degenerate face-boundary ring (drawn by other families)
+      rings.push({ coord: c, major: onUnit(c), w, dAxis });
     }
-    return { axis, coords, major, uMin, uMax, vMin, vMax, radius };
+    return {
+      axis, rings,
+      cu: (uMin + uMax) / 2, cv: (vMin + vMax) / 2,
+      coreHalfU: (uMax - uMin) / 2 - radius, coreHalfV: (vMax - vMin) / 2 - radius,
+    };
   };
   return [
     family('x', min.x, max.x, min.y, max.y, min.z, max.z),
@@ -203,42 +218,24 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
   const fine = showMinor ? minorMM : unitMM * stepMul;
   const families = roundedGridRingSpecs(box.min, box.max, radius, unitMM, fine);
 
-  const majorStep = unitMM * stepMul;
   const majorPos: number[] = [], majorNorm: number[] = [];
   const minorPos: number[] = [], minorNorm: number[] = [];
-  // Push one vertex at (u, w) in the perpendicular plane and `coord` along the family axis, with its
-  // outward normal (nu, nw) mapped into 3D. `major` selects the bucket.
-  const vert = (fam: RingFamily, coord: number, u: number, w: number, nu: number, nw: number, major: boolean) => {
-    const pos = major ? majorPos : minorPos, norm = major ? majorNorm : minorNorm;
-    if (fam.axis === 'x') { pos.push(coord, u, w); norm.push(0, nu, nw); }
-    else if (fam.axis === 'y') { pos.push(u, coord, w); norm.push(nu, 0, nw); }
-    else { pos.push(u, w, coord); norm.push(nu, nw, 0); }
-  };
+  // Each ring traces a rounded rect in its perpendicular plane. In the caps the radius shrinks (w) and
+  // the outward normal tilts toward the face by the axial component `dAxis/radius`, while the in-plane
+  // part scales by `w/radius` — so the corner arcs sit on the corner spheres with correct normals for
+  // the facing fade. A LineSegments pair is emitted between each adjacent loop point.
   for (const fam of families) {
-    const cu = (fam.uMin + fam.uMax) / 2, cv = (fam.vMin + fam.vMax) / 2;
-    const loop = roundedRectLoop((fam.uMax - fam.uMin) / 2, (fam.vMax - fam.vMin) / 2, fam.radius);
-    const N = loop.u.length;
-    // Rings: each traces a rounded rect in the perpendicular plane; its corner arcs wrap the fillets.
-    // A LineSegments pair is emitted between each adjacent loop point at the ring's coord.
-    fam.coords.forEach((coord, ci) => {
+    for (const ring of fam.rings) {
+      const s = ring.w / radius, naxis = ring.dAxis / radius;
+      const loop = roundedRectLoop(fam.coreHalfU + ring.w, fam.coreHalfV + ring.w, ring.w);
+      const N = loop.u.length;
+      const pos = ring.major ? majorPos : minorPos, norm = ring.major ? majorNorm : minorNorm;
       for (let i = 0; i < N; i++) {
-        for (const k of [i, (i + 1) % N]) vert(fam, coord, cu + loop.u[k]!, cv + loop.v[k]!, loop.nu[k]!, loop.nv[k]!, fam.major[ci]!);
-      }
-    });
-    // Longitude lines running ALONG each fillet at intermediate arc angles, so the curved strips read
-    // as a grid in both directions (the rings only cross them). Spaced ~one major step of arc length.
-    const chu = (fam.uMax - fam.uMin) / 2 - fam.radius, chv = (fam.vMax - fam.vMin) / 2 - fam.radius;
-    const corners = [[cu + chu, cv + chv, 0], [cu - chu, cv + chv, Math.PI / 2], [cu - chu, cv - chv, Math.PI], [cu + chu, cv - chv, 3 * Math.PI / 2]];
-    const nDiv = Math.max(1, Math.round((Math.PI / 2) * fam.radius / majorStep));
-    const aLo = box.min[fam.axis] + fam.radius, aHi = box.max[fam.axis] - fam.radius;
-    if (aHi > aLo) {
-      for (const [ocu, ocv, a0] of corners) {
-        for (let i = 1; i < nDiv; i++) {
-          const ang = a0! + (Math.PI / 2) * (i / nDiv);
-          const nu = Math.cos(ang), nw = Math.sin(ang);
-          const u = ocu! + fam.radius * nu, w = ocv! + fam.radius * nw;
-          vert(fam, aLo, u, w, nu, nw, true);
-          vert(fam, aHi, u, w, nu, nw, true);
+        for (const k of [i, (i + 1) % N]) {
+          const u = fam.cu + loop.u[k]!, wv = fam.cv + loop.v[k]!, pnu = s * loop.nu[k]!, pnw = s * loop.nv[k]!;
+          if (fam.axis === 'x') { pos.push(ring.coord, u, wv); norm.push(naxis, pnu, pnw); }
+          else if (fam.axis === 'y') { pos.push(u, ring.coord, wv); norm.push(pnu, naxis, pnw); }
+          else { pos.push(u, wv, ring.coord); norm.push(pnu, pnw, naxis); }
         }
       }
     }
