@@ -15,6 +15,7 @@ from three orthogonal stacks of rounded-rectangle line rings.
 - Grid ruling stays continuous across every rounded edge (lines wrap the fillets).
 - Only inner faces visible: near-facing walls fade out, far (inner) walls draw.
 - Preserve the existing integer-cm alignment — grid lines pass through object corners.
+- Snap the outer box to whole cm so fillet tangents fall on grid lines and corners read clean.
 
 ## Non-goals
 
@@ -51,20 +52,33 @@ not a multiple of `unitMM`: `pad = units === 'imperial' ? 25.4 : 20` (mm), and l
 `radius = units === 'imperial' ? 25.4 : 20`. They are two separate values so they can diverge
 later.
 
-Outer box half-extent per axis: `Ho = Hc + P` (P = `GRID_PAD`).
+**Outer box snaps to the integer-cm (unit) lattice.** Object widths are not whole cm, so a raw
+`content + P` box would put the outer faces — and therefore the fillet tangent points — off the
+grid, and the ruling that runs along a tangent would not coincide with the flat/curve boundary.
+Instead, per axis, expand the content bounds by at least `P` and round each face outward to the
+nearest `unitMM`:
 
-For a ring family along axis A, each ring is a rounded rectangle in the plane perpendicular
-to A, with:
+- `boxMin[A] = floor((contentMin[A] - P) / unitMM) * unitMM`
+- `boxMax[A] = ceil((contentMax[A] + P) / unitMM) * unitMM`
 
-- half-extents `(Hc[other1] + P, Hc[other2] + P)`,
+Both faces then sit on grid lines, actual padding is in `[P, P + unitMM)`, and since `r` is a
+whole number of units (2 cm = 2 units metric; 1 in = 1 unit imperial), every fillet tangent
+`boxMin[A] + r` and `boxMax[A] - r` also lands on a grid line — so the corner rounding starts
+and ends exactly on the ruling. The box is described by its `boxMin`/`boxMax` corners, not a
+symmetric centre + half-extent; it may be asymmetric about the content.
+
+For a ring family along axis A, each ring is a rounded rectangle in the plane perpendicular to
+A, with:
+
+- outer bounds spanning `[boxMin, boxMax]` in the other two axes,
 - corner radius `r = GRID_RADIUS`,
-- placed at each integer-cm coordinate along A within the core band
-  `|a| <= Hc[A] + P - r` (the flat-face span; beyond it the surface curves to the ±A face,
-  which is ruled by the other two families).
+- placed at each `unitMM` step along A within the flat core band
+  `[boxMin[A] + r, boxMax[A] - r]` (beyond it the surface curves to the ±A face, which is
+  ruled by the other two families).
 
-Ring positions snap to integer world-cm (multiples of `unitMM`) so a line passes through the
-first object's corner at the world origin, exactly as the current alignment fix does. The box
-center itself may be non-integer; the rings are placed on the integer lattice, not centered.
+Because both the box faces and the ring coordinates are on the `unitMM` lattice, lines still
+pass through the first object's corner at the world origin (the current alignment fix), and the
+fillet tangents fall on grid lines for clean corners.
 
 Each ring is emitted as a closed polyline (`LineLoop` or `LineSegments`). Per vertex, store
 the box's **outward surface normal**: the constant face normal along the straight runs, and
@@ -114,16 +128,19 @@ three ring stacks into one group → add to scene. `removeGrid` disposes the sin
 ring specs) — generates the three ring families. Factor the ring math so a pure function can be
 unit-tested without a GL context:
 
-- `roundedGridRingSpecs(Hc, pad, radius, unitMM)` returns, per family, the list of ring
-  coordinates and the shared rounded-rect (half-extents, radius). Assertable: ring counts per
-  axis, 1-unit spacing, integer-cm alignment, half-extents = `Hc + pad`, radius = `radius`.
+- `roundedBox(bounds, pad, unitMM)` returns the snapped `boxMin`/`boxMax` corners.
+- `roundedGridRingSpecs(boxMin, boxMax, radius, unitMM)` returns, per family, the list of ring
+  coordinates along that axis and the shared rounded-rect (outer bounds in the other two axes,
+  radius). Assertable: box faces on the `unitMM` lattice, ring counts per axis, 1-unit spacing,
+  ring coordinates on the lattice, core band = `[boxMin + r, boxMax - r]`, radius = `radius`.
 
 ## Testing
 
 - Keep existing `gridSpec` tests unchanged.
-- Add unit tests for `roundedGridRingSpecs`: for a known bounds and units, assert per-axis ring
-  count and spacing, that ring coordinates fall on the `unitMM` lattice (integer-cm alignment),
-  and that the rounded-rect half-extents and radius match `Hc + pad` and `radius`.
+- Add unit tests for `roundedBox`: box faces land on the `unitMM` lattice and padding is in
+  `[pad, pad + unitMM)`; both fillet tangents (`boxMin + r`, `boxMax - r`) are on the lattice.
+- Add unit tests for `roundedGridRingSpecs`: per-axis ring count and spacing, ring coordinates
+  on the lattice, core band endpoints, and rounded-rect outer bounds/radius.
 
 ## Risks / open points
 
