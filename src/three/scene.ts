@@ -112,31 +112,51 @@ export function gridSpec(units: Units, span: number) {
   return { unitMM, minorMM, majorCount, halfExtent: majorCount * unitMM };
 }
 
-// Rounded reference room: padding around the content and the corner fillet radius, both in whole grid
-// units so the snapped box faces AND the fillet tangents (face ∓ radius) all land on grid lines — the
-// wrapping ruling stays aligned and the corners read clean.
-const GRID_PAD_UNITS = 3;
-const GRID_RADIUS_UNITS = 2;
+// Rounded reference room: a cube whose side comes from the content's largest dimension, padded by this
+// fraction of it per side (0.5 → the side is twice that dimension). The corner fillet radius is a whole
+// number of grid units, which (with the lattice-snapped faces) keeps the fillet tangents (face ∓ radius)
+// on grid lines so the wrapping ruling stays aligned.
+const GRID_PAD_SCALE = 0.5;
+// Wide enough that the fillet spans several grid columns, so the ruling visibly compresses as the
+// surface turns away — a tight radius reads as a crease instead of a curve.
+const GRID_RADIUS_UNITS = 7;
 const GRID_MAX_UNITS_PER_AXIS = 48; // coarsen the ring spacing past this so huge objects stay bounded
-const RING_ARC_SEGS = 10; // polyline segments per quarter-circle corner
-// Fade shaping. The angular power sets how fast a wall dims as it turns from perpendicular (full) to
-// parallel (gone); the near-fade band is in view-axis depth normalized to the box (-1 = nearest point,
-// +1 = farthest), and keeps the closest edges transparent so the near rim has no hard cutoff.
-const GRID_FACING_POWER = 1.6;
+const RING_ARC_SEGS = 14; // polyline segments per quarter-circle corner
+// The room is a backdrop, so it must draw before every item. Nothing in the scene writes depth (see
+// LABEL_ORDER_BIAS), and the room's bounding sphere is centred on the devices, so leaving this at the
+// default 0 lets the distance tiebreak flip as the camera moves — the grid then paints over the device
+// screens and they look transparent. Items start at renderOrder 0, so stay below that.
+const GRID_RENDER_ORDER = -1;
+// Fade shaping. Visibility is a screen-space "flashlight": a radial gradient centred on the room, full
+// inside GRID_LIGHT_INNER and gone by GRID_LIGHT_OUTER, measured in NDC radius (1 = viewport edge, so
+// the pool conforms to the canvas). GRID_FACING_CULL is only wide enough to drop the near-facing walls
+// without a jagged terminator — the *look* comes from the flashlight, not the surface angle. The
+// near-fade band is view-axis depth normalized to the box (-1 = nearest point, +1 = farthest) and keeps
+// geometry very close to the camera from blaring through the middle of the light.
+const GRID_LIGHT_INNER = 0.0;
+const GRID_LIGHT_OUTER = 0.7;
+const GRID_FACING_CULL = 0.1;
 const GRID_NEAR_FADE_START = -0.95;
 const GRID_NEAR_FADE_END = -0.1;
 
 interface Vec3 { x: number; y: number; z: number }
 
-// Snap the content bounds outward onto the grid lattice, leaving at least `pad` clearance per side.
-// Faces land on unit lines; with a whole-unit radius the fillet tangents do too. Pure — for testing.
-export function roundedGridBox(min: Vec3, max: Vec3, pad: number, unitMM: number): { min: Vec3; max: Vec3 } {
-  const lo = (v: number) => Math.floor((v - pad) / unitMM) * unitMM;
-  const hi = (v: number) => Math.ceil((v + pad) / unitMM) * unitMM;
-  return {
-    min: { x: lo(min.x), y: lo(min.y), z: lo(min.z) },
-    max: { x: hi(max.x), y: hi(max.y), z: hi(max.z) },
-  };
+// A CUBE room centred on the content: one side length, derived from the content's largest dimension
+// grown by `padScale` per side (0.5 → twice that dimension) and at least `minPad` clear of it, so a flat
+// or thin object still gets a room with depth. The side is a whole number of grid units and each low
+// face is snapped onto the lattice, so all six faces — and, with a whole-unit radius, the fillet
+// tangents (face ∓ radius) — land on grid lines. Pure — for testing.
+export function roundedGridBox(
+  min: Vec3, max: Vec3, padScale: number, minPad: number, unitMM: number,
+): { min: Vec3; max: Vec3 } {
+  const maxSize = Math.max(max.x - min.x, max.y - min.y, max.z - min.z);
+  const side = Math.ceil(Math.max(maxSize * (1 + 2 * padScale), maxSize + 2 * minPad) / unitMM) * unitMM;
+  // Centre each axis on the content, then snap the low face to the lattice; `side` being a whole number
+  // of units carries the high face along with it. The half-unit shift this can introduce is well inside
+  // the padding, so the content always stays enclosed.
+  const lowFace = (lo: number, hi: number) => Math.round(((lo + hi) / 2 - side / 2) / unitMM) * unitMM;
+  const x0 = lowFace(min.x, max.x), y0 = lowFace(min.y, max.y), z0 = lowFace(min.z, max.z);
+  return { min: { x: x0, y: y0, z: z0 }, max: { x: x0 + side, y: y0 + side, z: z0 + side } };
 }
 
 // One family of grid rings: the coordinates along `axis` at which a rounded-rectangle ring is drawn in
@@ -162,22 +182,39 @@ export interface RingFamily {
   rings: RingSpec[];
 }
 
-// Rings run the FULL axis span `[min, max]` at `fine` spacing (not just the flat core band): in the core
-// each is a full rounded rect of radius `radius`; through the caps the radius shrinks so the corner arcs
-// trace the corner spheres. Degenerate near-zero rings at the very faces are dropped (the flat face
-// boundary is already drawn by the other two families). Pure.
+// Rings cover the FULL axis span, in two regimes:
+//
+// - Across the flat core band `[min+radius, max-radius]`, one full-radius ring every `fine`, on the unit
+//   lattice — this is the face grid, so it stays aligned to object corners.
+// - Through the caps, rings step by equal ARC (`fine` of surface distance, i.e. `Δφ = fine / radius`)
+//   rather than by equal axis coordinate, with the radius shrinking as `radius·cos φ` so the corner arcs
+//   trace the corner spheres. Stepping by coordinate instead would bunch the ruling: each fillet is ruled
+//   by two families whose lines there are geometrically COINCIDENT, and under coordinate stepping the two
+//   sets interleave unevenly (near-duplicate lines a fraction of a unit apart near the middle of the arc,
+//   wide gaps elsewhere). Equal-arc stepping puts both families on the same angles, so the fillet ruling
+//   is evenly spaced and matches the faces; `buildRoundedGridRings` then drops one family's copy.
+//   Cap rings therefore do not sit on the lattice, which is fine — the caps are padding, not measurement.
+//
+// `major` follows arc distance from the tangent, so corners stay as bright as the faces. Pure.
 export function roundedGridRingSpecs(min: Vec3, max: Vec3, radius: number, unitMM: number, fine: number): RingFamily[] {
   const onUnit = (v: number) => Math.abs(Math.round(v / unitMM) * unitMM - v) < 1e-6;
+  const capSteps = Math.max(1, Math.round((Math.PI / 2) * radius / fine));
+  const majorEvery = Math.max(1, Math.round(unitMM / fine));
   const family = (
     axis: 'x' | 'y' | 'z', a0: number, a1: number, uMin: number, uMax: number, vMin: number, vMax: number,
   ): RingFamily => {
     const rings: RingSpec[] = [];
-    const start = Math.ceil(a0 / fine - 1e-6) * fine;
-    for (let c = start; c <= a1 + 1e-6; c += fine) {
-      const dAxis = c > a1 - radius ? c - (a1 - radius) : c < a0 + radius ? c - (a0 + radius) : 0;
-      const w = Math.sqrt(Math.max(0, radius * radius - dAxis * dAxis));
-      if (w < radius * 0.02) continue; // skip the degenerate face-boundary ring (drawn by other families)
-      rings.push({ coord: c, major: onUnit(c), w, dAxis });
+    const tLo = a0 + radius, tHi = a1 - radius; // fillet tangents: the flat core band
+    for (let c = Math.ceil(tLo / fine - 1e-6) * fine; c <= tHi + 1e-6; c += fine) {
+      rings.push({ coord: c, major: onUnit(c), w: radius, dAxis: 0 });
+    }
+    // j = 0 would repeat the tangent ring (already emitted above); j = capSteps is the degenerate pole.
+    for (let j = 1; j < capSteps; j++) {
+      const phi = (Math.PI / 2) * (j / capSteps);
+      const t = radius * Math.sin(phi), w = radius * Math.cos(phi);
+      const major = j % majorEvery === 0;
+      rings.push({ coord: tHi + t, major, w, dAxis: t });
+      rings.push({ coord: tLo - t, major, w, dAxis: -t });
     }
     return {
       axis, rings,
@@ -230,13 +267,26 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
   // the outward normal tilts toward the face by the axial component `dAxis/radius`, while the in-plane
   // part scales by `w/radius` — so the corner arcs sit on the corner spheres with correct normals for
   // the facing fade. A LineSegments pair is emitted between each adjacent loop point.
+  // A cap ring is entirely curved geometry: its four corner arcs lie on the corner spheres (one curve per
+  // family — all three are needed), but its four straight runs lie on fillets, where the other family
+  // sharing that fillet emits the very same line. Keep only the lower-ordered axis's copy so the fillet
+  // ruling isn't drawn twice (which would read as darker corners).
+  const AXIS_UV = { x: ['y', 'z'], y: ['x', 'z'], z: ['x', 'y'] } as const;
+  const AXIS_ORDER = { x: 0, y: 1, z: 2 } as const;
   for (const fam of families) {
+    const [uAxis, vAxis] = AXIS_UV[fam.axis];
     for (const ring of fam.rings) {
       const s = ring.w / radius, naxis = ring.dAxis / radius;
       const loop = roundedRectLoop(fam.coreHalfU + ring.w, fam.coreHalfV + ring.w, ring.w);
       const N = loop.u.length;
       const pos = ring.major ? majorPos : minorPos, norm = ring.major ? majorNorm : minorNorm;
       for (let i = 0; i < N; i++) {
+        // The loop is four arcs; the segment joining one arc to the next is a straight run. Straight runs
+        // alternate between the v and u sides, and each lies on the fillet with that axis.
+        if (ring.dAxis !== 0 && i % (RING_ARC_SEGS + 1) === RING_ARC_SEGS) {
+          const partner = Math.floor(i / (RING_ARC_SEGS + 1)) % 2 === 0 ? vAxis : uAxis;
+          if (AXIS_ORDER[fam.axis] > AXIS_ORDER[partner]) continue;
+        }
         for (const k of [i, (i + 1) % N]) {
           const u = fam.cu + loop.u[k]!, wv = fam.cv + loop.v[k]!, pnu = s * loop.nu[k]!, pnw = s * loop.nv[k]!;
           if (fam.axis === 'x') { pos.push(ring.coord, u, wv); norm.push(naxis, pnu, pnw); }
@@ -263,6 +313,8 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
         uOrtho: { value: 0 },
         uBoxCenter: { value: boxCenter },
         uBoxRadius: { value: boxRadius },
+        uResolution: { value: new THREE.Vector2(1, 1) },
+        uLightCenter: { value: new THREE.Vector2() },
       },
       vertexShader:
         'varying vec3 vN; varying vec3 vW;\n' +
@@ -273,32 +325,39 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
         '}',
       fragmentShader:
         'uniform vec3 uColor; uniform float uOpacity; uniform vec3 uCameraPos; uniform vec3 uViewDir; uniform float uOrtho;\n' +
-        'uniform vec3 uBoxCenter; uniform float uBoxRadius;\n' +
+        'uniform vec3 uBoxCenter; uniform float uBoxRadius; uniform vec2 uResolution; uniform vec2 uLightCenter;\n' +
         'varying vec3 vN; varying vec3 vW;\n' +
         'void main() {\n' +
         // A face is inner (far) when its outward normal points along the eye ray. Perspective uses the
         // true per-fragment ray (so every far wall shows, even at grazing angles); ortho uses the single
         // parallel view direction, so silhouette fillets collapse and the perpendicular face reads square.
         '  vec3 dir = uOrtho > 0.5 ? uViewDir : normalize(vW - uCameraPos);\n' +
-        // Angular gradation: full where a face is perpendicular to the camera, fading as it turns
-        // parallel (grazing). Near-facing walls fall out via the clamp, and because dot reaches 0 exactly
-        // at the silhouette the terminator dissolves instead of ending on a hard line.
-        `  float facing = pow(clamp(dot(vN, dir), 0.0, 1.0), ${GRID_FACING_POWER.toFixed(2)});\n` +
+        // Cull the near-facing walls only — without this the wall between camera and content would draw
+        // its grid over the devices. Just wide enough to keep the terminator from aliasing.
+        `  float facing = smoothstep(0.0, ${GRID_FACING_CULL.toFixed(2)}, dot(vN, dir));\n` +
+        // Flashlight: a screen-space radial gradient, so only the grid near the middle of the view shows
+        // and it falls off to nothing toward the edges. gl_FragCoord is exact per pixel (interpolating a
+        // clip-space varying would skew under perspective), and the centre tracks the projected room.
+        '  vec2 ndc = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;\n' +
+        `  float light = 1.0 - smoothstep(${GRID_LIGHT_INNER.toFixed(2)}, ${GRID_LIGHT_OUTER.toFixed(2)}, length(ndc - uLightCenter));\n` +
         // Depth along the view axis, normalized against the box (-1 at its nearest point, +1 farthest):
-        // fade out the closest edges so the near rim of the room doesn't cut off abruptly.
+        // keeps geometry right in front of the camera from cutting through the middle of the light.
         '  float depth = dot(vW - uBoxCenter, uViewDir) / uBoxRadius;\n' +
         `  float near = smoothstep(${GRID_NEAR_FADE_START.toFixed(2)}, ${GRID_NEAR_FADE_END.toFixed(2)}, depth);\n` +
-        '  gl_FragColor = vec4(uColor, facing * near * uOpacity);\n' +
+        '  gl_FragColor = vec4(uColor, facing * light * near * uOpacity);\n' +
         '}',
     });
 
   const g = new THREE.Group();
+  g.userData.center = boxCenter; // projected each frame to aim the flashlight
   for (const [pos, norm, opacity] of [[majorPos, majorNorm, 0.55], [minorPos, minorNorm, 0.22]] as const) {
     if (pos.length === 0) continue;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-    g.add(new THREE.LineSegments(geo, lineMaterial(opacity)));
+    const lines = new THREE.LineSegments(geo, lineMaterial(opacity));
+    lines.renderOrder = GRID_RENDER_ORDER; // sorted per object, so set it here rather than on the group
+    g.add(lines);
   }
   return g;
 }
@@ -774,21 +833,28 @@ export function createScene(container: HTMLElement): SizeScene {
     });
   }
 
-  // Feed the room shader the camera state so it can fade each fragment by facing: far (inner) walls
-  // draw, near walls fade to nothing. Perspective uses the eye position (per-fragment ray); ortho uses
-  // the parallel view direction. Re-run every frame as the camera moves.
+  // Feed the room shader the per-frame camera state: eye position and view direction for the near-wall
+  // cull (perspective uses the per-fragment ray, ortho the parallel direction), the drawing-buffer size
+  // to turn gl_FragCoord into NDC, and the room's centre projected to screen so the flashlight sits on
+  // the composition rather than the raw canvas centre (the sidebar inset shifts the two apart).
   const _camPos = new THREE.Vector3();
   const _viewDir = new THREE.Vector3();
+  const _lightCenter = new THREE.Vector3();
+  const _bufferSize = new THREE.Vector2();
   function updateGridCamera() {
     if (!grids) return;
     camera.getWorldPosition(_camPos);
     camera.getWorldDirection(_viewDir);
+    renderer.getDrawingBufferSize(_bufferSize);
+    _lightCenter.copy(grids.userData.center as THREE.Vector3).project(camera);
     const isOrtho = (camera as THREE.OrthographicCamera).isOrthographicCamera ? 1 : 0;
     grids.traverse((o) => {
       const u = ((o as THREE.LineSegments).material as THREE.ShaderMaterial | undefined)?.uniforms;
       if (!u) return;
       u.uCameraPos?.value.copy(_camPos);
       u.uViewDir?.value.copy(_viewDir);
+      u.uResolution?.value.copy(_bufferSize);
+      u.uLightCenter?.value.set(_lightCenter.x, _lightCenter.y);
       if (u.uOrtho) u.uOrtho.value = isOrtho;
     });
   }
@@ -823,8 +889,9 @@ export function createScene(container: HTMLElement): SizeScene {
     const s = bounds.getSize(new THREE.Vector3());
     const span = Math.max(s.x, s.y, s.z, 1);
     const { unitMM } = gridSpec(units, span);
-    const box = roundedGridBox(bounds.min, bounds.max, GRID_PAD_UNITS * unitMM, unitMM);
-    grids = buildRoundedGridRings(box, GRID_RADIUS_UNITS * unitMM, units, span);
+    const radius = GRID_RADIUS_UNITS * unitMM;
+    const box = roundedGridBox(bounds.min, bounds.max, GRID_PAD_SCALE, radius, unitMM);
+    grids = buildRoundedGridRings(box, radius, units, span);
     scene.add(grids);
     updateGridCamera();
   }

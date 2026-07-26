@@ -10,8 +10,9 @@ from three orthogonal stacks of rounded-rectangle line rings.
 
 ## Goals
 
-- One rounded box instead of six planes, sized to the content bounds + 3 units padding per side.
-- Corner rounding with a configurable radius (default 2 units: 2 cm metric / 2 in imperial).
+- One rounded box instead of six planes: a cube whose side is twice the content's largest dimension,
+  centred on the content (so a flat object still gets a room with depth).
+- Corner rounding with a configurable radius (default 7 units), wide enough to read as a curve.
 - Grid ruling stays continuous across every rounded edge (lines wrap the fillets).
 - Only inner faces visible: near-facing walls fade out, far (inner) walls draw.
 - Preserve the existing integer-cm alignment — grid lines pass through object corners.
@@ -42,31 +43,38 @@ with the same corner construction already used by `roundedRectShape`.
 
 ## Geometry
 
-Let the content (target) bounds have half-extents `Hc = (Hx, Hy, Hz)`.
+Constants:
 
-Constants (both tunable independently, as whole multiples of `unitMM`):
+- `GRID_PAD_SCALE` — padding per side as a fraction of the content's **largest** dimension. `0.5`,
+  so the room's side is twice that dimension.
+- `GRID_RADIUS` — corner fillet radius. `7 * unitMM` (7 units). A whole number of units, so the fillet
+  tangents land on grid lines in either unit system. Wide enough that the fillet spans several grid
+  columns and the ruling visibly compresses as the surface turns away; a tight radius reads as a crease.
 
-- `GRID_PAD` — padding added on all sides. `3 * unitMM` (3 units: 3 cm metric / 3 in imperial).
-- `GRID_RADIUS` — corner fillet radius. `2 * unitMM` (2 units: 2 cm metric / 2 in imperial).
+**The room is a CUBE, sized from the largest content dimension.** Padding proportional to each axis
+separately would give a flat object (a tablet 5 mm deep) a room with almost no depth, so all three
+axes take the same side length:
 
-Expressing both in whole units keeps everything on the grid lattice in either unit system: the
-outer faces snap to units, and because `r` is a whole number of units the fillet tangents
-`face ∓ r` also fall on grid lines. They are two separate values so they can diverge later.
+```
+maxSize = max(contentSize.x, contentSize.y, contentSize.z)
+side    = ceil(max(maxSize * (1 + 2*GRID_PAD_SCALE), maxSize + 2*r) / unitMM) * unitMM
+```
 
-**Outer box snaps to the integer-cm (unit) lattice.** Object widths are not whole cm, so a raw
-`content + P` box would put the outer faces — and therefore the fillet tangent points — off the
-grid, and the ruling that runs along a tangent would not coincide with the flat/curve boundary.
-Instead, per axis, expand the content bounds by at least `P` and round each face outward to the
-nearest `unitMM`:
+The `maxSize + 2*r` term is a floor guaranteeing the rounding always fits (it only binds for content
+smaller than the radius). `side` is a whole number of units.
 
-- `boxMin[A] = floor((contentMin[A] - P) / unitMM) * unitMM`
-- `boxMax[A] = ceil((contentMax[A] + P) / unitMM) * unitMM`
+**Faces snap to the lattice.** Object sizes are not whole cm, so a raw `content ± pad` box would put
+the faces — and therefore the fillet tangents — off the grid, and the ruling running along a tangent
+would not coincide with the flat/curve boundary. Instead centre each axis on the content and snap the
+low face onto the lattice; `side` being a whole number of units carries the high face with it:
 
-Both faces then sit on grid lines, actual padding is in `[P, P + unitMM)`, and since `r` is a
-whole number of units (2 cm = 2 units metric; 1 in = 1 unit imperial), every fillet tangent
-`boxMin[A] + r` and `boxMax[A] - r` also lands on a grid line — so the corner rounding starts
-and ends exactly on the ruling. The box is described by its `boxMin`/`boxMax` corners, not a
-symmetric centre + half-extent; it may be asymmetric about the content.
+- `boxMin[A] = round((contentMid[A] - side/2) / unitMM) * unitMM`
+- `boxMax[A] = boxMin[A] + side`
+
+All six faces then sit on grid lines, and since `r` is a whole number of units every fillet tangent
+`boxMin[A] + r` / `boxMax[A] - r` does too — the corner rounding starts and ends exactly on the
+ruling. The snap can shift the room up to half a unit off the content centre, which is far inside the
+padding, so the content always stays enclosed.
 
 For a ring family along axis A, each ring is a rounded rectangle in the plane perpendicular to A,
 placed at each `unitMM` step along A across the full span `[boxMin[A], boxMax[A]]`. Across the
@@ -83,11 +91,10 @@ the box's **outward surface normal**: the constant face normal along the straigh
 the radial (outward-from-fillet-axis) direction along the corner arcs.
 
 **Full-span rings grid the fillets AND corners.** Rings run the *entire* axis span `[min, max]`,
-not just the flat core band. A grid line is a curve of constant world-coordinate on the surface,
-so each ring is that coordinate-plane's cross-section of the rounded box: in the core it is a full
-rounded rect of radius `radius`; through the caps (`|dAxis| < radius` from the core face) the
-perpendicular radius shrinks as `w = sqrt(radius² − dAxis²)` and the ring's corner arcs trace the
-corner spheres. Result:
+not just the flat core band. Each ring is a coordinate-plane cross-section of the rounded box: in the
+core it is a full rounded rect of radius `radius`; through the caps the perpendicular radius shrinks as
+`w = radius·cos φ` (at axial offset `dAxis = radius·sin φ` past the tangent) and the ring's corner arcs
+trace the corner spheres. Result:
 
 - flat faces: the two in-plane families cross to a normal grid (core rings);
 - fillets: wrapped by the parallel family's core-ring arcs, and ruled lengthwise by the other two
@@ -95,8 +102,21 @@ corner spheres. Result:
 - corner spheres: the three families' cap-ring corner arcs (constant-x/y/z curves) form a spherical
   grid, continuous with the fillets.
 
-The degenerate near-zero rings at the very faces are dropped (that boundary is already drawn by the
-other two families).
+**Cap rings step by equal ARC, not equal coordinate.** Each fillet is ruled by two families whose
+longitudinal lines there are geometrically *coincident*. Stepping cap rings by axis coordinate makes the
+two sets interleave unevenly — near-duplicate lines a fraction of a unit apart in the middle of the arc,
+wide gaps elsewhere. Stepping by arc (`Δφ = fine / radius`) puts both families on the same angles, so
+the fillet ruling is evenly spaced and matches the faces; the builder then drops one family's copy (keep
+the lower-ordered axis's, see below). Cap rings therefore do not sit on the unit lattice — acceptable,
+since the caps are padding rather than measured space. `major` follows arc distance from the tangent, so
+corners stay as bright as the faces. The ring at `φ = 0` would repeat the tangent ring and the one at
+`φ = 90°` is a degenerate pole; both are skipped.
+
+**Duplicate-line dedupe.** A cap ring is entirely curved geometry: its four corner arcs lie on corner
+spheres (all three families needed — they are different curves), but its four straight runs lie on
+fillets, where the other family sharing that fillet emits the same line. Keep only the copy whose family
+axis is lower in `x < y < z` order; otherwise the fillet ruling is drawn twice and reads as darker
+corners. Core-ring straight runs lie on the flat faces and are always kept.
 
 **Cap-ring normals.** A cap ring's outward normal tilts toward the face: axial component
 `dAxis/radius`, in-plane component scaled by `w/radius` (together unit length). This keeps the
@@ -107,17 +127,28 @@ facing fade correct across the caps and corners.
 A single `ShaderMaterial` for all rings (transparent, `depthWrite: false`, like today).
 
 - Vertex shader passes the surface normal and world position to the fragment shader.
-- Fragment shader multiplies the base line opacity (major vs minor as today) by two fades:
-  - **Angular gradation** — `pow(clamp(dot(N, dir)), GRID_FACING_POWER)` where `N` is the outward
-    surface normal and `dir` the eye ray. Full where a face is perpendicular to the camera, fading
-    as it turns parallel (grazing). Near-facing walls drop out via the clamp, and since `dot`
-    reaches 0 exactly at the silhouette the terminator dissolves rather than ending on a hard line.
+- Fragment shader multiplies the base line opacity (major vs minor as today) by three terms:
+  - **Flashlight** (the look) — a screen-space radial gradient,
+    `1 - smoothstep(GRID_LIGHT_INNER, GRID_LIGHT_OUTER, length(ndc - uLightCenter))`, so only the grid
+    near the middle of the view is visible and it falls to nothing toward the edges. `ndc` comes from
+    `gl_FragCoord / uResolution`, which is exact per pixel — interpolating a clip-space varying would
+    skew under perspective. `uLightCenter` is the room's centre projected each frame, so the light sits
+    on the composition rather than the raw canvas centre (the sidebar inset separates the two).
+    Radius is measured in NDC, so the pool conforms to the viewport.
+  - **Facing cull** — `smoothstep(0, GRID_FACING_CULL, dot(N, dir))`, wide enough only to avoid a
+    jagged terminator. This is not a gradation: its job is to drop the near-facing walls, without which
+    the wall between camera and content draws its grid over the devices.
   - **Near-depth fade** — `smoothstep(START, END, dot(worldPos − boxCenter, viewDir) / boxRadius)`,
-    i.e. view-axis depth normalized to the box (−1 at its nearest point, +1 farthest). Keeps the
-    closest edges transparent so the near rim of the room has no abrupt cutoff.
-- Both are alpha multipliers in this material, deliberately *not* `THREE.Fog`: scene fog mixes
+    i.e. view-axis depth normalized to the box (−1 at its nearest point, +1 farthest). Keeps geometry
+    right in front of the camera from cutting through the middle of the light.
+- All are alpha multipliers in this material, deliberately *not* `THREE.Fog`: scene fog mixes
   fragment *color* toward a fog color (wrong on a transparent canvas, and wrong in both light and
   dark themes) and would apply to the device meshes too.
+- **`renderOrder = GRID_RENDER_ORDER` (-1) on each `LineSegments`.** Nothing in the scene writes depth,
+  so draw order is `renderOrder` then camera distance; the room's bounding sphere is centred on the
+  devices, so at the default 0 the distance tiebreak flips as the camera moves and the grid paints over
+  the device screens (they appear to go transparent at some angles). Items start at 0, so the room sits
+  below them. `renderOrder` is sorted per object, so it must be set on the children, not the group.
 - **`dir` is projection-dependent** (a `uOrtho` flag selects): perspective uses the true
   per-fragment ray `normalize(worldPos - uCameraPos)`, so every far wall shows even at grazing
   angles; ortho uses the single parallel view direction `uViewDir`, so silhouette fillets
@@ -211,6 +242,6 @@ unit-tested without a GL context:
 - Busy convergence at the 8 sphere-corners — accepted; revisit only if it reads poorly.
 - Line-count budget: three stacks over the content span at 1 unit spacing. For large content the
   ring count grows with span; reuse `gridSpec`'s `majorCount` clamp so it stays bounded.
-- Fade shaping is taste: `GRID_FACING_POWER` (1.6) sets how fast grazing walls dim, and the
-  near-fade band (`[-0.95, -0.1]` in normalized view depth) how much of the near rim dissolves.
-  Raising the power or widening the band makes the room airier but the ruling fainter overall.
+- Fade shaping is taste: the flashlight band `[GRID_LIGHT_INNER, GRID_LIGHT_OUTER]` = `[0.0, 0.7]` sets
+  how tight the lit pool is, and the near-fade band (`[-0.95, -0.1]` in normalized view depth) how much
+  of the near rim dissolves. Widening either shows more grid but makes the room read busier.
