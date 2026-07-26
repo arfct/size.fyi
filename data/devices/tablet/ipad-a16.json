@@ -9,11 +9,7 @@
   "w": 179.5,
   "d": 7,
   "year": 2025,
-  "aliases": [
-    "ipad a16",
-    "ipad 11th gen",
-    "base ipad"
-  ],
+  "aliases": ["ipad a16", "ipad 11th gen", "base ipad"],
   "source": "apple.com",
   "radius": 9,
   "radiusAxis": "z",

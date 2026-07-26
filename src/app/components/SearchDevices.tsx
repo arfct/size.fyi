@@ -3,11 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { searchDevices, suggestDevices } from '../../shared/search';
 import type { Device } from '../../shared/types';
 import { MAX_ITEMS } from '../../shared/types';
-import { MY_ITEM_ICON, deviceIcon } from '../categoryIcon';
-import { useCatalog } from '../useCatalog';
-import { useComparison } from '../store';
-import { useIsDesktop } from '../useIsDesktop';
+import { deviceIcon, MY_ITEM_ICON } from '../categoryIcon';
 import { getMyItems } from '../localStore';
+import { useComparison } from '../store';
+import { useCatalog } from '../useCatalog';
+import { useIsDesktop } from '../useIsDesktop';
 
 type MyItem = ReturnType<typeof getMyItems>[number];
 type ResultRow = { kind: 'device'; device: Device } | { kind: 'mine'; item: MyItem };
@@ -69,7 +69,9 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
   const myMatches = useMemo(() => {
     if (!trimmed) return [];
     const q = trimmed.toLowerCase();
-    return getMyItems().filter((i) => i.name.toLowerCase().includes(q)).slice(0, 3);
+    return getMyItems()
+      .filter((i) => i.name.toLowerCase().includes(q))
+      .slice(0, 3);
   }, [trimmed]);
   const suggestions = useMemo(
     () => suggestDevices(devices, activeCategories, addedSlugs, SUGGESTION_COUNT),
@@ -88,7 +90,8 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
 
   const addRow = (row: ResultRow) => {
     if (full) return;
-    if (row.kind === 'device') dispatch({ type: 'add', item: { kind: 'device', device: row.device } });
+    if (row.kind === 'device')
+      dispatch({ type: 'add', item: { kind: 'device', device: row.device } });
     else dispatch({ type: 'add', item: { kind: 'custom', ...row.item } });
     setQuery('');
   };
@@ -102,7 +105,11 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
       ) : (
         <>
           <div className="relative">
-            <Search size={18} aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+            <Search
+              size={18}
+              aria-hidden
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
+            />
             <input
               ref={inputRef}
               id="device-search"
@@ -113,14 +120,22 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
               aria-controls="device-results"
               value={query}
               disabled={full}
-              onChange={(e) => { setQuery(e.target.value); revealOnMobile(); }}
-              onFocus={(e) => { e.currentTarget.select(); revealOnMobile(); }}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                revealOnMobile();
+              }}
+              onFocus={(e) => {
+                e.currentTarget.select();
+                revealOnMobile();
+              }}
               placeholder={status === 'loading' ? 'Loading catalog…' : 'Search'}
               className="w-full rounded-full border border-stone-300 bg-transparent py-2 pl-11 pr-4 text-[16px] outline-none focus:border-stone-500 disabled:opacity-40 dark:border-stone-700 dark:focus:border-stone-400"
             />
           </div>
           {rows.length === 0 && (
-            <p className="px-4 py-1.5 text-[13px] text-stone-500">{trimmed ? 'No matches.' : 'No suggestions.'}</p>
+            <p className="px-4 py-1.5 text-[13px] text-stone-500">
+              {trimmed ? 'No matches.' : 'No suggestions.'}
+            </p>
           )}
           <ul id="device-results" role="listbox" aria-label="Results" className="space-y-0.5">
             {rows.map((row) => {
@@ -135,16 +150,23 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
                     onClick={() => addRow(row)}
                     className="flex w-full items-center gap-2.5 rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
                   >
-                    <Icon size={18} aria-hidden className="shrink-0 text-stone-500 dark:text-stone-400" />
+                    <Icon
+                      size={18}
+                      aria-hidden
+                      className="shrink-0 text-stone-500 dark:text-stone-400"
+                    />
                     <span className="min-w-0 flex-1 truncate">
                       {row.kind === 'mine' ? (
                         <>
-                          {row.item.name} <span className="text-[13px] text-stone-400">(my item)</span>
+                          {row.item.name}{' '}
+                          <span className="text-[13px] text-stone-400">(my item)</span>
                         </>
                       ) : (
                         <>
                           {row.device.name}
-                          {row.device.make ? <span className="text-[13px] text-stone-400"> — {row.device.make}</span> : null}
+                          {row.device.make ? (
+                            <span className="text-[13px] text-stone-400"> — {row.device.make}</span>
+                          ) : null}
                         </>
                       )}
                     </span>
@@ -160,7 +182,9 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
                 className="flex w-full items-center gap-2.5 rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
               >
                 <Plus size={18} aria-hidden className="shrink-0 text-stone-400" />
-                <span className="min-w-0 flex-1 truncate">{trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}
+                </span>
               </button>
             </li>
           </ul>

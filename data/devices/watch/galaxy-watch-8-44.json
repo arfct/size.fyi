@@ -9,12 +9,7 @@
   "w": 43.7,
   "d": 8.6,
   "year": 2025,
-  "aliases": [
-    "galaxy watch 8",
-    "galaxy watch8",
-    "watch 8",
-    "galaxy watch 8 44"
-  ],
+  "aliases": ["galaxy watch 8", "galaxy watch8", "watch 8", "galaxy watch 8 44"],
   "source": "samsung.com",
   "radius": 16,
   "radiusAxis": "z",

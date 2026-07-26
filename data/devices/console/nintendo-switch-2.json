@@ -9,10 +9,7 @@
   "w": 272,
   "d": 13.9,
   "year": 2025,
-  "aliases": [
-    "switch 2",
-    "nsw2"
-  ],
+  "aliases": ["switch 2", "nsw2"],
   "source": "nintendo.com",
   "screen": {
     "h": 98.4,

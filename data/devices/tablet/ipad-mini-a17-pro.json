@@ -9,10 +9,7 @@
   "w": 134.8,
   "d": 6.3,
   "year": 2024,
-  "aliases": [
-    "ipad mini",
-    "ipad mini 7"
-  ],
+  "aliases": ["ipad mini", "ipad mini 7"],
   "source": "apple.com",
   "radius": 9,
   "radiusAxis": "z",

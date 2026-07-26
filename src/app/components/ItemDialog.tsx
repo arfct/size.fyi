@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from 'react';
 import { parseDimensions } from '../../shared/dimensions';
 import { MAX_ITEMS } from '../../shared/types';
 import { addMyItem } from '../localStore';
@@ -12,7 +12,13 @@ export type DialogState =
 
 const DIMS_HELP = 'Use height × width × depth, e.g. 85×64×12mm or 5×3×2in';
 
-export default function ItemDialog({ state, onClose }: { state: DialogState | null; onClose: () => void }) {
+export default function ItemDialog({
+  state,
+  onClose,
+}: {
+  state: DialogState | null;
+  onClose: () => void;
+}) {
   const { state: comparison, dispatch } = useComparison();
   const [name, setName] = useState('');
   const [dims, setDims] = useState('');
@@ -33,7 +39,9 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
 
   useEffect(() => {
     if (!state) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [state, onClose]);
@@ -44,10 +52,16 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
 
   const submit = () => {
     const trimmed = name.trim();
-    if (!trimmed) { setError('Give it a name'); return; }
+    if (!trimmed) {
+      setError('Give it a name');
+      return;
+    }
     // Interpret bare numbers in the current unit; an explicit unit in the text still wins.
     const parsed = parseDimensions(/[a-z]/i.test(dims) ? dims : `${dims}${unit}`);
-    if (!parsed) { setError(DIMS_HELP); return; }
+    if (!parsed) {
+      setError(DIMS_HELP);
+      return;
+    }
     if (state.mode === 'add' && comparison.items.length >= MAX_ITEMS) {
       setError(`Comparison is full (${MAX_ITEMS} items)`);
       return;
@@ -67,12 +81,16 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
     window.open(`https://www.google.com/search?q=${q}`, '_blank', 'noopener,noreferrer');
   };
 
-  const onEnter = (e: ReactKeyboardEvent) => { if (e.key === 'Enter') submit(); };
+  const onEnter = (e: ReactKeyboardEvent) => {
+    if (e.key === 'Enter') submit();
+  };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         role="dialog"
@@ -104,7 +122,11 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
           <label htmlFor="dlg-dims" className="text-[13px] font-medium text-stone-500">
             Dimensions <span className="text-stone-400">{unit}</span>
           </label>
-          <button type="button" onClick={searchGoogle} className="text-[13px] text-blue-600 hover:underline dark:text-blue-400">
+          <button
+            type="button"
+            onClick={searchGoogle}
+            className="text-[13px] text-blue-600 hover:underline dark:text-blue-400"
+          >
             search Google ↗
           </button>
         </div>
@@ -112,18 +134,33 @@ export default function ItemDialog({ state, onClose }: { state: DialogState | nu
           id="dlg-dims"
           ref={dimsRef}
           value={dims}
-          onChange={(e) => { setDims(e.target.value); setError(null); }}
+          onChange={(e) => {
+            setDims(e.target.value);
+            setError(null);
+          }}
           onKeyDown={onEnter}
           placeholder={unit === 'in' ? '3.3×2.5×0.5' : '85×64×12'}
           className="mt-1 w-full border-b border-stone-300 bg-transparent py-2 text-[16px] outline-none focus:border-stone-500 dark:border-stone-700 dark:focus:border-stone-400"
         />
-        {error && <p className="mt-2 text-[13px] text-red-600" role="alert">{error}</p>}
+        {error && (
+          <p className="mt-2 text-[13px] text-red-600" role="alert">
+            {error}
+          </p>
+        )}
 
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-3 py-1.5 text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800"
+          >
             Cancel
           </button>
-          <button type="button" onClick={submit} className="rounded-md bg-stone-900 px-4 py-1.5 text-[13px] font-medium text-white dark:bg-stone-100 dark:text-stone-900">
+          <button
+            type="button"
+            onClick={submit}
+            className="rounded-md bg-stone-900 px-4 py-1.5 text-[13px] font-medium text-white dark:bg-stone-100 dark:text-stone-900"
+          >
             {state.mode === 'edit' ? 'Save' : 'Add'}
           </button>
         </div>

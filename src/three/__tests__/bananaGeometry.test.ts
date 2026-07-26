@@ -1,5 +1,5 @@
-import { expect, test } from 'vitest';
 import * as THREE from 'three';
+import { expect, test } from 'vitest';
 import { buildBananaGeometry } from '../scene';
 
 test('buildBananaGeometry normalizes to an exact, centered w×h×d bounding box', () => {

@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { isCustomOnlyPath, useUrlSync } from '../useUrlSync';
-import { ComparisonProvider, useComparison } from '../store';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Device } from '../../shared/types';
+import { ComparisonProvider, useComparison } from '../store';
+import { isCustomOnlyPath, useUrlSync } from '../useUrlSync';
 
 describe('isCustomOnlyPath', () => {
   test('true when every token is a custom item', () => {
@@ -22,7 +22,12 @@ const catalog: { status: 'loading' | 'ready' | 'error'; bySlug: Map<string, Devi
 };
 
 vi.mock('../useCatalog', () => ({
-  useCatalog: () => ({ devices: [], bySlug: catalog.bySlug, status: catalog.status, retry: vi.fn() }),
+  useCatalog: () => ({
+    devices: [],
+    bySlug: catalog.bySlug,
+    status: catalog.status,
+    retry: vi.fn(),
+  }),
 }));
 
 function useTestSync() {
@@ -30,7 +35,14 @@ function useTestSync() {
   return useComparison();
 }
 
-const a4: Device = { slug: 'paper-a4', name: 'A4 Paper', category: 'paper', h: 297, w: 210, d: 0.1 };
+const a4: Device = {
+  slug: 'paper-a4',
+  name: 'A4 Paper',
+  category: 'paper',
+  h: 297,
+  w: 210,
+  d: 0.1,
+};
 
 beforeEach(() => {
   catalog.status = 'loading';
@@ -88,8 +100,14 @@ describe('useUrlSync reflects state back to the URL', () => {
     window.history.pushState({}, '', '/');
     const { result } = renderHook(useTestSync, { wrapper: ComparisonProvider });
     act(() => {
-      result.current.dispatch({ type: 'add', item: { kind: 'custom', name: 'Phone', h: 150, w: 75, d: 8 } });
-      result.current.dispatch({ type: 'add', item: { kind: 'custom', name: 'Book', h: 200, w: 140, d: 20 } });
+      result.current.dispatch({
+        type: 'add',
+        item: { kind: 'custom', name: 'Phone', h: 150, w: 75, d: 8 },
+      });
+      result.current.dispatch({
+        type: 'add',
+        item: { kind: 'custom', name: 'Book', h: 200, w: 140, d: 20 },
+      });
     });
     expect(location.pathname).toBe('/phone~150x75x8-vs-book~200x140x20');
     expect(document.title).toBe('Phone vs Book — size.fyi');
@@ -106,6 +124,8 @@ describe('useUrlSync popstate handling', () => {
     act(() => {
       dispatchEvent(new PopStateEvent('popstate'));
     });
-    expect(result.current.state.items).toEqual([{ kind: 'custom', name: 'Book', h: 200, w: 140, d: 20 }]);
+    expect(result.current.state.items).toEqual([
+      { kind: 'custom', name: 'Book', h: 200, w: 140, d: 20 },
+    ]);
   });
 });

@@ -9,10 +9,7 @@
   "w": 37.5,
   "d": 9,
   "year": 2015,
-  "aliases": [
-    "pebble time",
-    "pebble time classic"
-  ],
+  "aliases": ["pebble time", "pebble time classic"],
   "source": "getpebble.com",
   "radius": 6,
   "radiusAxis": "z",

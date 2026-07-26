@@ -9,11 +9,7 @@
   "w": 76.6,
   "d": 8.5,
   "year": 2025,
-  "aliases": [
-    "pixel 10 pro xl",
-    "pixel10proxl",
-    "10 pro xl"
-  ],
+  "aliases": ["pixel 10 pro xl", "pixel10proxl", "10 pro xl"],
   "source": "store.google.com",
   "radius": 11,
   "radiusAxis": "z",

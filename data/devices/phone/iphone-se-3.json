@@ -9,12 +9,7 @@
   "w": 67.3,
   "d": 7.3,
   "year": 2022,
-  "aliases": [
-    "iphone se",
-    "se 2022",
-    "iphone se 2022",
-    "se 3"
-  ],
+  "aliases": ["iphone se", "se 2022", "iphone se 2022", "se 3"],
   "source": "apple.com",
   "radius": 11,
   "radiusAxis": "z",

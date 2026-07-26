@@ -1,11 +1,13 @@
+import { render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { expect, test, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
 import Viewer from '../components/Viewer';
 import { ComparisonProvider, useComparison } from '../store';
 
 vi.mock('../../three/scene', () => ({
-  createScene: () => { throw new Error('WebGL unavailable'); },
+  createScene: () => {
+    throw new Error('WebGL unavailable');
+  },
 }));
 
 function Harness() {

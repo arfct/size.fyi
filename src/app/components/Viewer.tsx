@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
-import type { SizeScene } from '../../three/scene';
+import { type RefObject, useEffect, useRef, useState } from 'react';
 import { itemDims } from '../../shared/types';
+import type { SizeScene } from '../../three/scene';
 import { colorFor, itemColor } from '../palette';
 import { useComparison } from '../store';
 import { useIsDesktop } from '../useIsDesktop';
@@ -42,11 +42,19 @@ export default function Viewer({ asideRef }: ViewerProps) {
     import('../../three/scene')
       .then(({ createScene }) => {
         if (disposed || !ref.current) return;
-        try { sceneRef.current = createScene(ref.current); setReady(true); }
-        catch { setUnavailable(true); /* WebGL unavailable; table remains */ }
+        try {
+          sceneRef.current = createScene(ref.current);
+          setReady(true);
+        } catch {
+          setUnavailable(true); /* WebGL unavailable; table remains */
+        }
       })
       .catch(() => setUnavailable(true));
-    return () => { disposed = true; sceneRef.current?.dispose(); sceneRef.current = null; };
+    return () => {
+      disposed = true;
+      sceneRef.current?.dispose();
+      sceneRef.current = null;
+    };
   }, []);
 
   // Measures the floating sidebar's width and feeds it to the scene as a left inset, so the
@@ -59,7 +67,10 @@ export default function Viewer({ asideRef }: ViewerProps) {
     const aside = asideRef?.current;
     // Mobile: no horizontal inset (canvas is full-width), but reserve vertical room at the top
     // for the overlapping segmented control. Desktop-without-aside: no inset at all.
-    if (!aside || !isDesktop) { scene.setInset(0, isDesktop ? 0 : MOBILE_TOP_INSET); return; }
+    if (!aside || !isDesktop) {
+      scene.setInset(0, isDesktop ? 0 : MOBILE_TOP_INSET);
+      return;
+    }
     const update = () => scene.setInset(aside.getBoundingClientRect().width, 0);
     update();
     const ro = new ResizeObserver(update);
@@ -68,30 +79,39 @@ export default function Viewer({ asideRef }: ViewerProps) {
   }, [asideRef, isDesktop, ready]);
 
   useEffect(() => {
-    const items = state.items.length > 0
-      ? state.items.map((item, i) => {
-        const dims = itemDims(item); // resolves the active state for foldables
-        return {
-          name: item.kind === 'device' ? item.device.name : item.name,
-          h: dims.h, w: dims.w, d: dims.d,
-          radius: dims.radius,
-          radiusAxis: dims.radiusAxis,
-          screen: dims.screen,
-          seam: dims.seam,
-          mesh: item.kind === 'device' ? item.device.mesh : undefined,
-          model3d: item.kind === 'device' ? item.device.model3d : undefined,
-          color: itemColor(item, i),
-        };
-      })
-      : PLACEHOLDER_CUBES.map((c, i) => ({ ...c, color: colorFor(i) }));
+    const items =
+      state.items.length > 0
+        ? state.items.map((item, i) => {
+            const dims = itemDims(item); // resolves the active state for foldables
+            return {
+              name: item.kind === 'device' ? item.device.name : item.name,
+              h: dims.h,
+              w: dims.w,
+              d: dims.d,
+              radius: dims.radius,
+              radiusAxis: dims.radiusAxis,
+              screen: dims.screen,
+              seam: dims.seam,
+              mesh: item.kind === 'device' ? item.device.mesh : undefined,
+              model3d: item.kind === 'device' ? item.device.model3d : undefined,
+              color: itemColor(item, i),
+            };
+          })
+        : PLACEHOLDER_CUBES.map((c, i) => ({ ...c, color: colorFor(i) }));
     sceneRef.current?.setItems(items);
   }, [state.items, ready]);
 
-  useEffect(() => { sceneRef.current?.setView(state.view); }, [state.view, ready]);
+  useEffect(() => {
+    sceneRef.current?.setView(state.view);
+  }, [state.view, ready]);
 
-  useEffect(() => { sceneRef.current?.setLayout(state.layoutMode); }, [state.layoutMode, ready]);
+  useEffect(() => {
+    sceneRef.current?.setLayout(state.layoutMode);
+  }, [state.layoutMode, ready]);
 
-  useEffect(() => { sceneRef.current?.setUnits(state.units); }, [state.units, ready]);
+  useEffect(() => {
+    sceneRef.current?.setUnits(state.units);
+  }, [state.units, ready]);
 
   return (
     <div ref={ref} className="relative h-full min-h-[320px] w-full" data-testid="viewer">

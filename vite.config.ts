@@ -1,6 +1,6 @@
-import { defineConfig, type ViteDevServer, type Plugin } from 'vite';
-import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { defineConfig, type Plugin, type ViteDevServer } from 'vite';
 
 function devApi(): Plugin {
   return {

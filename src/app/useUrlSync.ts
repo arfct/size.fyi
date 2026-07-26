@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { decodeComparison, encodeComparison, comparisonTitle } from '../shared/urlCodec';
+import { comparisonTitle, decodeComparison, encodeComparison } from '../shared/urlCodec';
 import { addRecent } from './localStore';
 import { useComparison } from './store';
 import { useCatalog } from './useCatalog';
@@ -23,7 +23,10 @@ export function useUrlSync() {
   useEffect(() => {
     if (hydrated.current) return;
     const path = location.pathname;
-    if (path === '/') { hydrated.current = true; return; }
+    if (path === '/') {
+      hydrated.current = true;
+      return;
+    }
     if (status !== 'ready' && !isCustomOnlyPath(path)) return;
     const { items, missing } = decodeComparison(path, bySlug);
     dispatch({ type: 'load', items, missing });

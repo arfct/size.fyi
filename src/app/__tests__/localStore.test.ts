@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { addMyItem, getMyItems, addRecent, getRecents, getStoredUnits } from '../localStore';
+import { addMyItem, addRecent, getMyItems, getRecents, getStoredUnits } from '../localStore';
 
 beforeEach(() => localStorage.clear());
 
@@ -18,7 +18,9 @@ test('recents dedupe by path and cap at 20', () => {
   expect(r[0]!.path).toBe('/p24');
 });
 test('survives broken storage', () => {
-  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('quota'); });
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new Error('quota');
+  });
   expect(getMyItems()).toEqual([]);
   vi.restoreAllMocks();
 });

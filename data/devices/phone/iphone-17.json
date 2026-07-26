@@ -9,10 +9,7 @@
   "w": 71.5,
   "d": 7.95,
   "year": 2025,
-  "aliases": [
-    "iphone 17",
-    "17"
-  ],
+  "aliases": ["iphone 17", "17"],
   "source": "apple.com",
   "radius": 11,
   "radiusAxis": "z",

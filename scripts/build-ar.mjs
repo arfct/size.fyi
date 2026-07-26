@@ -7,9 +7,9 @@
 // Usage: node scripts/build-ar.mjs
 import { readFile, writeFile } from 'node:fs/promises';
 import * as THREE from 'three';
+import { USDZExporter } from 'three/examples/jsm/exporters/USDZExporter.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { USDZExporter } from 'three/examples/jsm/exporters/USDZExporter.js';
 
 const MM_TO_M = 0.001;
 const loader = new GLTFLoader();
@@ -35,18 +35,29 @@ for (const d of withModels) {
 
   if (d.model3d.rotation) {
     const [rx, ry, rz] = d.model3d.rotation;
-    geo.rotateX((rx * Math.PI) / 180); geo.rotateY((ry * Math.PI) / 180); geo.rotateZ((rz * Math.PI) / 180);
+    geo.rotateX((rx * Math.PI) / 180);
+    geo.rotateY((ry * Math.PI) / 180);
+    geo.rotateZ((rz * Math.PI) / 180);
   }
   // Fit to the device's canonical size (mm) so AR shows the honest dimensions, then to metres.
   geo.computeBoundingBox();
   const size = geo.boundingBox.getSize(new THREE.Vector3());
   const center = geo.boundingBox.getCenter(new THREE.Vector3());
   geo.translate(-center.x, -center.y, -center.z);
-  geo.scale((d.w / (size.x || 1)) * MM_TO_M, (d.h / (size.y || 1)) * MM_TO_M, (d.d / (size.z || 1)) * MM_TO_M);
+  geo.scale(
+    (d.w / (size.x || 1)) * MM_TO_M,
+    (d.h / (size.y || 1)) * MM_TO_M,
+    (d.d / (size.z || 1)) * MM_TO_M,
+  );
   geo.computeVertexNormals();
 
   const scene = new THREE.Scene();
-  scene.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.1, roughness: 0.55 })));
+  scene.add(
+    new THREE.Mesh(
+      geo,
+      new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.1, roughness: 0.55 }),
+    ),
+  );
   const usdz = await new USDZExporter().parseAsync(scene);
   const out = `public/models/${d.slug}.usdz`;
   await writeFile(out, Buffer.from(usdz));

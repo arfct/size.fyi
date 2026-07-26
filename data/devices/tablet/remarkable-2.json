@@ -9,11 +9,7 @@
   "w": 187,
   "d": 4.7,
   "year": 2020,
-  "aliases": [
-    "remarkable",
-    "remarkable 2",
-    "rm2"
-  ],
+  "aliases": ["remarkable", "remarkable 2", "rm2"],
   "source": "remarkable.com",
   "radius": 4,
   "radiusAxis": "z",

@@ -11,7 +11,11 @@ const read = <T>(key: string, fallback: T, valid?: (v: unknown) => boolean): T =
   }
 };
 const write = (key: string, value: unknown): void => {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode / quota */ }
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private mode / quota */
+  }
 };
 
 type MyItem = { name: string; h: number; w: number; d: number };
@@ -27,5 +31,6 @@ export function addRecent(path: string, title: string): void {
   const rest = getRecents().filter((r) => r.path !== path);
   write('recentComparisons', [{ path, title, ts: Date.now() }, ...rest].slice(0, 20));
 }
-export const getStoredUnits = (): Units | null => read<Units | null>('units', null, (v) => v === 'metric' || v === 'imperial');
+export const getStoredUnits = (): Units | null =>
+  read<Units | null>('units', null, (v) => v === 'metric' || v === 'imperial');
 export const setStoredUnits = (u: Units): void => write('units', u);

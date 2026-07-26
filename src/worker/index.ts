@@ -1,10 +1,12 @@
+import { formatDims } from '../shared/dimensions';
 import type { Catalog, Device } from '../shared/types';
 import { itemDims } from '../shared/types';
 import { comparisonTitle, decodeComparison } from '../shared/urlCodec';
-import { formatDims } from '../shared/dimensions';
-import { renderOgImage, OG_WIDTH, OG_HEIGHT, type OgFont } from './og';
+import { OG_HEIGHT, OG_WIDTH, type OgFont, renderOgImage } from './og';
 
-interface Env { ASSETS: Fetcher }
+interface Env {
+  ASSETS: Fetcher;
+}
 
 // Self-hosted OG fonts, fetched once per isolate via the ASSETS binding (no external font CDN).
 let fontsCache: Promise<OgFont[]> | null = null;
@@ -12,10 +14,15 @@ function loadOgFonts(env: Env, origin: string): Promise<OgFont[]> {
   fontsCache ??= Promise.all([
     env.ASSETS.fetch(`${origin}/fonts/Inter-Regular.ttf`).then((r) => r.arrayBuffer()),
     env.ASSETS.fetch(`${origin}/fonts/Inter-SemiBold.ttf`).then((r) => r.arrayBuffer()),
-  ]).then(([regular, semibold]): OgFont[] => [
-    { name: 'Inter', data: regular, weight: 400, style: 'normal' },
-    { name: 'Inter', data: semibold, weight: 600, style: 'normal' },
-  ]).catch((e) => { fontsCache = null; throw e; });
+  ])
+    .then(([regular, semibold]): OgFont[] => [
+      { name: 'Inter', data: regular, weight: 400, style: 'normal' },
+      { name: 'Inter', data: semibold, weight: 600, style: 'normal' },
+    ])
+    .catch((e) => {
+      fontsCache = null;
+      throw e;
+    });
   return fontsCache;
 }
 
@@ -38,14 +45,22 @@ function loadCatalog(env: Env, origin: string): Promise<Map<string, Device>> {
       return { version: 1, devices: [] };
     })
     .then((c) => new Map(c.devices.map((d) => [d.slug, d])))
-    .catch(() => { catalogCache = null; return new Map(); });
+    .catch(() => {
+      catalogCache = null;
+      return new Map();
+    });
   return catalogCache;
 }
 
 // Renders (or serves from the edge cache) the OG share image for a comparison. The path after
 // /api/og/ is the same comparison grammar as a normal URL. Deterministic per comparison, so it's
 // cached immutably — a given comparison rasterizes at most once per edge location.
-async function apiOg(request: Request, env: Env, origin: string, ctx: ExecutionContext): Promise<Response> {
+async function apiOg(
+  request: Request,
+  env: Env,
+  origin: string,
+  ctx: ExecutionContext,
+): Promise<Response> {
   const cache = caches.default;
   const hit = await cache.match(request);
   if (hit) return hit;
@@ -60,7 +75,10 @@ async function apiOg(request: Request, env: Env, origin: string, ctx: ExecutionC
     const png = await renderOgImage(items, 'metric', fonts).arrayBuffer();
     if (png.byteLength === 0) throw new Error('empty image');
     const res = new Response(png, {
-      headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=31536000, immutable' },
+      headers: {
+        'content-type': 'image/png',
+        'cache-control': 'public, max-age=31536000, immutable',
+      },
     });
     ctx.waitUntil(cache.put(request, res.clone()));
     return res;
@@ -79,7 +97,10 @@ async function apiDevices(env: Env, origin: string): Promise<Response> {
   if (!res.ok) return new Response('catalog unavailable', { status: 503 });
   const body = await res.arrayBuffer();
   const hash = await crypto.subtle.digest('SHA-1', body);
-  const etag = `"${[...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16)}"`;
+  const etag = `"${[...new Uint8Array(hash)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 16)}"`;
   return new Response(body, {
     headers: {
       'content-type': 'application/json',
@@ -109,23 +130,31 @@ export default {
         : 'size.fyi — compare the size of anything';
       const desc = items.length
         ? `Compare sizes in 3D: ${items
-          .map((i) => `${i.kind === 'device' ? i.device.name : i.name} (${formatDims(itemDims(i), 'metric')})`)
-          .join(' vs ')}`
+            .map(
+              (i) =>
+                `${i.kind === 'device' ? i.device.name : i.name} (${formatDims(itemDims(i), 'metric')})`,
+            )
+            .join(' vs ')}`
         : 'Compare the size of devices and everyday objects in 3D.';
       const ogPath = items.length ? url.pathname : HERO;
       const canonical = `https://size.fyi${url.pathname}`;
       const transformed = new HTMLRewriter()
-        .on('title', { element(e) { e.setInnerContent(title); } })
+        .on('title', {
+          element(e) {
+            e.setInnerContent(title);
+          },
+        })
         .on('head', {
           element(e) {
             const meta = (attrs: string) => e.append(`<meta ${attrs}>`, { html: true });
             // For interpolation into double-quoted HTML attribute values only.
-            const escAttr = (s: string) => s
-              .replace(/&/g, '&amp;')
-              .replace(/"/g, '&quot;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;')
-              .replace(/'/g, '&#39;');
+            const escAttr = (s: string) =>
+              s
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/'/g, '&#39;');
             const ogImage = `https://size.fyi/api/og${ogPath}`;
             meta(`property="og:title" content="${escAttr(title)}"`);
             meta(`property="og:description" content="${escAttr(desc)}"`);

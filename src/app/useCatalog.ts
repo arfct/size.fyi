@@ -2,7 +2,10 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { Catalog, Device } from '../shared/types';
 
 type Status = 'loading' | 'ready' | 'error';
-interface Snapshot { devices: Device[]; status: Status; }
+interface Snapshot {
+  devices: Device[];
+  status: Status;
+}
 
 // Module-level store shared by every `useCatalog()` instance, so a `retry()`
 // called from one component (e.g. SearchDevices) is observed by all of them

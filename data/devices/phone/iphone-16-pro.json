@@ -9,10 +9,7 @@
   "w": 71.5,
   "d": 8.25,
   "year": 2024,
-  "aliases": [
-    "16 pro",
-    "iphone16pro"
-  ],
+  "aliases": ["16 pro", "iphone16pro"],
   "source": "apple.com",
   "radius": 11,
   "radiusAxis": "z",

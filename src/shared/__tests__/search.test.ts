@@ -2,8 +2,15 @@ import { expect, test } from 'vitest';
 import { searchDevices, suggestDevices } from '../search';
 import type { Device } from '../types';
 
-const D = (slug: string, name: string, extra: Partial<Device> = {}): Device =>
-  ({ slug, name, category: 'phone', h: 1, w: 1, d: 1, ...extra });
+const D = (slug: string, name: string, extra: Partial<Device> = {}): Device => ({
+  slug,
+  name,
+  category: 'phone',
+  h: 1,
+  w: 1,
+  d: 1,
+  ...extra,
+});
 
 const devices = [
   D('iphone-16', 'iPhone 16', { make: 'Apple' }),
@@ -27,8 +34,7 @@ test('no match → empty; empty query → empty', () => {
   expect(searchDevices(devices, 'zzz')).toEqual([]);
   expect(searchDevices(devices, '  ')).toEqual([]);
 });
-test('respects limit', () =>
-  expect(searchDevices(devices, 'a', 2)).toHaveLength(2));
+test('respects limit', () => expect(searchDevices(devices, 'a', 2)).toHaveLength(2));
 
 const suggestFixture = [
   D('phone-hi', 'Phone Hi', { make: 'A', rank: 90 }),

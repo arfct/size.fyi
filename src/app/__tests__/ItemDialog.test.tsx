@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { beforeEach, expect, test } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
+import { beforeEach, expect, test } from 'vitest';
 import ItemDialog, { type DialogState } from '../components/ItemDialog';
 import { ComparisonProvider, useComparison } from '../store';
 
@@ -10,14 +10,20 @@ function Harness({ initial, preload }: { initial: DialogState; preload?: DialogS
   const { state, dispatch } = useComparison();
   return (
     <>
-      <button onClick={() => dispatch({ type: 'add', item: { kind: 'custom', name: 'Old', h: 10, w: 10, d: 10 } })}>
+      <button
+        onClick={() =>
+          dispatch({ type: 'add', item: { kind: 'custom', name: 'Old', h: 10, w: 10, d: 10 } })
+        }
+      >
         seed
       </button>
       <button onClick={() => setDialog(preload ?? null)}>reopen</button>
       <ItemDialog state={dialog} onClose={() => setDialog(null)} />
       <ul data-testid="items">
         {state.items.map((it, i) => (
-          <li key={i}>{it.kind === 'custom' ? `${it.name} ${it.h}x${it.w}x${it.d}` : it.device.name}</li>
+          <li key={i}>
+            {it.kind === 'custom' ? `${it.name} ${it.h}x${it.w}x${it.d}` : it.device.name}
+          </li>
         ))}
       </ul>
     </>
@@ -25,7 +31,11 @@ function Harness({ initial, preload }: { initial: DialogState; preload?: DialogS
 }
 
 const renderHarness = (props: { initial: DialogState; preload?: DialogState }) =>
-  render(<ComparisonProvider><Harness {...props} /></ComparisonProvider>);
+  render(
+    <ComparisonProvider>
+      <Harness {...props} />
+    </ComparisonProvider>,
+  );
 
 beforeEach(() => localStorage.clear());
 

@@ -9,11 +9,7 @@
   "w": 36,
   "d": 11.5,
   "year": 2013,
-  "aliases": [
-    "pebble",
-    "pebble classic",
-    "original pebble"
-  ],
+  "aliases": ["pebble", "pebble classic", "original pebble"],
   "source": "getpebble.com",
   "radius": 6,
   "radiusAxis": "z",

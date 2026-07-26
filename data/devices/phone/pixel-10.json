@@ -9,10 +9,7 @@
   "w": 72,
   "d": 8.6,
   "year": 2025,
-  "aliases": [
-    "pixel 10",
-    "google pixel 10"
-  ],
+  "aliases": ["pixel 10", "google pixel 10"],
   "source": "store.google.com",
   "radius": 11,
   "radiusAxis": "z",

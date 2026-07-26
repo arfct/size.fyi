@@ -1,5 +1,5 @@
 import type { ComparisonItem, Device } from './types';
-import { MAX_ITEMS, defaultStateLabel } from './types';
+import { defaultStateLabel, MAX_ITEMS } from './types';
 
 export const RESERVED_PREFIXES = ['api', 'assets'];
 const SEP = '-vs-';
@@ -9,14 +9,20 @@ const COLON_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+$/;
 
 export function slugify(name: string): string {
   return name
-    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 function slugifyCustomName(name: string): string {
   const slug = name
-    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
   return slug || 'item';
 }
 
@@ -41,7 +47,10 @@ export function encodeComparison(items: ComparisonItem[]): string {
 }
 
 function titleCaseCustom(slug: string): string {
-  return slug.split('_').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+  return slug
+    .split('_')
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(' ');
 }
 
 // Resolves a device token to a device (+ optional state). Accepts: an exact slug (bare — default
@@ -49,7 +58,10 @@ function titleCaseCustom(slug: string): string {
 // form, kept working). For the split forms we only strip the trailing segment when the remainder is
 // a MULTI-STATE device, so ordinary slugs like `iphone-16-pro-max` are never mis-parsed; an unknown
 // state label on a real multi-state device fails open to its default rather than 404ing.
-function resolveDeviceToken(token: string, bySlug: Map<string, Device>): { device: Device; state?: string } | null {
+function resolveDeviceToken(
+  token: string,
+  bySlug: Map<string, Device>,
+): { device: Device; state?: string } | null {
   const exact = bySlug.get(token);
   if (exact) return { device: exact };
   const idx = token.includes(':') ? token.indexOf(':') : token.lastIndexOf('-');
@@ -87,7 +99,11 @@ export function decodeComparison(
       if (!SLUG_RE.test(token) && !COLON_RE.test(token)) continue;
       const resolved = resolveDeviceToken(token, bySlug);
       if (resolved) {
-        items.push(resolved.state ? { kind: 'device', device: resolved.device, state: resolved.state } : { kind: 'device', device: resolved.device });
+        items.push(
+          resolved.state
+            ? { kind: 'device', device: resolved.device, state: resolved.state }
+            : { kind: 'device', device: resolved.device },
+        );
       } else {
         missing.push(token);
       }
@@ -99,9 +115,11 @@ export function decodeComparison(
 }
 
 export function comparisonTitle(items: ComparisonItem[]): string {
-  return items.map((i) => {
-    if (i.kind !== 'device') return i.name;
-    const label = i.state ?? defaultStateLabel(i.device);
-    return i.device.states?.length && label ? `${i.device.name} (${label})` : i.device.name;
-  }).join(' vs ');
+  return items
+    .map((i) => {
+      if (i.kind !== 'device') return i.name;
+      const label = i.state ?? defaultStateLabel(i.device);
+      return i.device.states?.length && label ? `${i.device.name} (${label})` : i.device.name;
+    })
+    .join(' vs ');
 }

@@ -1,11 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { parseDimensions, formatDims, formatLength } from '../dimensions';
+import { formatDims, formatLength, parseDimensions } from '../dimensions';
 
 describe('parseDimensions', () => {
   test('bare numbers default to mm', () =>
     expect(parseDimensions('85x64x12')).toEqual({ h: 85, w: 64, d: 12 }));
-  test('mm suffix', () =>
-    expect(parseDimensions('85x64x12mm')).toEqual({ h: 85, w: 64, d: 12 }));
+  test('mm suffix', () => expect(parseDimensions('85x64x12mm')).toEqual({ h: 85, w: 64, d: 12 }));
   test('inches convert', () =>
     expect(parseDimensions('5x3x2in')).toEqual({ h: 127, w: 76.2, d: 50.8 }));
   test('cm converts', () =>
@@ -18,13 +17,13 @@ describe('parseDimensions', () => {
     expect(parseDimensions(' 85 × 64 X 12 MM ')).toEqual({ h: 85, w: 64, d: 12 }));
   test('rejects garbage', () => {
     expect(parseDimensions('')).toBeNull();
-    expect(parseDimensions('85x64')).toBeNull();          // 3 dims required
+    expect(parseDimensions('85x64')).toBeNull(); // 3 dims required
     expect(parseDimensions('85x64x12x9')).toBeNull();
     expect(parseDimensions('axbxc')).toBeNull();
-    expect(parseDimensions('85x64x12km')).toBeNull();     // unsupported unit
-    expect(parseDimensions('0x10x10')).toBeNull();        // below 0.1mm floor
+    expect(parseDimensions('85x64x12km')).toBeNull(); // unsupported unit
+    expect(parseDimensions('0x10x10')).toBeNull(); // below 0.1mm floor
     expect(parseDimensions('-5x3x2')).toBeNull();
-    expect(parseDimensions('200000x1x1')).toBeNull();     // above 100m ceiling
+    expect(parseDimensions('200000x1x1')).toBeNull(); // above 100m ceiling
   });
 });
 
@@ -42,5 +41,7 @@ describe('formatting', () => {
   test('formatDims keeps per-component units when they differ (m + mm)', () =>
     expect(formatDims({ h: 1982, w: 838, d: 33 }, 'metric')).toBe('1.98 m × 838 mm × 33 mm'));
   test('formatDims keeps per-component units when a ft+in component is present', () =>
-    expect(formatDims({ h: 1905, w: 300, d: 100 }, 'imperial')).toBe('6 ft 3 in × 11.8 in × 3.9 in'));
+    expect(formatDims({ h: 1905, w: 300, d: 100 }, 'imperial')).toBe(
+      '6 ft 3 in × 11.8 in × 3.9 in',
+    ));
 });

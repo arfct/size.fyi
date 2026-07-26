@@ -101,7 +101,7 @@ test('orthographic: setViewOffset keeps the right edge fixed for a fit frustum',
   // Mirrors scene.ts's ortho fit() math for an arbitrary bounds size, at the safe-area aspect.
   const fit = (fw: number, fh: number, aspect: number) => {
     const m = 1.1;
-    const half = (Math.max(fw / aspect, fh) * m) / 2 * Math.max(aspect, 1);
+    const half = ((Math.max(fw / aspect, fh) * m) / 2) * Math.max(aspect, 1);
     const left = -half * (aspect >= 1 ? 1 : aspect);
     const right = -left;
     const top = right / aspect;

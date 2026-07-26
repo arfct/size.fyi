@@ -4,8 +4,8 @@ import ItemList from './components/ItemList';
 import RecentComparisons from './components/RecentComparisons';
 import SearchDevices from './components/SearchDevices';
 import ShareButton from './components/ShareButton';
-import ViewMenu from './components/ViewMenu';
 import Viewer from './components/Viewer';
+import ViewMenu from './components/ViewMenu';
 import { ComparisonProvider, useComparison } from './store';
 import { useIsDesktop } from './useIsDesktop';
 import { useUrlSync } from './useUrlSync';
@@ -56,9 +56,14 @@ function Shell() {
           <ShareButton />
         </header>
         {state.missing.length > 0 && (
-          <div className="flex items-center justify-between rounded-md bg-amber-100 px-4 py-2 text-[13px] text-amber-900" role="status">
+          <div
+            className="flex items-center justify-between rounded-md bg-amber-100 px-4 py-2 text-[13px] text-amber-900"
+            role="status"
+          >
             <span>Couldn’t find: {state.missing.join(', ')}</span>
-            <button onClick={() => dispatch({ type: 'dismissMissing' })} aria-label="Dismiss">✕</button>
+            <button onClick={() => dispatch({ type: 'dismissMissing' })} aria-label="Dismiss">
+              ✕
+            </button>
           </div>
         )}
         <ItemList onEdit={(index, name, dims) => setDialog({ mode: 'edit', index, name, dims })} />

@@ -9,10 +9,7 @@
   "w": 88,
   "d": 22,
   "year": 2021,
-  "aliases": [
-    "analogue pocket",
-    "pocket"
-  ],
+  "aliases": ["analogue pocket", "pocket"],
   "source": "analogue.co",
   "radius": 6,
   "radiusAxis": "z",

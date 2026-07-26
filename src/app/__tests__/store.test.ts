@@ -1,8 +1,14 @@
 import { expect, test } from 'vitest';
-import { reducer, type ComparisonState } from '../store';
 import type { ComparisonItem } from '../../shared/types';
+import { type ComparisonState, reducer } from '../store';
 
-const empty: ComparisonState = { items: [], view: '3d', units: 'metric', missing: [], layoutMode: 'row' };
+const empty: ComparisonState = {
+  items: [],
+  view: '3d',
+  units: 'metric',
+  missing: [],
+  layoutMode: 'row',
+};
 const item = (name: string): ComparisonItem => ({ kind: 'custom', name, h: 10, w: 10, d: 10 });
 
 test('add appends', () =>

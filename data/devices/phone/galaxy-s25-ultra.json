@@ -9,10 +9,7 @@
   "w": 77.6,
   "d": 8.2,
   "year": 2025,
-  "aliases": [
-    "s25 ultra",
-    "s25u"
-  ],
+  "aliases": ["s25 ultra", "s25u"],
   "source": "samsung.com",
   "radius": 11,
   "radiusAxis": "z",

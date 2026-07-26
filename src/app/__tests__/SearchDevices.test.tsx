@@ -1,12 +1,12 @@
-import { useEffect } from 'react';
-import { beforeEach, expect, test, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SearchDevices from '../components/SearchDevices';
-import { ComparisonProvider, useComparison } from '../store';
-import { addMyItem } from '../localStore';
-import { __resetCatalogStore } from '../useCatalog';
+import { useEffect } from 'react';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { MAX_ITEMS } from '../../shared/types';
+import SearchDevices from '../components/SearchDevices';
+import { addMyItem } from '../localStore';
+import { ComparisonProvider, useComparison } from '../store';
+import { __resetCatalogStore } from '../useCatalog';
 
 function Harness() {
   const { state } = useComparison();
@@ -162,7 +162,15 @@ test('empty-query suggestions are filtered to the categories already in the comp
           devices: [
             { slug: 'phone-x', name: 'Phone X', category: 'phone', h: 150, w: 70, d: 8, rank: 90 },
             { slug: 'phone-y', name: 'Phone Y', category: 'phone', h: 150, w: 70, d: 8, rank: 50 },
-            { slug: 'laptop-z', name: 'Laptop Z', category: 'laptop', h: 200, w: 300, d: 12, rank: 95 },
+            {
+              slug: 'laptop-z',
+              name: 'Laptop Z',
+              category: 'laptop',
+              h: 200,
+              w: 300,
+              d: 12,
+              rank: 95,
+            },
           ],
         }),
     }),

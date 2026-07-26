@@ -1,10 +1,14 @@
-import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from 'react';
+import { createContext, type Dispatch, type ReactNode, useContext, useReducer } from 'react';
 import type { ComparisonItem, LayoutMode, Units, View } from '../shared/types';
-import { MAX_ITEMS, itemDims } from '../shared/types';
+import { itemDims, MAX_ITEMS } from '../shared/types';
 import { getStoredUnits } from './localStore';
 
 export interface ComparisonState {
-  items: ComparisonItem[]; view: View; units: Units; missing: string[]; layoutMode: LayoutMode;
+  items: ComparisonItem[];
+  view: View;
+  units: Units;
+  missing: string[];
+  layoutMode: LayoutMode;
 }
 export type Action =
   | { type: 'add'; item: ComparisonItem }
@@ -32,7 +36,10 @@ export function reducer(state: ComparisonState, action: Action): ComparisonState
       if (state.items.length >= MAX_ITEMS) return state;
       return { ...state, items: byVolume([...state.items, action.item]) };
     case 'update':
-      return { ...state, items: byVolume(state.items.map((it, i) => (i === action.index ? action.item : it))) };
+      return {
+        ...state,
+        items: byVolume(state.items.map((it, i) => (i === action.index ? action.item : it))),
+      };
     case 'remove':
       return { ...state, items: state.items.filter((_, i) => i !== action.index) };
     case 'clear':
@@ -44,7 +51,11 @@ export function reducer(state: ComparisonState, action: Action): ComparisonState
     case 'setLayout':
       return { ...state, layoutMode: action.mode };
     case 'load':
-      return { ...state, items: byVolume(action.items.slice(0, MAX_ITEMS)), missing: action.missing };
+      return {
+        ...state,
+        items: byVolume(action.items.slice(0, MAX_ITEMS)),
+        missing: action.missing,
+      };
     case 'dismissMissing':
       return { ...state, missing: [] };
   }
@@ -54,7 +65,10 @@ const Ctx = createContext<{ state: ComparisonState; dispatch: Dispatch<Action> }
 
 export function ComparisonProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => ({
-    items: [], view: '3d' as View, units: getStoredUnits() ?? 'metric', missing: [],
+    items: [],
+    view: '3d' as View,
+    units: getStoredUnits() ?? 'metric',
+    missing: [],
     layoutMode: 'row' as LayoutMode,
   }));
   return <Ctx.Provider value={{ state, dispatch }}>{children}</Ctx.Provider>;

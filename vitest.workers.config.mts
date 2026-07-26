@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config';
 import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
+import { defineConfig } from 'vitest/config';
 
 // NOTE: adapted from the brief's sketch (`defineWorkersConfig` +
 // `poolOptions.workers`, the vitest-pool-workers v3 API). The installed

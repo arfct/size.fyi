@@ -9,10 +9,6 @@
   "w": 304.1,
   "d": 11.3,
   "year": 2025,
-  "aliases": [
-    "macbook air",
-    "m5 air",
-    "air 13"
-  ],
+  "aliases": ["macbook air", "m5 air", "air 13"],
   "source": "apple.com"
 }

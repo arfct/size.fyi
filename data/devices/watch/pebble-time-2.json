@@ -9,10 +9,7 @@
   "w": 36,
   "d": 10.9,
   "year": 2025,
-  "aliases": [
-    "pebble time 2",
-    "core time 2"
-  ],
+  "aliases": ["pebble time 2", "core time 2"],
   "source": "repebble.com",
   "url": "https://repebble.com/watch",
   "radius": 6,

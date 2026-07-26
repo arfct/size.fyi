@@ -1,4 +1,18 @@
-import { Banana, Box, Camera, File, Gamepad2, Headphones, Laptop, type LucideIcon, Package, PcCase, Smartphone, Tablet, Watch } from 'lucide-react';
+import {
+  Banana,
+  Box,
+  Camera,
+  File,
+  Gamepad2,
+  Headphones,
+  Laptop,
+  type LucideIcon,
+  Package,
+  PcCase,
+  Smartphone,
+  Tablet,
+  Watch,
+} from 'lucide-react';
 import type { Category, Device } from '../shared/types';
 
 // Per-category lucide icon used to key device rows in search results and the empty-query preset

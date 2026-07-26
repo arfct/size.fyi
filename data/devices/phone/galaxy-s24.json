@@ -9,10 +9,7 @@
   "w": 70.6,
   "d": 7.6,
   "year": 2024,
-  "aliases": [
-    "s24",
-    "samsung s24"
-  ],
+  "aliases": ["s24", "samsung s24"],
   "source": "samsung.com",
   "radius": 11,
   "radiusAxis": "z",

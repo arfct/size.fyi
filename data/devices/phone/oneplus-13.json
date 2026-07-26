@@ -9,11 +9,7 @@
   "w": 76.5,
   "d": 8.5,
   "year": 2024,
-  "aliases": [
-    "oneplus 13",
-    "op13",
-    "oneplus13"
-  ],
+  "aliases": ["oneplus 13", "op13", "oneplus13"],
   "source": "oneplus.com",
   "radius": 11,
   "radiusAxis": "z",

@@ -4,9 +4,11 @@ import { roundedGridBox, roundedGridRingSpecs } from '../scene';
 const onLattice = (v: number, unit: number) => Math.abs(Math.round(v / unit) * unit - v) < 1e-6;
 
 test('roundedGridBox is a cube sized from the largest content dimension, on the unit lattice', () => {
-  const unit = 10, radius = 20;
+  const unit = 10,
+    radius = 20;
   // content bounds with non-integer faces (device-like widths); largest dimension is x = 171.5
-  const min = { x: 0, y: 0, z: -120 }, max = { x: 171.5, y: 90, z: 0 };
+  const min = { x: 0, y: 0, z: -120 },
+    max = { x: 171.5, y: 90, z: 0 };
   const box = roundedGridBox(min, max, 0.5, radius, unit);
   for (const face of [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z]) {
     expect(onLattice(face, unit)).toBe(true);
@@ -16,19 +18,22 @@ test('roundedGridBox is a cube sized from the largest content dimension, on the 
   expect(box.max.y - box.min.y).toBeCloseTo(side);
   expect(box.max.z - box.min.z).toBeCloseTo(side);
   // side is twice the largest content dimension, rounded up to a whole unit
-  expect(side).toBeCloseTo(Math.ceil(2 * 171.5 / unit) * unit);
+  expect(side).toBeCloseTo(Math.ceil((2 * 171.5) / unit) * unit);
 });
 
 test('roundedGridBox keeps the content enclosed and roughly centred', () => {
-  const unit = 10, radius = 20;
+  const unit = 10,
+    radius = 20;
   // a phone: only 8.25mm deep, so the cube's depth comes from its 149.6mm height
-  const min = { x: 0, y: 0, z: -8.25 }, max = { x: 71.5, y: 149.6, z: 0 };
+  const min = { x: 0, y: 0, z: -8.25 },
+    max = { x: 71.5, y: 149.6, z: 0 };
   const box = roundedGridBox(min, max, 0.5, radius, unit);
   for (const axis of ['x', 'y', 'z'] as const) {
     expect(box.min[axis]).toBeLessThan(min[axis]);
     expect(box.max[axis]).toBeGreaterThan(max[axis]);
     // content centre sits within half a unit of the room centre on every axis
-    const boxMid = (box.min[axis] + box.max[axis]) / 2, contentMid = (min[axis] + max[axis]) / 2;
+    const boxMid = (box.min[axis] + box.max[axis]) / 2,
+      contentMid = (min[axis] + max[axis]) / 2;
     expect(Math.abs(boxMid - contentMid)).toBeLessThanOrEqual(unit / 2 + 1e-9);
   }
   // the flat axis still gets a full-depth room, so the rounding has room to work
@@ -36,7 +41,8 @@ test('roundedGridBox keeps the content enclosed and roughly centred', () => {
 });
 
 test('fillet tangents fall on the lattice when radius is a whole number of units', () => {
-  const unit = 10, radius = 20;
+  const unit = 10,
+    radius = 20;
   const box = roundedGridBox({ x: 0, y: 0, z: -95 }, { x: 171.5, y: 90, z: 0 }, 0.5, radius, unit);
   for (const axis of ['x', 'y', 'z'] as const) {
     expect(onLattice(box.min[axis] + radius, unit)).toBe(true);
@@ -45,7 +51,9 @@ test('fillet tangents fall on the lattice when radius is a whole number of units
 });
 
 test('ring specs: one family per axis; rings span the full axis with full-radius core, shrinking caps', () => {
-  const unit = 10, radius = 20, fine = 10;
+  const unit = 10,
+    radius = 20,
+    fine = 10;
   const min = { x: -30, y: -30, z: -150 };
   const max = { x: 200, y: 120, z: 30 };
   const families = roundedGridRingSpecs(min, max, radius, unit, fine);
@@ -71,8 +79,16 @@ test('ring specs: one family per axis; rings span the full axis with full-radius
 });
 
 test('ring specs: imperial half-unit spacing marks only whole-inch rings as major', () => {
-  const unit = 25.4, radius = 50.8, fine = 12.7; // 1in unit, 2in radius, half-inch spacing
-  const { min, max } = roundedGridBox({ x: 0, y: 0, z: -101.6 }, { x: 152.4, y: 203.2, z: 0 }, 0.5, radius, unit);
+  const unit = 25.4,
+    radius = 50.8,
+    fine = 12.7; // 1in unit, 2in radius, half-inch spacing
+  const { min, max } = roundedGridBox(
+    { x: 0, y: 0, z: -101.6 },
+    { x: 152.4, y: 203.2, z: 0 },
+    0.5,
+    radius,
+    unit,
+  );
   const [, fy] = roundedGridRingSpecs(min, max, radius, unit, fine);
   const majors = fy!.rings.filter((r) => r.major).map((r) => r.coord);
   const minors = fy!.rings.filter((r) => !r.major).map((r) => r.coord);

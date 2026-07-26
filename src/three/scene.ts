@@ -1,15 +1,20 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { LayoutMode, Units } from '../shared/types';
 import { formatLengthValue } from '../shared/dimensions';
+import type { LayoutMode, Units } from '../shared/types';
 
 export type ViewName = '3d' | 'front' | 'side' | 'top';
 export interface SceneItem {
-  name: string; h: number; w: number; d: number; color: string;
-  radius?: number; radiusAxis?: 'x' | 'y' | 'z';
+  name: string;
+  h: number;
+  w: number;
+  d: number;
+  color: string;
+  radius?: number;
+  radiusAxis?: 'x' | 'y' | 'z';
   screen?: { h: number; w: number; radius?: number };
   seam?: boolean; // draw a fold parting-line around the mid-thickness (z=0) outline
   mesh?: 'banana';
@@ -24,7 +29,9 @@ const gltfLoader = new GLTFLoader();
 const modelGeometryCache = new Map<string, Promise<THREE.BufferGeometry>>();
 function loadModelGeometry(
   model: { url: string; rotation?: [number, number, number] },
-  w: number, h: number, d: number,
+  w: number,
+  h: number,
+  d: number,
 ): Promise<THREE.BufferGeometry> {
   let pending = modelGeometryCache.get(model.url);
   if (!pending) {
@@ -35,7 +42,8 @@ function loadModelGeometry(
         const mesh = o as THREE.Mesh;
         if (!mesh.isMesh || !mesh.geometry) return;
         const g = mesh.geometry.clone();
-        for (const name of Object.keys(g.attributes)) if (name !== 'position') g.deleteAttribute(name);
+        for (const name of Object.keys(g.attributes))
+          if (name !== 'position') g.deleteAttribute(name);
         g.applyMatrix4(mesh.matrixWorld);
         parts.push(g);
       });
@@ -108,7 +116,10 @@ export function applyViewOffset(
 export function gridSpec(units: Units, span: number) {
   const unitMM = units === 'imperial' ? 25.4 : 10;
   const minorMM = unitMM / 2;
-  const majorCount = Math.min(40, Math.max(6, Math.round(Math.max(span * 0.65, 6 * unitMM) / unitMM)));
+  const majorCount = Math.min(
+    40,
+    Math.max(6, Math.round(Math.max(span * 0.65, 6 * unitMM) / unitMM)),
+  );
   return { unitMM, minorMM, majorCount, halfExtent: majorCount * unitMM };
 }
 
@@ -139,7 +150,11 @@ const GRID_FACING_CULL = 0.1;
 const GRID_NEAR_FADE_START = -0.95;
 const GRID_NEAR_FADE_END = -0.1;
 
-interface Vec3 { x: number; y: number; z: number }
+interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
 
 // A CUBE room centred on the content: one side length, derived from the content's largest dimension
 // grown by `padScale` per side (0.5 → twice that dimension) and at least `minPad` clear of it, so a flat
@@ -147,15 +162,23 @@ interface Vec3 { x: number; y: number; z: number }
 // face is snapped onto the lattice, so all six faces — and, with a whole-unit radius, the fillet
 // tangents (face ∓ radius) — land on grid lines. Pure — for testing.
 export function roundedGridBox(
-  min: Vec3, max: Vec3, padScale: number, minPad: number, unitMM: number,
+  min: Vec3,
+  max: Vec3,
+  padScale: number,
+  minPad: number,
+  unitMM: number,
 ): { min: Vec3; max: Vec3 } {
   const maxSize = Math.max(max.x - min.x, max.y - min.y, max.z - min.z);
-  const side = Math.ceil(Math.max(maxSize * (1 + 2 * padScale), maxSize + 2 * minPad) / unitMM) * unitMM;
+  const side =
+    Math.ceil(Math.max(maxSize * (1 + 2 * padScale), maxSize + 2 * minPad) / unitMM) * unitMM;
   // Centre each axis on the content, then snap the low face to the lattice; `side` being a whole number
   // of units carries the high face along with it. The half-unit shift this can introduce is well inside
   // the padding, so the content always stays enclosed.
-  const lowFace = (lo: number, hi: number) => Math.round(((lo + hi) / 2 - side / 2) / unitMM) * unitMM;
-  const x0 = lowFace(min.x, max.x), y0 = lowFace(min.y, max.y), z0 = lowFace(min.z, max.z);
+  const lowFace = (lo: number, hi: number) =>
+    Math.round(((lo + hi) / 2 - side / 2) / unitMM) * unitMM;
+  const x0 = lowFace(min.x, max.x),
+    y0 = lowFace(min.y, max.y),
+    z0 = lowFace(min.z, max.z);
   return { min: { x: x0, y: y0, z: z0 }, max: { x: x0 + side, y: y0 + side, z: z0 + side } };
 }
 
@@ -168,7 +191,12 @@ export function roundedGridBox(
 // perpendicular radius `w` (= `radius` across the flat core band, shrinking to 0 through the caps as
 // `sqrt(radius² − dAxis²)`), and the signed axial offset `dAxis` into the cap (0 in the core). The
 // shrinking cap rings are what let the ruling continue across the corner spheres.
-export interface RingSpec { coord: number; major: boolean; w: number; dAxis: number }
+export interface RingSpec {
+  coord: number;
+  major: boolean;
+  w: number;
+  dAxis: number;
+}
 
 // One family of rings, perpendicular to `axis`, centred at (cu, cv) in the other two axes. Each ring is
 // a rounded rectangle of half-extents (coreHalfU + w, coreHalfV + w) and corner radius w. A grid
@@ -177,8 +205,10 @@ export interface RingSpec { coord: number; major: boolean; w: number; dAxis: num
 // the corner spheres — so the ruling is continuous over every edge and corner. Pure — for unit testing.
 export interface RingFamily {
   axis: 'x' | 'y' | 'z';
-  cu: number; cv: number;
-  coreHalfU: number; coreHalfV: number;
+  cu: number;
+  cv: number;
+  coreHalfU: number;
+  coreHalfV: number;
   rings: RingSpec[];
 }
 
@@ -196,30 +226,47 @@ export interface RingFamily {
 //   Cap rings therefore do not sit on the lattice, which is fine — the caps are padding, not measurement.
 //
 // `major` follows arc distance from the tangent, so corners stay as bright as the faces. Pure.
-export function roundedGridRingSpecs(min: Vec3, max: Vec3, radius: number, unitMM: number, fine: number): RingFamily[] {
+export function roundedGridRingSpecs(
+  min: Vec3,
+  max: Vec3,
+  radius: number,
+  unitMM: number,
+  fine: number,
+): RingFamily[] {
   const onUnit = (v: number) => Math.abs(Math.round(v / unitMM) * unitMM - v) < 1e-6;
-  const capSteps = Math.max(1, Math.round((Math.PI / 2) * radius / fine));
+  const capSteps = Math.max(1, Math.round(((Math.PI / 2) * radius) / fine));
   const majorEvery = Math.max(1, Math.round(unitMM / fine));
   const family = (
-    axis: 'x' | 'y' | 'z', a0: number, a1: number, uMin: number, uMax: number, vMin: number, vMax: number,
+    axis: 'x' | 'y' | 'z',
+    a0: number,
+    a1: number,
+    uMin: number,
+    uMax: number,
+    vMin: number,
+    vMax: number,
   ): RingFamily => {
     const rings: RingSpec[] = [];
-    const tLo = a0 + radius, tHi = a1 - radius; // fillet tangents: the flat core band
+    const tLo = a0 + radius,
+      tHi = a1 - radius; // fillet tangents: the flat core band
     for (let c = Math.ceil(tLo / fine - 1e-6) * fine; c <= tHi + 1e-6; c += fine) {
       rings.push({ coord: c, major: onUnit(c), w: radius, dAxis: 0 });
     }
     // j = 0 would repeat the tangent ring (already emitted above); j = capSteps is the degenerate pole.
     for (let j = 1; j < capSteps; j++) {
       const phi = (Math.PI / 2) * (j / capSteps);
-      const t = radius * Math.sin(phi), w = radius * Math.cos(phi);
+      const t = radius * Math.sin(phi),
+        w = radius * Math.cos(phi);
       const major = j % majorEvery === 0;
       rings.push({ coord: tHi + t, major, w, dAxis: t });
       rings.push({ coord: tLo - t, major, w, dAxis: -t });
     }
     return {
-      axis, rings,
-      cu: (uMin + uMax) / 2, cv: (vMin + vMax) / 2,
-      coreHalfU: (uMax - uMin) / 2 - radius, coreHalfV: (vMax - vMin) / 2 - radius,
+      axis,
+      rings,
+      cu: (uMin + uMax) / 2,
+      cv: (vMin + vMax) / 2,
+      coreHalfU: (uMax - uMin) / 2 - radius,
+      coreHalfV: (vMax - vMin) / 2 - radius,
     };
   };
   return [
@@ -235,15 +282,27 @@ export function roundedGridRingSpecs(min: Vec3, max: Vec3, radius: number, unitM
 // facing fade that hides near walls.
 function roundedRectLoop(hu: number, hv: number, r: number) {
   r = Math.min(r, hu, hv);
-  const u: number[] = [], v: number[] = [], nu: number[] = [], nv: number[] = [];
-  const cu = hu - r, cv = hv - r; // corner-centre offsets
-  const corners = [[cu, cv, 0], [-cu, cv, Math.PI / 2], [-cu, -cv, Math.PI], [cu, -cv, 3 * Math.PI / 2]];
+  const u: number[] = [],
+    v: number[] = [],
+    nu: number[] = [],
+    nv: number[] = [];
+  const cu = hu - r,
+    cv = hv - r; // corner-centre offsets
+  const corners = [
+    [cu, cv, 0],
+    [-cu, cv, Math.PI / 2],
+    [-cu, -cv, Math.PI],
+    [cu, -cv, (3 * Math.PI) / 2],
+  ];
   for (const [ou, ov, a0] of corners) {
     for (let i = 0; i <= RING_ARC_SEGS; i++) {
       const a = a0! + (Math.PI / 2) * (i / RING_ARC_SEGS);
-      const n0 = Math.cos(a), n1 = Math.sin(a);
-      nu.push(n0); nv.push(n1);
-      u.push(ou! + r * n0); v.push(ov! + r * n1);
+      const n0 = Math.cos(a),
+        n1 = Math.sin(a);
+      nu.push(n0);
+      nv.push(n1);
+      u.push(ou! + r * n0);
+      v.push(ov! + r * n1);
     }
   }
   return { u, v, nu, nv };
@@ -253,16 +312,24 @@ function roundedRectLoop(hu: number, hv: number, r: number) {
 // rounded-rectangle rings whose ruling wraps continuously over every corner. A single shader fades each
 // fragment by how much its outward surface normal faces away from the camera, so only the far (inner)
 // walls draw — replacing the old six-plane angle fade. Spacing coarsens for very large content.
-function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, units: Units, span: number): THREE.Group {
+function buildRoundedGridRings(
+  box: { min: Vec3; max: Vec3 },
+  radius: number,
+  units: Units,
+  span: number,
+): THREE.Group {
   const { unitMM, minorMM } = gridSpec(units, span);
-  const maxUnits = Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z) / unitMM;
+  const maxUnits =
+    Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z) / unitMM;
   const stepMul = Math.max(1, Math.ceil(maxUnits / GRID_MAX_UNITS_PER_AXIS));
   const showMinor = units === 'imperial' && stepMul === 1; // half-unit lines only when not coarsened
   const fine = showMinor ? minorMM : unitMM * stepMul;
   const families = roundedGridRingSpecs(box.min, box.max, radius, unitMM, fine);
 
-  const majorPos: number[] = [], majorNorm: number[] = [];
-  const minorPos: number[] = [], minorNorm: number[] = [];
+  const majorPos: number[] = [],
+    majorNorm: number[] = [];
+  const minorPos: number[] = [],
+    minorNorm: number[] = [];
   // Each ring traces a rounded rect in its perpendicular plane. In the caps the radius shrinks (w) and
   // the outward normal tilts toward the face by the axial component `dAxis/radius`, while the in-plane
   // part scales by `w/radius` — so the corner arcs sit on the corner spheres with correct normals for
@@ -276,10 +343,12 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
   for (const fam of families) {
     const [uAxis, vAxis] = AXIS_UV[fam.axis];
     for (const ring of fam.rings) {
-      const s = ring.w / radius, naxis = ring.dAxis / radius;
+      const s = ring.w / radius,
+        naxis = ring.dAxis / radius;
       const loop = roundedRectLoop(fam.coreHalfU + ring.w, fam.coreHalfV + ring.w, ring.w);
       const N = loop.u.length;
-      const pos = ring.major ? majorPos : minorPos, norm = ring.major ? majorNorm : minorNorm;
+      const pos = ring.major ? majorPos : minorPos,
+        norm = ring.major ? majorNorm : minorNorm;
       for (let i = 0; i < N; i++) {
         // The loop is four arcs; the segment joining one arc to the next is a straight run. Straight runs
         // alternate between the v and u sides, and each lies on the fillet with that axis.
@@ -288,19 +357,32 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
           if (AXIS_ORDER[fam.axis] > AXIS_ORDER[partner]) continue;
         }
         for (const k of [i, (i + 1) % N]) {
-          const u = fam.cu + loop.u[k]!, wv = fam.cv + loop.v[k]!, pnu = s * loop.nu[k]!, pnw = s * loop.nv[k]!;
-          if (fam.axis === 'x') { pos.push(ring.coord, u, wv); norm.push(naxis, pnu, pnw); }
-          else if (fam.axis === 'y') { pos.push(u, ring.coord, wv); norm.push(pnu, naxis, pnw); }
-          else { pos.push(u, wv, ring.coord); norm.push(pnu, pnw, naxis); }
+          const u = fam.cu + loop.u[k]!,
+            wv = fam.cv + loop.v[k]!,
+            pnu = s * loop.nu[k]!,
+            pnw = s * loop.nv[k]!;
+          if (fam.axis === 'x') {
+            pos.push(ring.coord, u, wv);
+            norm.push(naxis, pnu, pnw);
+          } else if (fam.axis === 'y') {
+            pos.push(u, ring.coord, wv);
+            norm.push(pnu, naxis, pnw);
+          } else {
+            pos.push(u, wv, ring.coord);
+            norm.push(pnu, pnw, naxis);
+          }
         }
       }
     }
   }
 
   const boxCenter = new THREE.Vector3(
-    (box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2,
+    (box.min.x + box.max.x) / 2,
+    (box.min.y + box.max.y) / 2,
+    (box.min.z + box.max.z) / 2,
   );
-  const boxRadius = 0.5 * Math.hypot(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
+  const boxRadius =
+    0.5 * Math.hypot(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
   const lineMaterial = (baseOpacity: number) =>
     new THREE.ShaderMaterial({
       transparent: true,
@@ -350,7 +432,10 @@ function buildRoundedGridRings(box: { min: Vec3; max: Vec3 }, radius: number, un
 
   const g = new THREE.Group();
   g.userData.center = boxCenter; // projected each frame to aim the flashlight
-  for (const [pos, norm, opacity] of [[majorPos, majorNorm, 0.55], [minorPos, minorNorm, 0.22]] as const) {
+  for (const [pos, norm, opacity] of [
+    [majorPos, majorNorm, 0.55],
+    [minorPos, minorNorm, 0.22],
+  ] as const) {
     if (pos.length === 0) continue;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -371,26 +456,47 @@ const CORNER_SMOOTHING = 0.6;
 const toRad = (deg: number) => (deg * Math.PI) / 180;
 
 function sampleCubic(
-  out: THREE.Vector2[], p0: THREE.Vector2, c1: THREE.Vector2, c2: THREE.Vector2, p3: THREE.Vector2, seg: number,
+  out: THREE.Vector2[],
+  p0: THREE.Vector2,
+  c1: THREE.Vector2,
+  c2: THREE.Vector2,
+  p3: THREE.Vector2,
+  seg: number,
 ) {
   for (let k = 1; k <= seg; k++) {
-    const t = k / seg, mt = 1 - t;
-    const w0 = mt * mt * mt, w1 = 3 * mt * mt * t, w2 = 3 * mt * t * t, w3 = t * t * t;
-    out.push(new THREE.Vector2(
-      w0 * p0.x + w1 * c1.x + w2 * c2.x + w3 * p3.x,
-      w0 * p0.y + w1 * c1.y + w2 * c2.y + w3 * p3.y,
-    ));
+    const t = k / seg,
+      mt = 1 - t;
+    const w0 = mt * mt * mt,
+      w1 = 3 * mt * mt * t,
+      w2 = 3 * mt * t * t,
+      w3 = t * t * t;
+    out.push(
+      new THREE.Vector2(
+        w0 * p0.x + w1 * c1.x + w2 * c2.x + w3 * p3.x,
+        w0 * p0.y + w1 * c1.y + w2 * c2.y + w3 * p3.y,
+      ),
+    );
   }
 }
 
 // Samples the minor circular arc from s→e of radius r. Of the two possible centres, picks the one
 // nearer `inside` (the rect centre) so the arc bulges outward like a corner should.
-function sampleArc(out: THREE.Vector2[], s: THREE.Vector2, e: THREE.Vector2, r: number, inside: THREE.Vector2, seg: number) {
-  const mx = (s.x + e.x) / 2, my = (s.y + e.y) / 2;
-  const dx = e.x - s.x, dy = e.y - s.y;
+function sampleArc(
+  out: THREE.Vector2[],
+  s: THREE.Vector2,
+  e: THREE.Vector2,
+  r: number,
+  inside: THREE.Vector2,
+  seg: number,
+) {
+  const mx = (s.x + e.x) / 2,
+    my = (s.y + e.y) / 2;
+  const dx = e.x - s.x,
+    dy = e.y - s.y;
   const len = Math.hypot(dx, dy) || 1;
   const h = Math.sqrt(Math.max(0, r * r - (len / 2) ** 2));
-  const px = -dy / len, py = dx / len; // unit perpendicular to the chord
+  const px = -dy / len,
+    py = dx / len; // unit perpendicular to the chord
   const c1 = new THREE.Vector2(mx + px * h, my + py * h);
   const c2 = new THREE.Vector2(mx - px * h, my - py * h);
   const c = c1.distanceTo(inside) <= c2.distanceTo(inside) ? c1 : c2;
@@ -407,18 +513,21 @@ function sampleArc(out: THREE.Vector2[], s: THREE.Vector2, e: THREE.Vector2, r: 
 // A rounded rect with Figma-style smoothed corners. Built in an SVG-like top-left/y-down frame (as
 // Figma's formulas assume), sampled to points, then flipped into our centred, y-up shape space.
 function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
-  const W = a, H = b;
+  const W = a,
+    H = b;
   const shape = new THREE.Shape();
   const budget = Math.min(W, H) / 2; // symmetric equal corners: each gets half the shorter side
   const R = Math.min(r, budget);
   if (R <= 0) {
     shape.setFromPoints([
-      new THREE.Vector2(-W / 2, -H / 2), new THREE.Vector2(W / 2, -H / 2),
-      new THREE.Vector2(W / 2, H / 2), new THREE.Vector2(-W / 2, H / 2),
+      new THREE.Vector2(-W / 2, -H / 2),
+      new THREE.Vector2(W / 2, -H / 2),
+      new THREE.Vector2(W / 2, H / 2),
+      new THREE.Vector2(-W / 2, H / 2),
     ]);
     return shape;
   }
-  let s = Math.min(CORNER_SMOOTHING, Math.max(0, budget / R - 1));
+  const s = Math.min(CORNER_SMOOTHING, Math.max(0, budget / R - 1));
   const p = Math.min((1 + s) * R, budget);
   const arcMeasure = 90 * (1 - s);
   const arc = Math.sin(toRad(arcMeasure / 2)) * R * Math.SQRT2;
@@ -444,7 +553,10 @@ function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
     sampleArc(pts, pen.clone(), e, R, inside, 20);
     pen.copy(e);
   };
-  const lineTo = (x: number, y: number) => { pen.set(x, y); pts.push(pen.clone()); };
+  const lineTo = (x: number, y: number) => {
+    pen.set(x, y);
+    pts.push(pen.clone());
+  };
 
   cubic(ca, 0, ca + cb, 0, ca + cb + cc, cd);
   arcTo(arc, arc);
@@ -479,7 +591,8 @@ function tintToBlack(hex: string, amount: number): THREE.Color {
 // rather than billboarding toward the camera. White text tinted by material.color lets the colour
 // tween like the mesh/edges. worldH sets the text's world-space height (mm).
 const LABEL_FONT_PX = 96;
-const labelFont = (weight: number) => `${weight} ${LABEL_FONT_PX}px ui-sans-serif, system-ui, sans-serif`;
+const labelFont = (weight: number) =>
+  `${weight} ${LABEL_FONT_PX}px ui-sans-serif, system-ui, sans-serif`;
 const LABEL_PAD = LABEL_FONT_PX * 0.25;
 
 // Canvas pixel size of a rendered label (text width + symmetric padding). Sets the text ctx.font so
@@ -501,7 +614,12 @@ function labelAspect(text: string, weight: number): number {
   return w / h;
 }
 
-function makeLabelPlane(text: string, worldH: number, weight: number, color: THREE.ColorRepresentation): THREE.Mesh {
+function makeLabelPlane(
+  text: string,
+  worldH: number,
+  weight: number,
+  color: THREE.ColorRepresentation,
+): THREE.Mesh {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
   const { w, h } = measureLabelPx(ctx, text, weight);
@@ -516,7 +634,12 @@ function makeLabelPlane(text: string, worldH: number, weight: number, color: THR
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
-  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false });
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  });
   mat.color.set(color);
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(worldH * (w / h), worldH), mat);
   return plane;
@@ -550,7 +673,8 @@ function buildSeamGeometry(w: number, h: number, radius = 0): THREE.BufferGeomet
   const pts = roundedRectShape(w, h, radius).getPoints(48);
   const positions: number[] = [];
   for (let i = 0; i < pts.length; i++) {
-    const a = pts[i]!, b = pts[(i + 1) % pts.length]!;
+    const a = pts[i]!,
+      b = pts[(i + 1) % pts.length]!;
     positions.push(a.x, a.y, 0, b.x, b.y, 0);
   }
   const geo = new THREE.BufferGeometry();
@@ -575,14 +699,17 @@ export function buildBananaGeometry(w: number, h: number, d: number): THREE.Buff
     const center = new THREE.Vector3(R * Math.sin(theta), R * (1 - Math.cos(theta)), 0);
     const n1 = new THREE.Vector3(-Math.sin(theta), Math.cos(theta), 0); // in-plane normal
     const n2 = new THREE.Vector3(0, 0, 1); // binormal (spine is planar in XY)
-    const r = rMax * (0.30 + 0.70 * Math.sin(Math.PI * t) ** 0.6);
+    const r = rMax * (0.3 + 0.7 * Math.sin(Math.PI * t) ** 0.6);
 
     const ring: THREE.Vector3[] = [];
     for (let j = 0; j < M; j++) {
       const phi = (j / M) * Math.PI * 2;
-      ring.push(center.clone()
-        .addScaledVector(n1, Math.cos(phi) * r)
-        .addScaledVector(n2, Math.sin(phi) * r));
+      ring.push(
+        center
+          .clone()
+          .addScaledVector(n1, Math.cos(phi) * r)
+          .addScaledVector(n2, Math.sin(phi) * r),
+      );
     }
     rings.push(ring);
   }
@@ -602,7 +729,10 @@ export function buildBananaGeometry(w: number, h: number, d: number): THREE.Buff
   for (let i = 0; i < N - 1; i++) {
     for (let j = 0; j < M; j++) {
       const jNext = (j + 1) % M;
-      const a = i * M + j, b = i * M + jNext, c = (i + 1) * M + j, dIdx = (i + 1) * M + jNext;
+      const a = i * M + j,
+        b = i * M + jNext,
+        c = (i + 1) * M + j,
+        dIdx = (i + 1) * M + jNext;
       indices.push(a, c, b, b, c, dIdx);
     }
   }
@@ -637,19 +767,31 @@ function buildGeometry(item: SceneItem): THREE.BufferGeometry {
   const opts = { bevelEnabled: false, curveSegments: 12 };
   let geo: THREE.BufferGeometry;
   if (item.radiusAxis === 'z') {
-    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.h, item.radius), { ...opts, depth: item.d });
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.h, item.radius), {
+      ...opts,
+      depth: item.d,
+    });
   } else if (item.radiusAxis === 'y') {
-    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.d, item.radius), { ...opts, depth: item.h });
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.d, item.radius), {
+      ...opts,
+      depth: item.h,
+    });
     geo.rotateX(-Math.PI / 2);
   } else {
-    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.d, item.h, item.radius), { ...opts, depth: item.w });
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.d, item.h, item.radius), {
+      ...opts,
+      depth: item.w,
+    });
     geo.rotateY(Math.PI / 2);
   }
   geo.center(); // extrusion spans [0, depth] along its axis; recenter like BoxGeometry
   return geo;
 }
 
-export interface LayoutTarget { pos: THREE.Vector3; renderOrder: number }
+export interface LayoutTarget {
+  pos: THREE.Vector3;
+  renderOrder: number;
+}
 
 function itemKey(item: SceneItem): string {
   return `${item.name}|${item.h}x${item.w}x${item.d}|${item.mesh ?? ''}|${item.seam ? 'seam' : ''}`;
@@ -684,7 +826,11 @@ const ROW_CM = 10; // mm — row items snap their left edge to this grid so fron
 // smallest dimensions, capped at 1 cm. Stack renderOrder increases along z
 // (nearer items drawn later) so the translucent items blend front-to-back correctly (paired with
 // depthWrite:false on the transparent materials in createScene). Pure — exported for direct testing.
-export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutMode): Map<string, LayoutTarget> {
+export function computeTargets(
+  items: SceneItem[],
+  keys: string[],
+  mode: LayoutMode,
+): Map<string, LayoutTarget> {
   const targets = new Map<string, LayoutTarget>();
   const order = items
     .map((item, i) => ({ item, key: keys[i]! }))
@@ -698,13 +844,19 @@ export function computeTargets(items: SceneItem[], keys: string[], mode: LayoutM
     let z = 0;
     seq.forEach(({ item, key }, idx) => {
       // Left edge at x=0 (center at w/2) so items align at the bottom-left corner, not centered.
-      targets.set(key, { pos: new THREE.Vector3(item.w / 2, item.h / 2, z + item.d / 2), renderOrder: idx });
+      targets.set(key, {
+        pos: new THREE.Vector3(item.w / 2, item.h / 2, z + item.d / 2),
+        renderOrder: idx,
+      });
       z += item.d + Math.min(gapBetween(seq, idx), MAX_STACK_GAP); // cap the stack gap at 1 cm
     });
   } else {
     let x = 0; // left edge; kept on a whole-centimetre line so each front-left corner lands on a grid mark
     order.forEach(({ item, key }, idx) => {
-      targets.set(key, { pos: new THREE.Vector3(x + item.w / 2, item.h / 2, -item.d / 2), renderOrder: 0 });
+      targets.set(key, {
+        pos: new THREE.Vector3(x + item.w / 2, item.h / 2, -item.d / 2),
+        renderOrder: 0,
+      });
       x = Math.ceil((x + item.w) / ROW_CM) * ROW_CM + ROW_CM; // next corner on a cm line, 1–2 cm gap
     });
   }
@@ -727,7 +879,8 @@ export function computeTargetBounds(
     const half = new THREE.Vector3(item.w / 2, item.h / 2, item.d / 2);
     box.expandByPoint(t.pos.clone().sub(half));
     box.expandByPoint(t.pos.clone().add(half));
-    if (item.screen) box.expandByPoint(t.pos.clone().add(new THREE.Vector3(0, 0, item.d / 2 + 0.5)));
+    if (item.screen)
+      box.expandByPoint(t.pos.clone().add(new THREE.Vector3(0, 0, item.d / 2 + 0.5)));
   });
   return box;
 }
@@ -766,26 +919,37 @@ export function createScene(container: HTMLElement): SizeScene {
 
   // Honor prefers-reduced-motion: collapse camera/item animation durations to ~instant (guarded for
   // jsdom, which lacks matchMedia). Read once at construction — the setting rarely toggles mid-visit.
-  const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // Follows the app's theme (Tailwind's default dark: = prefers-color-scheme). The screen face tints
   // toward white in light mode (paler than the body) and toward black in dark mode (darker than it),
   // so it always reads as a distinct panel against the background. Live-updated on theme change.
-  const darkQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+  const darkQuery =
+    typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
   let darkMode = darkQuery?.matches ?? false;
-  const screenColor = (hex: string) => darkMode ? tintToBlack(hex, SCREEN_TINT_DARK) : tintToWhite(hex, SCREEN_TINT_LIGHT);
+  const screenColor = (hex: string) =>
+    darkMode ? tintToBlack(hex, SCREEN_TINT_DARK) : tintToWhite(hex, SCREEN_TINT_LIGHT);
   // Label text ink, theme-aware: dark mode keeps the name in the device colour and the dims white
   // (readable on the dark face); light mode uses the device colour darkened for both, so they read
   // against the pale face/background. Both live-update on a theme change.
   const LABEL_DARKEN = 0.4;
-  const nameInk = (hex: string) => darkMode ? new THREE.Color(hex) : tintToBlack(hex, LABEL_DARKEN);
+  const nameInk = (hex: string) =>
+    darkMode ? new THREE.Color(hex) : tintToBlack(hex, LABEL_DARKEN);
   // Measurement labels are darker than the name in light mode: the same darkened device colour, then
   // halved again (50% darker) for stronger contrast on the pale screen. Dark mode keeps them white.
-  const dimInk = (hex: string) => darkMode ? new THREE.Color(0xffffff) : tintToBlack(hex, LABEL_DARKEN).multiplyScalar(0.5);
+  const dimInk = (hex: string) =>
+    darkMode ? new THREE.Color(0xffffff) : tintToBlack(hex, LABEL_DARKEN).multiplyScalar(0.5);
 
   // --- view transition state ---
-  interface CameraPose { position: THREE.Vector3; quaternion: THREE.Quaternion; projectionMatrix: THREE.Matrix4 }
-  interface ViewEndState extends CameraPose { controlsTarget: THREE.Vector3 }
+  interface CameraPose {
+    position: THREE.Vector3;
+    quaternion: THREE.Quaternion;
+    projectionMatrix: THREE.Matrix4;
+  }
+  interface ViewEndState extends CameraPose {
+    controlsTarget: THREE.Vector3;
+  }
   const TRANSITION_MS = reducedMotion ? 0 : 450;
   const scratchProjection = new THREE.Matrix4();
   let firstView = true; // initial mount jumps instead of animating
@@ -802,7 +966,9 @@ export function createScene(container: HTMLElement): SizeScene {
   }
 
   function lerpMatrix4(target: THREE.Matrix4, a: THREE.Matrix4, b: THREE.Matrix4, t: number) {
-    const ae = a.elements, be = b.elements, te = target.elements;
+    const ae = a.elements,
+      be = b.elements,
+      te = target.elements;
     for (let i = 0; i < 16; i++) te[i] = (ae[i] ?? 0) + ((be[i] ?? 0) - (ae[i] ?? 0)) * t;
   }
 
@@ -902,7 +1068,13 @@ export function createScene(container: HTMLElement): SizeScene {
   // setItems() call arriving mid-animation) *retargets* it — capturing the live current value as
   // the new "from" — rather than stacking a competing animation on top.
   const TWEEN_MS = reducedMotion ? 0 : 350;
-  interface ActiveTween { id: string; start: number; dur: number; update: (k: number) => void; done?: () => void }
+  interface ActiveTween {
+    id: string;
+    start: number;
+    dur: number;
+    update: (k: number) => void;
+    done?: () => void;
+  }
   let activeTweens: ActiveTween[] = [];
   let tweenRaf = 0;
 
@@ -927,7 +1099,10 @@ export function createScene(container: HTMLElement): SizeScene {
     activeTweens = activeTweens.filter((t) => {
       const k = t.dur > 0 ? Math.min(1, (now - t.start) / t.dur) : 1; // dur 0 (reduced motion) → instant
       t.update(easeInOutCubic(k));
-      if (k >= 1) { finished.push(t); return false; }
+      if (k >= 1) {
+        finished.push(t);
+        return false;
+      }
       return true;
     });
     requestRender();
@@ -953,9 +1128,9 @@ export function createScene(container: HTMLElement): SizeScene {
     edges: THREE.LineSegments | null;
     seam: THREE.LineSegments | null;
     screenMesh: THREE.Mesh | null;
-    nameLabel: THREE.Mesh;   // centered below the box (device colour)
-    widthLabel: THREE.Mesh;  // bottom-left, on the face (white, unitless)
-    sepLabel: THREE.Mesh;    // "×" centered between width and height (white)
+    nameLabel: THREE.Mesh; // centered below the box (device colour)
+    widthLabel: THREE.Mesh; // bottom-left, on the face (white, unitless)
+    sepLabel: THREE.Mesh; // "×" centered between width and height (white)
     heightLabel: THREE.Mesh; // bottom-right, on the face (white, unitless)
     item: SceneItem;
     meshBaseOpacity: number;
@@ -976,7 +1151,8 @@ export function createScene(container: HTMLElement): SizeScene {
     (handle.mesh.material as THREE.Material).opacity = handle.meshBaseOpacity * factor;
     if (handle.edges) (handle.edges.material as THREE.Material).opacity = factor;
     if (handle.seam) (handle.seam.material as THREE.Material).opacity = factor;
-    if (handle.screenMesh) (handle.screenMesh.material as THREE.Material).opacity = SCREEN_OPACITY * factor;
+    if (handle.screenMesh)
+      (handle.screenMesh.material as THREE.Material).opacity = SCREEN_OPACITY * factor;
     for (const l of labelsOf(handle)) (l.material as THREE.Material).opacity = factor;
   }
 
@@ -989,10 +1165,18 @@ export function createScene(container: HTMLElement): SizeScene {
   // of snapping back to full/zero first).
   function tweenFadeTo(handle: ItemHandle, targetFactor: number, done?: () => void) {
     const from = currentOpacityFactor(handle);
-    if (Math.abs(from - targetFactor) < 0.001) { done?.(); return; } // already there — still finish
-    addTween(`${handle.keyId}:fade`, TWEEN_MS, (k) => {
-      applyOpacityFactor(handle, from + (targetFactor - from) * k);
-    }, done);
+    if (Math.abs(from - targetFactor) < 0.001) {
+      done?.();
+      return;
+    } // already there — still finish
+    addTween(
+      `${handle.keyId}:fade`,
+      TWEEN_MS,
+      (k) => {
+        applyOpacityFactor(handle, from + (targetFactor - from) * k);
+      },
+      done,
+    );
   }
 
   function tweenPosition(handle: ItemHandle, target: THREE.Vector3) {
@@ -1021,7 +1205,9 @@ export function createScene(container: HTMLElement): SizeScene {
     const nameMat = handle.nameLabel.material as THREE.MeshBasicMaterial;
     const fromName = nameMat.color.clone();
     const toName = nameInk(toColorHex);
-    const dimMats = [handle.widthLabel, handle.sepLabel, handle.heightLabel].map((l) => l.material as THREE.MeshBasicMaterial);
+    const dimMats = [handle.widthLabel, handle.sepLabel, handle.heightLabel].map(
+      (l) => l.material as THREE.MeshBasicMaterial,
+    );
     const fromDims = dimMats.map((m) => m.color.clone());
     const toDim = dimInk(toColorHex);
     addTween(`${handle.keyId}:color`, TWEEN_MS, (k) => {
@@ -1046,9 +1232,18 @@ export function createScene(container: HTMLElement): SizeScene {
     cancelTweensFor(handle.keyId);
     handle.mesh.geometry.dispose();
     (handle.mesh.material as THREE.Material).dispose();
-    if (handle.edges) { handle.edges.geometry.dispose(); (handle.edges.material as THREE.Material).dispose(); }
-    if (handle.seam) { handle.seam.geometry.dispose(); (handle.seam.material as THREE.Material).dispose(); }
-    if (handle.screenMesh) { handle.screenMesh.geometry.dispose(); (handle.screenMesh.material as THREE.Material).dispose(); }
+    if (handle.edges) {
+      handle.edges.geometry.dispose();
+      (handle.edges.material as THREE.Material).dispose();
+    }
+    if (handle.seam) {
+      handle.seam.geometry.dispose();
+      (handle.seam.material as THREE.Material).dispose();
+    }
+    if (handle.screenMesh) {
+      handle.screenMesh.geometry.dispose();
+      (handle.screenMesh.material as THREE.Material).dispose();
+    }
     for (const l of labelsOf(handle)) disposeLabel(l);
     handle.mesh.removeFromParent();
   }
@@ -1058,8 +1253,14 @@ export function createScene(container: HTMLElement): SizeScene {
   function makeDimLabel(item: SceneItem, which: 'w' | 'h'): THREE.Mesh {
     const mm = which === 'w' ? item.w : item.h;
     const inset = labelGap(item);
-    const plane = makeLabelPlane(formatLengthValue(mm, units), labelWorldH, 500, dimInk(item.color));
-    if (which === 'w') placeCorner(plane, -item.w / 2 + inset, -item.h / 2 + inset, labelFrontZ(item), 0, 1);
+    const plane = makeLabelPlane(
+      formatLengthValue(mm, units),
+      labelWorldH,
+      500,
+      dimInk(item.color),
+    );
+    if (which === 'w')
+      placeCorner(plane, -item.w / 2 + inset, -item.h / 2 + inset, labelFrontZ(item), 0, 1);
     else placeCorner(plane, item.w / 2 - inset, -item.h / 2 + inset, labelFrontZ(item), 1, 1);
     return plane;
   }
@@ -1107,8 +1308,19 @@ export function createScene(container: HTMLElement): SizeScene {
     // order. In row mode items don't overlap on screen, so this is inert there; the opaque grid
     // still writes/tests depth normally since it's a separate (non-transparent) draw.
     const mat = isWireframe
-      ? new THREE.MeshBasicMaterial({ color: item.color, wireframe: true, transparent: true, opacity: 0, depthWrite: false })
-      : new THREE.MeshLambertMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false });
+      ? new THREE.MeshBasicMaterial({
+          color: item.color,
+          wireframe: true,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+        })
+      : new THREE.MeshLambertMaterial({
+          color: item.color,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+        });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(target.pos);
     mesh.renderOrder = target.renderOrder;
@@ -1116,13 +1328,22 @@ export function createScene(container: HTMLElement): SizeScene {
 
     // Per-device annotations lying on the front face (local +z, the world z=0 plane the devices are
     // front-aligned to) so they foreshorten and rotate with the box rather than billboarding.
-    const { nameLabel, widthLabel, sepLabel, heightLabel } = buildLabels(mesh, item, target.renderOrder);
+    const { nameLabel, widthLabel, sepLabel, heightLabel } = buildLabels(
+      mesh,
+      item,
+      target.renderOrder,
+    );
 
     let edges: THREE.LineSegments | null = null;
     if (!isWireframe && !isModel) {
       edges = new THREE.LineSegments(
         new THREE.EdgesGeometry(geo, 30),
-        new THREE.LineBasicMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false }),
+        new THREE.LineBasicMaterial({
+          color: item.color,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+        }),
       );
       edges.renderOrder = target.renderOrder;
       mesh.add(edges);
@@ -1133,7 +1354,12 @@ export function createScene(container: HTMLElement): SizeScene {
       const seamRadius = item.radiusAxis === 'z' ? (item.radius ?? 0) : 0;
       seam = new THREE.LineSegments(
         buildSeamGeometry(item.w, item.h, seamRadius),
-        new THREE.LineBasicMaterial({ color: item.color, transparent: true, opacity: 0, depthWrite: false }),
+        new THREE.LineBasicMaterial({
+          color: item.color,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+        }),
       );
       seam.renderOrder = target.renderOrder;
       mesh.add(seam); // child at local z=0 — the mid-thickness plane
@@ -1146,7 +1372,9 @@ export function createScene(container: HTMLElement): SizeScene {
       // stored screen radius so devices with a small/absent body radius don't regress to square.
       const inset = (item.w - item.screen.w) / 2;
       const screenR = Math.max(item.screen.radius ?? 0, item.radius ? item.radius - inset : 0);
-      const screenGeo = new THREE.ShapeGeometry(roundedRectShape(item.screen.w, item.screen.h, screenR));
+      const screenGeo = new THREE.ShapeGeometry(
+        roundedRectShape(item.screen.w, item.screen.h, screenR),
+      );
       const screenMat = new THREE.MeshBasicMaterial({
         color: screenColor(item.color), // paler than the body (light mode) / darker (dark mode)
         transparent: true,
@@ -1166,15 +1394,33 @@ export function createScene(container: HTMLElement): SizeScene {
       // removed meanwhile (mesh detached), and keep the box on failure.
       loadModelGeometry(item.model3d!, item.w, item.h, item.d)
         .then((g) => {
-          if (!mesh.parent) { g.dispose(); return; }
+          if (!mesh.parent) {
+            g.dispose();
+            return;
+          }
           mesh.geometry.dispose();
           mesh.geometry = g;
           requestRender();
         })
-        .catch(() => { /* fall back to the box placeholder */ });
+        .catch(() => {
+          /* fall back to the box placeholder */
+        });
     }
 
-    return { keyId, mesh, edges, seam, screenMesh, nameLabel, widthLabel, sepLabel, heightLabel, item, meshBaseOpacity, fading: false };
+    return {
+      keyId,
+      mesh,
+      edges,
+      seam,
+      screenMesh,
+      nameLabel,
+      widthLabel,
+      sepLabel,
+      heightLabel,
+      item,
+      meshBaseOpacity,
+      fading: false,
+    };
   }
 
   function applyDiff(items: SceneItem[]) {
@@ -1275,7 +1521,7 @@ export function createScene(container: HTMLElement): SizeScene {
     } else {
       const fit = (fw: number, fh: number) => {
         const m = 1.1;
-        const half = Math.max(fw / aspect, fh) * m / 2 * Math.max(aspect, 1);
+        const half = ((Math.max(fw / aspect, fh) * m) / 2) * Math.max(aspect, 1);
         ortho.left = -half * (aspect >= 1 ? 1 : aspect);
         ortho.right = -ortho.left;
         ortho.top = ortho.right / aspect;
@@ -1285,9 +1531,18 @@ export function createScene(container: HTMLElement): SizeScene {
       // Front view is fit tightly to the geometry; the name label sits just below each box, so leave
       // room for its overhang (label height + gap) or it clips at the bottom edge.
       const labelPad = 2 * (labelWorldH + Math.max(0, ...lastItems.map((i) => labelGap(i))));
-      if (next === 'front') { fit(s.x + labelPad, s.y + labelPad); ortho.position.set(c.x, c.y, c.z + far / 2); }
-      if (next === 'side') { fit(s.z, s.y); ortho.position.set(c.x + far / 2, c.y, c.z); }
-      if (next === 'top') { fit(s.x, s.z); ortho.position.set(c.x, c.y + far / 2, c.z); }
+      if (next === 'front') {
+        fit(s.x + labelPad, s.y + labelPad);
+        ortho.position.set(c.x, c.y, c.z + far / 2);
+      }
+      if (next === 'side') {
+        fit(s.z, s.y);
+        ortho.position.set(c.x + far / 2, c.y, c.z);
+      }
+      if (next === 'top') {
+        fit(s.x, s.z);
+        ortho.position.set(c.x, c.y + far / 2, c.z);
+      }
       ortho.lookAt(c);
       applyViewOffset(ortho, frame, inset, insetTop);
       ortho.updateProjectionMatrix();
@@ -1436,16 +1691,20 @@ export function createScene(container: HTMLElement): SizeScene {
   function onThemeChange(e: MediaQueryListEvent) {
     darkMode = e.matches;
     for (const h of handles.values()) {
-      if (h.screenMesh) (h.screenMesh.material as THREE.MeshBasicMaterial).color.copy(screenColor(h.item.color));
+      if (h.screenMesh)
+        (h.screenMesh.material as THREE.MeshBasicMaterial).color.copy(screenColor(h.item.color));
       (h.nameLabel.material as THREE.MeshBasicMaterial).color.copy(nameInk(h.item.color));
-      for (const l of [h.widthLabel, h.sepLabel, h.heightLabel]) (l.material as THREE.MeshBasicMaterial).color.copy(dimInk(h.item.color));
+      for (const l of [h.widthLabel, h.sepLabel, h.heightLabel])
+        (l.material as THREE.MeshBasicMaterial).color.copy(dimInk(h.item.color));
     }
     requestRender();
   }
   darkQuery?.addEventListener('change', onThemeChange);
 
   return {
-    setItems: (items) => { applyDiff(items); },
+    setItems: (items) => {
+      applyDiff(items);
+    },
     setView,
     setLayout,
     setInset,

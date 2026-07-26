@@ -9,10 +9,7 @@
   "w": 196,
   "d": 5.8,
   "year": 2024,
-  "aliases": [
-    "kindle scribe",
-    "scribe"
-  ],
+  "aliases": ["kindle scribe", "scribe"],
   "source": "amazon.com",
   "radius": 6,
   "radiusAxis": "z",

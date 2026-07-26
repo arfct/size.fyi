@@ -9,10 +9,7 @@
   "w": 70.5,
   "d": 7.2,
   "year": 2025,
-  "aliases": [
-    "s25",
-    "samsung s25"
-  ],
+  "aliases": ["s25", "samsung s25"],
   "source": "samsung.com",
   "radius": 11,
   "radiusAxis": "z",

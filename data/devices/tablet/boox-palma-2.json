@@ -9,11 +9,7 @@
   "w": 80,
   "d": 8,
   "year": 2024,
-  "aliases": [
-    "boox palma",
-    "palma",
-    "onyx boox palma"
-  ],
+  "aliases": ["boox palma", "palma", "onyx boox palma"],
   "source": "onyxboox.com",
   "radius": 8,
   "radiusAxis": "z",

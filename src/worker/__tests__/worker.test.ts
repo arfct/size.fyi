@@ -7,7 +7,7 @@ describe('/api/devices', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toContain('no-cache');
     expect(res.headers.get('etag')).toBeTruthy();
-    const body = await res.json() as { version: number; devices: unknown[] };
+    const body = (await res.json()) as { version: number; devices: unknown[] };
     expect(body.version).toBe(1);
     expect(body.devices.length).toBeGreaterThan(10);
   });
@@ -60,14 +60,18 @@ describe('OG injection', () => {
 
 describe('OG injection security', () => {
   test('a hostile custom-token payload is dropped, not reflected', async () => {
-    const res = await SELF.fetch('https://size.fyi/x%22%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E~10x10x10');
+    const res = await SELF.fetch(
+      'https://size.fyi/x%22%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E~10x10x10',
+    );
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).not.toContain('<script>alert');
   });
 
   test('a hostile token alongside a valid one cannot break out of an og: meta attribute', async () => {
-    const res = await SELF.fetch('https://size.fyi/foo%22onmouseover%3dalert(1)~10x10x10-vs-drinks-can');
+    const res = await SELF.fetch(
+      'https://size.fyi/foo%22onmouseover%3dalert(1)~10x10x10-vs-drinks-can',
+    );
     expect(res.status).toBe(200);
     const html = await res.text();
     const ogTags = html.match(/<meta[^>]*property="og:[^>]*>/g) ?? [];

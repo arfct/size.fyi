@@ -9,11 +9,7 @@
   "w": 215.5,
   "d": 5.1,
   "year": 2025,
-  "aliases": [
-    "ipad pro 13",
-    "ipad pro m5",
-    "ipad pro 13 m5"
-  ],
+  "aliases": ["ipad pro 13", "ipad pro m5", "ipad pro 13 m5"],
   "source": "apple.com",
   "radius": 9,
   "radiusAxis": "z",

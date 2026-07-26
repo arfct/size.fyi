@@ -2,7 +2,11 @@
 // Viewer via an intent URL to a GLB. Assets are opaque and real-scale (AR Quick Look culls
 // geometry inside transparent models), pre-generated per device — see scripts/build-ar.mjs.
 
-export interface ARTarget { usdzUrl: string; glbUrl: string; title: string }
+export interface ARTarget {
+  usdzUrl: string;
+  glbUrl: string;
+  title: string;
+}
 
 export function isAndroid(ua: string = navigator.userAgent): boolean {
   return /android/i.test(ua);
@@ -26,9 +30,11 @@ export function canLaunchAR(): boolean {
 export function sceneViewerUrl(glbUrl: string, title: string, fallbackUrl: string): string {
   const file = encodeURIComponent(new URL(glbUrl, location.href).href);
   const fb = encodeURIComponent(fallbackUrl);
-  return `intent://arvr.google.com/scene-viewer/1.0?file=${file}&mode=ar_preferred&title=${encodeURIComponent(title)}`
-    + `#Intent;scheme=https;package=com.google.android.googlequicksearchbox;action=android.intent.action.VIEW;`
-    + `S.browser_fallback_url=${fb};end;`;
+  return (
+    `intent://arvr.google.com/scene-viewer/1.0?file=${file}&mode=ar_preferred&title=${encodeURIComponent(title)}` +
+    `#Intent;scheme=https;package=com.google.android.googlequicksearchbox;action=android.intent.action.VIEW;` +
+    `S.browser_fallback_url=${fb};end;`
+  );
 }
 
 export function launchAR({ usdzUrl, glbUrl, title }: ARTarget): void {

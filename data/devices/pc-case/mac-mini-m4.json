@@ -9,10 +9,7 @@
   "w": 127,
   "d": 127,
   "year": 2024,
-  "aliases": [
-    "mac mini",
-    "macmini"
-  ],
+  "aliases": ["mac mini", "macmini"],
   "source": "apple.com",
   "radius": 6,
   "radiusAxis": "y"

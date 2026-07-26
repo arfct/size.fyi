@@ -9,10 +9,7 @@
   "w": 127.6,
   "d": 7.8,
   "year": 2024,
-  "aliases": [
-    "kindle paperwhite",
-    "paperwhite"
-  ],
+  "aliases": ["kindle paperwhite", "paperwhite"],
   "source": "amazon.com",
   "radius": 6,
   "radiusAxis": "z",

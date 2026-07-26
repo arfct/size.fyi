@@ -8,7 +8,11 @@ test('isAndroid detects the platform from the user agent', () => {
 });
 
 test('sceneViewerUrl builds a Scene Viewer intent with an absolute file + fallback', () => {
-  const u = sceneViewerUrl('/models/pebble-time-2.glb', 'Pebble Time 2', 'https://size.fyi/pebble-time-2');
+  const u = sceneViewerUrl(
+    '/models/pebble-time-2.glb',
+    'Pebble Time 2',
+    'https://size.fyi/pebble-time-2',
+  );
   const decoded = decodeURIComponent(u);
   expect(u.startsWith('intent://arvr.google.com/scene-viewer/1.0?file=')).toBe(true);
   expect(decoded).toContain('/models/pebble-time-2.glb'); // resolved to an absolute URL

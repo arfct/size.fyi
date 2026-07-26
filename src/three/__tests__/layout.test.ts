@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { expect, test } from 'vitest';
 import { computeKeys, computeTargetBounds, computeTargets, type SceneItem } from '../scene';
 
-const item = (overrides: Partial<SceneItem> & Pick<SceneItem, 'name' | 'h' | 'w' | 'd'>): SceneItem => ({
+const item = (
+  overrides: Partial<SceneItem> & Pick<SceneItem, 'name' | 'h' | 'w' | 'd'>,
+): SceneItem => ({
   color: '#123456',
   ...overrides,
 });
@@ -17,7 +19,11 @@ test('computeKeys keeps distinct items (different dims or mesh) unsuffixed', () 
   const a = item({ name: 'Phone', h: 150, w: 75, d: 8 });
   const b = item({ name: 'Phone', h: 160, w: 75, d: 8 }); // different h
   const c = item({ name: 'Banana', h: 20, w: 40, d: 20, mesh: 'banana' });
-  expect(computeKeys([a, b, c])).toEqual(['Phone|150x75x8||', 'Phone|160x75x8||', 'Banana|20x40x20|banana|']);
+  expect(computeKeys([a, b, c])).toEqual([
+    'Phone|150x75x8||',
+    'Phone|160x75x8||',
+    'Banana|20x40x20|banana|',
+  ]);
 });
 
 test('computeKeys distinguishes same dims by seam state (foldable open vs closed key)', () => {
@@ -85,7 +91,12 @@ test('stack targets: largest at the back (z=0) down to smallest at the front, pe
   expect(tc.renderOrder).toBe(2);
 
   // All stacked items share the bottom-left corner: left edge at x=0.
-  for (const [it, t] of [[a, ta], [b, tb], [c, tc]] as const) expect(t.pos.x - it.w / 2).toBeCloseTo(0);
+  for (const [it, t] of [
+    [a, ta],
+    [b, tb],
+    [c, tc],
+  ] as const)
+    expect(t.pos.x - it.w / 2).toBeCloseTo(0);
 
   // No overlap in depth along the placement order b → a → c.
   expect(ta.pos.z - a.d / 2).toBeGreaterThanOrEqual(tb.pos.z + b.d / 2 - 1e-9);

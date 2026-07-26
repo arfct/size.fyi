@@ -9,10 +9,7 @@
   "w": 75.6,
   "d": 5.8,
   "year": 2025,
-  "aliases": [
-    "galaxy s25 edge",
-    "s25 edge"
-  ],
+  "aliases": ["galaxy s25 edge", "s25 edge"],
   "source": "samsung.com",
   "radius": 11,
   "radiusAxis": "z",

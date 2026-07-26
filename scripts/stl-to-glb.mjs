@@ -5,12 +5,16 @@
 // Usage: node scripts/stl-to-glb.mjs <in.stl> <out.glb> [--scale N]
 // Coordinates are passed through unchanged (STL is typically millimeters); scale with --scale
 // (e.g. 0.001 for mm->m) when a consumer needs metres.
-import { readFile, writeFile } from 'node:fs/promises';
+
 import { Buffer } from 'node:buffer';
+import { readFile, writeFile } from 'node:fs/promises';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 
 const [, , inPath, outPath, ...rest] = process.argv;
-if (!inPath || !outPath) { console.error('usage: stl-to-glb.mjs <in.stl> <out.glb> [--scale N]'); process.exit(1); }
+if (!inPath || !outPath) {
+  console.error('usage: stl-to-glb.mjs <in.stl> <out.glb> [--scale N]');
+  process.exit(1);
+}
 const scaleIdx = rest.indexOf('--scale');
 const scale = scaleIdx >= 0 ? Number(rest[scaleIdx + 1]) : 1;
 
@@ -47,10 +51,16 @@ const gltf = {
   scene: 0,
   nodes: [{ mesh: 0 }],
   meshes: [{ primitives: [{ attributes: { POSITION: 0, NORMAL: 1 }, material: 0, mode: 4 }] }],
-  materials: [{
-    pbrMetallicRoughness: { baseColorFactor: [0.8, 0.8, 0.82, 1], metallicFactor: 0.1, roughnessFactor: 0.6 },
-    name: 'default',
-  }],
+  materials: [
+    {
+      pbrMetallicRoughness: {
+        baseColorFactor: [0.8, 0.8, 0.82, 1],
+        metallicFactor: 0.1,
+        roughnessFactor: 0.6,
+      },
+      name: 'default',
+    },
+  ],
   buffers: [{ byteLength: binLength }],
   bufferViews: [
     { buffer: 0, byteOffset: 0, byteLength: posBytes, target: 34962 },
@@ -81,4 +91,6 @@ binHeader.writeUInt32LE(0x004e4942, 4); // "BIN\0"
 
 await writeFile(outPath, Buffer.concat([header, jsonHeader, jsonPadded, binHeader, bin]));
 const dim = (i) => (max[i] - min[i]).toFixed(1);
-console.log(`${outPath}: ${count.toLocaleString()} verts, bbox ${dim(0)} × ${dim(1)} × ${dim(2)} (units), ${(binLength / 1e6).toFixed(2)} MB`);
+console.log(
+  `${outPath}: ${count.toLocaleString()} verts, bbox ${dim(0)} × ${dim(1)} × ${dim(2)} (units), ${(binLength / 1e6).toFixed(2)} MB`,
+);

@@ -9,10 +9,7 @@
   "w": 72,
   "d": 8.5,
   "year": 2024,
-  "aliases": [
-    "pixel9",
-    "google pixel 9"
-  ],
+  "aliases": ["pixel9", "google pixel 9"],
   "source": "google.com",
   "radius": 11,
   "radiusAxis": "z",

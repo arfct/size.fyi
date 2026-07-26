@@ -9,11 +9,7 @@
   "w": 30.2,
   "d": 9.8,
   "year": 2025,
-  "aliases": [
-    "pebble 2 duo",
-    "core 2 duo",
-    "pebble duo"
-  ],
+  "aliases": ["pebble 2 duo", "core 2 duo", "pebble duo"],
   "source": "repebble.com",
   "url": "https://repebble.com/watch",
   "radius": 6,

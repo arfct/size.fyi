@@ -9,10 +9,7 @@
   "w": 36,
   "d": 9.7,
   "year": 2025,
-  "aliases": [
-    "apple watch 42",
-    "series 11 42"
-  ],
+  "aliases": ["apple watch 42", "series 11 42"],
   "source": "apple.com",
   "url": "https://www.apple.com/apple-watch-series-11/",
   "radius": 8,

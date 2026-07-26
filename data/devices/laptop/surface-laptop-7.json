@@ -9,10 +9,6 @@
   "w": 301,
   "d": 17.5,
   "year": 2024,
-  "aliases": [
-    "surface laptop 7",
-    "surface laptop",
-    "surface laptop 13.8"
-  ],
+  "aliases": ["surface laptop 7", "surface laptop", "surface laptop 13.8"],
   "source": "microsoft.com"
 }

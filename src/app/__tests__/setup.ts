@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
-import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { afterEach } from 'vitest';
 
 // vitest.config.ts doesn't set `test.globals`, so @testing-library/react's own
 // auto-cleanup (which relies on a global `afterEach`) never registers. Without

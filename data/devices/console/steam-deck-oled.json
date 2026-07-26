@@ -9,10 +9,7 @@
   "w": 298,
   "d": 49,
   "year": 2023,
-  "aliases": [
-    "steam deck",
-    "steamdeck"
-  ],
+  "aliases": ["steam deck", "steamdeck"],
   "source": "steamdeck.com",
   "screen": {
     "h": 99.6,

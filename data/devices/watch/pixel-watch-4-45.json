@@ -9,11 +9,7 @@
   "w": 45,
   "d": 12.3,
   "year": 2025,
-  "aliases": [
-    "pixel watch 4",
-    "pixel watch",
-    "pixel watch 4 45"
-  ],
+  "aliases": ["pixel watch 4", "pixel watch", "pixel watch 4 45"],
   "source": "store.google.com",
   "radius": 22,
   "radiusAxis": "z",

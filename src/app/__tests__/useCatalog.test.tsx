@@ -1,6 +1,6 @@
-import { beforeEach, expect, test, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { useCatalog, __resetCatalogStore } from '../useCatalog';
+import { beforeEach, expect, test, vi } from 'vitest';
+import { __resetCatalogStore, useCatalog } from '../useCatalog';
 
 function Probe({ id }: { id: string }) {
   const { status, retry } = useCatalog();

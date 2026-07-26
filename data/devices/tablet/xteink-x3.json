@@ -9,10 +9,7 @@
   "w": 63.7,
   "d": 5.1,
   "year": 2026,
-  "aliases": [
-    "xteink x3",
-    "x3"
-  ],
+  "aliases": ["xteink x3", "x3"],
   "source": "xteink.com",
   "radius": 6,
   "radiusAxis": "z",

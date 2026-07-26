@@ -10,11 +10,13 @@ import { expect, test, vi } from 'vitest';
 // comparison path first.
 test('a non-ok devices.json fetch does not poison the cache forever', async () => {
   const real = env.ASSETS.fetch.bind(env.ASSETS);
-  const spy = vi.spyOn(env.ASSETS, 'fetch').mockImplementation(async (input: RequestInfo, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input.url;
-    if (url.endsWith('/devices.json')) return new Response('nope', { status: 500 });
-    return real(input, init);
-  });
+  const spy = vi
+    .spyOn(env.ASSETS, 'fetch')
+    .mockImplementation(async (input: RequestInfo, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/devices.json')) return new Response('nope', { status: 500 });
+      return real(input, init);
+    });
 
   const failed = await SELF.fetch('https://size.fyi/drinks-can-vs-paper-a4');
   expect(await failed.text()).not.toContain('Drinks Can vs Paper: A4');

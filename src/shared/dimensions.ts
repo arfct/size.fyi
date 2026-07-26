@@ -1,7 +1,11 @@
 import type { Units } from './types';
 
 const UNIT_TO_MM: Record<string, number> = {
-  mm: 1, cm: 10, m: 1000, in: 25.4, ft: 304.8,
+  mm: 1,
+  cm: 10,
+  m: 1000,
+  in: 25.4,
+  ft: 304.8,
 };
 const MIN_MM = 0.1;
 const MAX_MM = 100_000; // 100 m
@@ -14,7 +18,11 @@ export function parseDimensions(input: string): { h: number; w: number; d: numbe
   if (!m) return null;
   const factor = UNIT_TO_MM[m[4] ?? 'mm'];
   if (factor === undefined) return null;
-  const [h, w, d] = [m[1]!, m[2]!, m[3]!].map((s) => round1(parseFloat(s) * factor)) as [number, number, number];
+  const [h, w, d] = [m[1]!, m[2]!, m[3]!].map((s) => round1(parseFloat(s) * factor)) as [
+    number,
+    number,
+    number,
+  ];
   if ([h, w, d].some((v) => !Number.isFinite(v) || v < MIN_MM || v > MAX_MM)) return null;
   return { h, w, d };
 }

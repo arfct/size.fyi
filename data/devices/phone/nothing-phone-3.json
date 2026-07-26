@@ -9,11 +9,7 @@
   "w": 75.6,
   "d": 9,
   "year": 2025,
-  "aliases": [
-    "nothing phone 3",
-    "nothing phone (3)",
-    "phone 3"
-  ],
+  "aliases": ["nothing phone 3", "nothing phone (3)", "phone 3"],
   "source": "nothing.tech",
   "radius": 11,
   "radiusAxis": "z",

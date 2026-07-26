@@ -1,6 +1,6 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { afterEach, expect, test, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ShareButton from '../components/ShareButton';
 import { ComparisonProvider, useComparison } from '../store';
 

@@ -1,9 +1,14 @@
 import { expect, test } from 'vitest';
-import { deviceDims, itemDims, defaultStateLabel, activeState } from '../types';
 import type { Device } from '../types';
+import { activeState, defaultStateLabel, deviceDims, itemDims } from '../types';
 
 const fold: Device = {
-  slug: 'galaxy-z-fold8', name: 'Galaxy Z Fold8', category: 'phone', h: 123.9, w: 81.9, d: 9.7,
+  slug: 'galaxy-z-fold8',
+  name: 'Galaxy Z Fold8',
+  category: 'phone',
+  h: 123.9,
+  w: 81.9,
+  d: 9.7,
   defaultState: 'closed',
   states: [
     { label: 'closed', h: 123.9, w: 81.9, d: 9.7, seam: true },
@@ -33,6 +38,10 @@ test('flat devices ignore state and return their own dims', () => {
 });
 
 test('itemDims handles custom items', () => {
-  expect(itemDims({ kind: 'custom', name: 'Box', h: 10, w: 20, d: 30 })).toEqual({ h: 10, w: 20, d: 30 });
+  expect(itemDims({ kind: 'custom', name: 'Box', h: 10, w: 20, d: 30 })).toEqual({
+    h: 10,
+    w: 20,
+    d: 30,
+  });
   expect(itemDims({ kind: 'device', device: fold, state: 'open' })).toMatchObject({ w: 161.4 });
 });

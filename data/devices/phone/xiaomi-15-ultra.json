@@ -9,11 +9,7 @@
   "w": 75.3,
   "d": 9.4,
   "year": 2025,
-  "aliases": [
-    "xiaomi 15 ultra",
-    "15 ultra",
-    "mi 15 ultra"
-  ],
+  "aliases": ["xiaomi 15 ultra", "15 ultra", "mi 15 ultra"],
   "source": "mi.com",
   "radius": 11,
   "radiusAxis": "z",

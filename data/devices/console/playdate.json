@@ -9,10 +9,7 @@
   "w": 74,
   "d": 9,
   "year": 2022,
-  "aliases": [
-    "playdate",
-    "panic playdate"
-  ],
+  "aliases": ["playdate", "panic playdate"],
   "source": "play.date",
   "radius": 8,
   "radiusAxis": "z",

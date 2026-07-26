@@ -1,6 +1,6 @@
-import { beforeEach, test, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, expect, test, vi } from 'vitest';
 import App from '../App';
 import { __resetCatalogStore } from '../useCatalog';
 

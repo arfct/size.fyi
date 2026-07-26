@@ -6,8 +6,6 @@
   "h": 80,
   "w": 190,
   "d": 35,
-  "aliases": [
-    "banana"
-  ],
+  "aliases": ["banana"],
   "mesh": "banana"
 }
