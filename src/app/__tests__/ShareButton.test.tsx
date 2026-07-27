@@ -49,7 +49,7 @@ test('when the user cancels the native share sheet, it never falls through to th
 
   await waitFor(() => expect(share).toHaveBeenCalled());
   expect(writeText).not.toHaveBeenCalled();
-  expect(screen.getByRole('button')).toHaveTextContent('Share');
+  expect(screen.getByRole('button')).toHaveAccessibleName('Share');
 });
 
 test('when share is unsupported and the clipboard write fails, it silently no-ops', async () => {
@@ -61,10 +61,10 @@ test('when share is unsupported and the clipboard write fails, it silently no-op
   fireEvent.click(screen.getByRole('button', { name: 'Share' }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalled());
-  expect(screen.getByRole('button')).toHaveTextContent('Share');
+  expect(screen.getByRole('button')).toHaveAccessibleName('Share');
 });
 
-test('when share is unsupported and the clipboard write succeeds, it shows Copied!', async () => {
+test('when share is unsupported and the clipboard write succeeds, it shows the copied state', async () => {
   delete (navigator as { share?: unknown }).share;
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
@@ -72,6 +72,7 @@ test('when share is unsupported and the clipboard write succeeds, it shows Copie
   setup();
   fireEvent.click(screen.getByRole('button', { name: 'Share' }));
 
-  await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Copied!'));
+  // The button is icon-only: the copied state swaps the icon and the accessible name, not visible text.
+  await waitFor(() => expect(screen.getByRole('button')).toHaveAccessibleName('Copied'));
   expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/phone~150x75x8'));
 });

@@ -50,7 +50,7 @@ test('fillet tangents fall on the lattice when radius is a whole number of units
   }
 });
 
-test('ring specs: one family per axis; rings span the full axis with full-radius core, shrinking caps', () => {
+test('ring specs: one family per axis; lattice core at full radius, arc-stepped caps that shrink', () => {
   const unit = 10,
     radius = 20,
     fine = 10;
@@ -60,25 +60,35 @@ test('ring specs: one family per axis; rings span the full axis with full-radius
   expect(families.map((f) => f.axis)).toEqual(['x', 'y', 'z']);
 
   const fx = families[0]!;
-  const coords = fx.rings.map((r) => r.coord);
-  // full span [min.x, max.x] minus the degenerate w≈0 endpoints (x=-30 and x=200 dropped)
-  expect(coords[0]).toBeCloseTo(-20);
-  expect(coords[coords.length - 1]!).toBeCloseTo(190);
-  expect(coords.every((c) => onLattice(c, fine))).toBe(true);
-  // core rings carry the full radius; cap rings shrink; none exceeds the radius
   const core = fx.rings.filter((r) => r.dAxis === 0);
-  expect(core.length).toBeGreaterThan(0);
+  const caps = fx.rings.filter((r) => r.dAxis !== 0);
+
+  // Core rings fill the flat band between the fillet tangents, on the `fine` lattice, at full radius.
+  const coreCoords = core.map((r) => r.coord).sort((a, b) => a - b);
+  expect(coreCoords.length).toBeGreaterThan(0);
+  expect(coreCoords[0]!).toBeCloseTo(min.x + radius);
+  expect(coreCoords[coreCoords.length - 1]!).toBeCloseTo(max.x - radius);
+  expect(coreCoords.every((c) => onLattice(c, fine))).toBe(true);
   expect(core.every((r) => Math.abs(r.w - radius) < 1e-9)).toBe(true);
-  expect(fx.rings.every((r) => r.w > 0 && r.w <= radius + 1e-9)).toBe(true);
+
+  // Cap rings step by equal arc, so they land off the lattice — inside the faces, shrinking, on both ends.
+  // The φ=0 ring would repeat the tangent and φ=90° is the degenerate pole; both are skipped.
+  expect(caps.length).toBeGreaterThan(0);
+  expect(caps.every((r) => r.coord > min.x && r.coord < max.x)).toBe(true);
+  expect(caps.every((r) => r.w > 0 && r.w < radius)).toBe(true);
+  expect(caps.some((r) => r.dAxis > 0)).toBe(true);
+  expect(caps.some((r) => r.dAxis < 0)).toBe(true);
   // a cap ring's shrink follows sqrt(radius² − dAxis²)
-  const cap = fx.rings.find((r) => r.dAxis !== 0)!;
-  expect(cap.w).toBeCloseTo(Math.sqrt(radius * radius - cap.dAxis * cap.dAxis));
+  expect(
+    caps.every((r) => Math.abs(r.w - Math.sqrt(radius * radius - r.dAxis * r.dAxis)) < 1e-9),
+  ).toBe(true);
+
   // perpendicular centre and core half-extents come from the other two axes
   expect([fx.cu, fx.cv]).toEqual([(min.y + max.y) / 2, (min.z + max.z) / 2]);
   expect(fx.coreHalfU).toBeCloseTo((max.y - min.y) / 2 - radius);
 });
 
-test('ring specs: imperial half-unit spacing marks only whole-inch rings as major', () => {
+test('ring specs: imperial half-unit spacing marks only whole-inch core rings as major', () => {
   const unit = 25.4,
     radius = 50.8,
     fine = 12.7; // 1in unit, 2in radius, half-inch spacing
@@ -90,10 +100,23 @@ test('ring specs: imperial half-unit spacing marks only whole-inch rings as majo
     unit,
   );
   const [, fy] = roundedGridRingSpecs(min, max, radius, unit, fine);
-  const majors = fy!.rings.filter((r) => r.major).map((r) => r.coord);
-  const minors = fy!.rings.filter((r) => !r.major).map((r) => r.coord);
+  const core = fy!.rings.filter((r) => r.dAxis === 0);
+  const caps = fy!.rings.filter((r) => r.dAxis !== 0);
+
+  // On the flat core, `major` is the whole-inch test applied to the coordinate itself.
+  const majors = core.filter((r) => r.major).map((r) => r.coord);
+  const minors = core.filter((r) => !r.major).map((r) => r.coord);
   expect(majors.length).toBeGreaterThan(0);
   expect(minors.length).toBeGreaterThan(0);
   expect(majors.every((c) => onLattice(c, unit))).toBe(true);
   expect(minors.every((c) => !onLattice(c, unit))).toBe(true);
+
+  // Cap rings step by arc, so `major` counts whole units of arc from the tangent instead of coordinate.
+  const capSteps = Math.round(((Math.PI / 2) * radius) / fine);
+  const majorEvery = Math.round(unit / fine);
+  const arcStep = (dAxis: number) =>
+    Math.round((Math.asin(Math.abs(dAxis) / radius) / (Math.PI / 2)) * capSteps);
+  expect(caps.some((r) => r.major)).toBe(true);
+  expect(caps.some((r) => !r.major)).toBe(true);
+  for (const r of caps) expect(r.major).toBe(arcStep(r.dAxis) % majorEvery === 0);
 });

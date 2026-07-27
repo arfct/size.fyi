@@ -223,17 +223,19 @@ unit-tested without a GL context:
 - `roundedGridBox(min, max, pad, unitMM)` returns the snapped `min`/`max` corners.
 - `roundedGridRingSpecs(min, max, radius, unitMM, fine)` returns, per family, its `axis`, centre
   `(cu, cv)`, core half-extents, and a `rings[]` list — each `{coord, major, w, dAxis}` (radius `w`,
-  full in the core, shrinking through the caps). Assertable: full-span coords on the lattice with the
-  degenerate face rings dropped; core rings carry `w = radius`; cap rings shrink as
-  `sqrt(radius² − dAxis²)`; majors sit on the unit lattice.
+  full in the core, shrinking through the caps). Assertable: core rings span tangent to tangent on the
+  `fine` lattice and carry `w = radius`; cap rings step by arc, sit strictly inside the faces (the
+  tangent-repeat and pole rings dropped), and shrink as `sqrt(radius² − dAxis²)`; core majors sit on the
+  unit lattice while cap majors count whole units of arc from the tangent.
 
 ## Testing
 
 - Keep existing `gridSpec` tests unchanged.
 - Add unit tests for `roundedGridBox`: box faces land on the `unitMM` lattice and padding is in
   `[pad, pad + unitMM)`; both fillet tangents (`min + r`, `max - r`) are on the lattice.
-- Add unit tests for `roundedGridRingSpecs`: full-span ring coords on the lattice, core `w = radius`,
-  cap-ring shrink profile, centre/core-half-extents, and major/minor split (imperial).
+- Add unit tests for `roundedGridRingSpecs`: core ring coords on the lattice with `w = radius`,
+  arc-stepped cap rings and their shrink profile, centre/core-half-extents, and the core and cap
+  major/minor splits (imperial).
 - Visual check (manual): in the `front` ortho view the device-bearing perpendicular grid is square
   and crisp; in 3D the faces, fillets, and corner spheres all read as one continuous rounded grid.
 
