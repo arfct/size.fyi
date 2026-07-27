@@ -7,7 +7,7 @@ function Probe({ id }: { id: string }) {
   return (
     <div>
       <span data-testid={`status-${id}`}>{status}</span>
-      <button data-testid={`retry-${id}`} onClick={retry}>
+      <button type="button" data-testid={`retry-${id}`} onClick={retry}>
         retry {id}
       </button>
     </div>

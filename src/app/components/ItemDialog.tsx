@@ -86,12 +86,19 @@ export default function ItemDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* The click-away backdrop is a real button rather than a click handler on a bare div, so it
+          carries its own role and label. It precedes the panel, so the panel paints over it. Being
+          its own element also means a drag that starts inside the panel and ends out here won't
+          close the dialog. Kept out of the tab order — Escape and the Cancel button are the
+          keyboard paths, and a focusable backdrop would just be a dead stop between them. */}
+      <button
+        type="button"
+        aria-label="Close dialog"
+        tabIndex={-1}
+        onMouseDown={onClose}
+        className="absolute inset-0 h-full w-full cursor-default bg-black/40"
+      />
       <div
         role="dialog"
         aria-modal="true"

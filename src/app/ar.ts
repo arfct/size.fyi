@@ -15,7 +15,7 @@ export function isAndroid(ua: string = navigator.userAgent): boolean {
 // iOS/macOS Safari advertise AR Quick Look through the anchor relList.
 export function supportsQuickLook(): boolean {
   const a = document.createElement('a');
-  return !!(a.relList && a.relList.supports && a.relList.supports('ar'));
+  return !!a.relList?.supports?.('ar');
 }
 
 // Only offer AR on a touch device that can actually place it (avoids showing it on desktop Safari,

@@ -852,7 +852,7 @@ export function computeTargets(
     });
   } else {
     let x = 0; // left edge; kept on a whole-centimetre line so each front-left corner lands on a grid mark
-    order.forEach(({ item, key }, idx) => {
+    order.forEach(({ item, key }) => {
       targets.set(key, {
         pos: new THREE.Vector3(x + item.w / 2, item.h / 2, -item.d / 2),
         renderOrder: 0,
@@ -956,7 +956,6 @@ export function createScene(container: HTMLElement): SizeScene {
   let animating = false;
   let animRaf = 0;
   let animStart = 0;
-  let animFromView: ViewName = '3d';
   let animToView: ViewName = '3d';
   let animFrom: CameraPose | null = null;
   let animTo: ViewEndState | null = null;
@@ -1216,7 +1215,9 @@ export function createScene(container: HTMLElement): SizeScene {
       if (seamMat && fromSeam) seamMat.color.copy(fromSeam).lerp(toEdges, k);
       if (screenMat && fromScreen) screenMat.color.copy(fromScreen).lerp(toScreen, k);
       nameMat.color.copy(fromName).lerp(toName, k);
-      dimMats.forEach((m, i) => m.color.copy(fromDims[i]!).lerp(toDim, k));
+      dimMats.forEach((m, i) => {
+        m.color.copy(fromDims[i]!).lerp(toDim, k);
+      });
     });
   }
 
@@ -1640,11 +1641,9 @@ export function createScene(container: HTMLElement): SizeScene {
 
   function beginTransition(next: ViewName) {
     const from = currentPose();
-    const fromView = view;
     cancelAnimation();
     const end = computeEnd(next);
     view = next;
-    animFromView = fromView;
     animToView = next;
     animFrom = from;
     animTo = end;

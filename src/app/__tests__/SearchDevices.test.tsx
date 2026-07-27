@@ -14,8 +14,8 @@ function Harness() {
     <>
       <SearchDevices onAddCustom={() => {}} />
       <ul data-testid="items">
-        {state.items.map((it, i) => (
-          <li key={i}>
+        {state.items.map((it) => (
+          <li key={it.kind === 'custom' ? it.name : it.device.slug}>
             {it.kind === 'custom' ? `${it.name} ${it.h}x${it.w}x${it.d}` : it.device.name}
           </li>
         ))}

@@ -61,7 +61,11 @@ function Shell() {
             role="status"
           >
             <span>Couldn’t find: {state.missing.join(', ')}</span>
-            <button onClick={() => dispatch({ type: 'dismissMissing' })} aria-label="Dismiss">
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'dismissMissing' })}
+              aria-label="Dismiss"
+            >
               ✕
             </button>
           </div>

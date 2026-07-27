@@ -88,7 +88,7 @@ export default function ViewMenu() {
             </button>
           ))}
 
-          <div role="separator" className="my-1 border-t border-stone-200 dark:border-stone-800" />
+          <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
           <p
             role="presentation"
             className="px-3 pt-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400"
@@ -111,7 +111,7 @@ export default function ViewMenu() {
             </button>
           ))}
 
-          <div role="separator" className="my-1 border-t border-stone-200 dark:border-stone-800" />
+          <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
           <p
             role="presentation"
             className="px-3 pt-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400"

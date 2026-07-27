@@ -71,7 +71,7 @@ test('hostile input never throws, yields empty', () => {
 });
 test('caps at 8 items', () => {
   const nine = Array.from({ length: 9 }, (_, i) => `t${i}~10x10x10`).join('-vs-');
-  expect(decodeComparison('/' + nine, bySlug).items).toHaveLength(8);
+  expect(decodeComparison(`/${nine}`, bySlug).items).toHaveLength(8);
 });
 test('title', () =>
   expect(comparisonTitle([dev(iphone), custom])).toBe('iPhone 16 Pro vs Shoebox'));
@@ -163,7 +163,7 @@ test('custom name with no ASCII encodes to "item"', () => {
 // Issue 3: cap missing like items (at most 8 total)
 test('caps missing at 8 when decoding many unknown slugs', () => {
   const twelve = Array.from({ length: 12 }, (_, i) => `unknown-${i}`).join('-vs-');
-  const r = decodeComparison('/' + twelve, bySlug);
+  const r = decodeComparison(`/${twelve}`, bySlug);
   expect(r.missing.length).toBeLessThanOrEqual(8);
   expect(r.items.length + r.missing.length).toBeLessThanOrEqual(8);
 });

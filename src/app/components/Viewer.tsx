@@ -61,8 +61,11 @@ export default function Viewer({ asideRef }: ViewerProps) {
   // camera keeps framing the safe area (right of the sidebar) while the canvas itself spans the
   // full width. Declared after the scene-creation effect above so sceneRef.current is already
   // populated by the time this one runs on mount.
+  // Each of the sync effects below reads `ready` in its own guard rather than just listing it as a
+  // dependency: sceneRef is a ref and so isn't reactive, and the flag is the only thing that re-runs
+  // them once the lazy chunk has created the scene.
   useEffect(() => {
-    const scene = sceneRef.current;
+    const scene = ready ? sceneRef.current : null;
     if (!scene) return;
     const aside = asideRef?.current;
     // Mobile: no horizontal inset (canvas is full-width), but reserve vertical room at the top
@@ -79,6 +82,7 @@ export default function Viewer({ asideRef }: ViewerProps) {
   }, [asideRef, isDesktop, ready]);
 
   useEffect(() => {
+    if (!ready) return;
     const items =
       state.items.length > 0
         ? state.items.map((item, i) => {
@@ -102,14 +106,17 @@ export default function Viewer({ asideRef }: ViewerProps) {
   }, [state.items, ready]);
 
   useEffect(() => {
+    if (!ready) return;
     sceneRef.current?.setView(state.view);
   }, [state.view, ready]);
 
   useEffect(() => {
+    if (!ready) return;
     sceneRef.current?.setLayout(state.layoutMode);
   }, [state.layoutMode, ready]);
 
   useEffect(() => {
+    if (!ready) return;
     sceneRef.current?.setUnits(state.units);
   }, [state.units, ready]);
 

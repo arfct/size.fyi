@@ -99,7 +99,7 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
   return (
     <section ref={sectionRef} aria-label="Search devices" className="space-y-2">
       {status === 'error' ? (
-        <button onClick={retry} className="px-4 text-[13px] text-red-600 underline">
+        <button type="button" onClick={retry} className="px-4 text-[13px] text-red-600 underline">
           Catalog failed to load — retry
         </button>
       ) : (
@@ -137,57 +137,58 @@ export default function SearchDevices({ onAddCustom }: { onAddCustom: (name: str
               {trimmed ? 'No matches.' : 'No suggestions.'}
             </p>
           )}
-          <ul id="device-results" role="listbox" aria-label="Results" className="space-y-0.5">
+          {/* A div, not a ul: the combobox popup must be role="listbox", and a list element can't
+              take an interactive role. The options are the buttons themselves. */}
+          <div id="device-results" role="listbox" aria-label="Results" className="space-y-0.5">
             {rows.map((row) => {
               const Icon = row.kind === 'device' ? deviceIcon(row.device) : MY_ITEM_ICON;
               return (
-                <li key={row.kind === 'device' ? `d-${row.device.slug}` : `m-${row.item.name}`}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={false}
-                    disabled={full}
-                    onClick={() => addRow(row)}
-                    className="flex w-full items-center gap-2.5 rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
-                  >
-                    <Icon
-                      size={18}
-                      aria-hidden
-                      className="shrink-0 text-stone-500 dark:text-stone-400"
-                    />
-                    <span className="min-w-0 flex-1 truncate">
-                      {row.kind === 'mine' ? (
-                        <>
-                          {row.item.name}{' '}
-                          <span className="text-[13px] text-stone-400">(my item)</span>
-                        </>
-                      ) : (
-                        <>
-                          {row.device.name}
-                          {row.device.make ? (
-                            <span className="text-[13px] text-stone-400"> — {row.device.make}</span>
-                          ) : null}
-                        </>
-                      )}
-                    </span>
-                  </button>
-                </li>
+                <button
+                  key={row.kind === 'device' ? `d-${row.device.slug}` : `m-${row.item.name}`}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  disabled={full}
+                  onClick={() => addRow(row)}
+                  className="flex w-full items-center gap-2.5 rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
+                >
+                  <Icon
+                    size={18}
+                    aria-hidden
+                    className="shrink-0 text-stone-500 dark:text-stone-400"
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {row.kind === 'mine' ? (
+                      <>
+                        {row.item.name}{' '}
+                        <span className="text-[13px] text-stone-400">(my item)</span>
+                      </>
+                    ) : (
+                      <>
+                        {row.device.name}
+                        {row.device.make ? (
+                          <span className="text-[13px] text-stone-400"> — {row.device.make}</span>
+                        ) : null}
+                      </>
+                    )}
+                  </span>
+                </button>
               );
             })}
-            <li>
-              <button
-                type="button"
-                disabled={full}
-                onClick={() => onAddCustom(trimmed)}
-                className="flex w-full items-center gap-2.5 rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
-              >
-                <Plus size={18} aria-hidden className="shrink-0 text-stone-400" />
-                <span className="min-w-0 flex-1 truncate">
-                  {trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}
-                </span>
-              </button>
-            </li>
-          </ul>
+          </div>
+          {/* Outside the listbox on purpose: this opens the custom-item dialog rather than picking
+              a result, so it isn't one of the combobox's options. */}
+          <button
+            type="button"
+            disabled={full}
+            onClick={() => onAddCustom(trimmed)}
+            className="flex w-full items-center gap-2.5 rounded-md px-4 py-1.5 text-left text-[16px] hover:bg-stone-200/60 disabled:opacity-40 dark:hover:bg-stone-800/60"
+          >
+            <Plus size={18} aria-hidden className="shrink-0 text-stone-400" />
+            <span className="min-w-0 flex-1 truncate">
+              {trimmed ? `Add “${trimmed}”…` : 'Add a custom item…'}
+            </span>
+          </button>
         </>
       )}
     </section>

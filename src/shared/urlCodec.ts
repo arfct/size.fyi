@@ -43,7 +43,7 @@ function encodeItem(item: ComparisonItem): string {
 
 export function encodeComparison(items: ComparisonItem[]): string {
   if (items.length === 0) return '/';
-  return '/' + items.slice(0, MAX_ITEMS).map(encodeItem).join(SEP);
+  return `/${items.slice(0, MAX_ITEMS).map(encodeItem).join(SEP)}`;
 }
 
 function titleCaseCustom(slug: string): string {

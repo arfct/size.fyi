@@ -32,6 +32,7 @@ export default function ShareButton() {
   // Copied feedback swaps the icon to a check rather than showing text.
   return (
     <button
+      type="button"
       onClick={share}
       aria-label={copied ? 'Copied' : 'Share'}
       className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent hover:border-stone-300 dark:hover:border-stone-700"

@@ -11,17 +11,20 @@ function Harness({ initial, preload }: { initial: DialogState; preload?: DialogS
   return (
     <>
       <button
+        type="button"
         onClick={() =>
           dispatch({ type: 'add', item: { kind: 'custom', name: 'Old', h: 10, w: 10, d: 10 } })
         }
       >
         seed
       </button>
-      <button onClick={() => setDialog(preload ?? null)}>reopen</button>
+      <button type="button" onClick={() => setDialog(preload ?? null)}>
+        reopen
+      </button>
       <ItemDialog state={dialog} onClose={() => setDialog(null)} />
       <ul data-testid="items">
-        {state.items.map((it, i) => (
-          <li key={i}>
+        {state.items.map((it) => (
+          <li key={it.kind === 'custom' ? it.name : it.device.slug}>
             {it.kind === 'custom' ? `${it.name} ${it.h}x${it.w}x${it.d}` : it.device.name}
           </li>
         ))}

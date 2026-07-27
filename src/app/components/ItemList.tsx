@@ -25,8 +25,7 @@ function StateToggle({
   onSelect: (label: string) => void;
 }) {
   return (
-    <div
-      role="group"
+    <fieldset
       aria-label="State"
       className="mt-1 inline-flex rounded-md border border-stone-300 p-0.5 dark:border-stone-700"
     >
@@ -46,7 +45,7 @@ function StateToggle({
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }
 

@@ -19,21 +19,7 @@
         "noNonNullAssertion": "off"
       },
       "suspicious": {
-        "noFocusedTests": "off",
-        "noArrayIndexKey": "warn",
-        "useIterableCallbackReturn": "warn"
-      },
-      "correctness": {
-        "useExhaustiveDependencies": "warn"
-      },
-      "a11y": {
-        "noNoninteractiveElementToInteractiveRole": "warn",
-        "noStaticElementInteractions": "warn",
-        "noSvgWithoutTitle": "warn",
-        "useAriaPropsForRole": "warn",
-        "useButtonType": "warn",
-        "useFocusableInteractive": "warn",
-        "useSemanticElements": "warn"
+        "noFocusedTests": "off"
       }
     }
   },
