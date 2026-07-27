@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+// NOTE: GLTFLoader and BufferGeometryUtils are deliberately NOT imported here — see
+// loadModelGeometry below, which pulls them in on demand.
 import { formatLengthValue } from '../shared/dimensions';
 import type { LayoutMode, Units } from '../shared/types';
 
@@ -25,7 +25,9 @@ export interface SceneItem {
 // it drops in wherever the procedural box would sit. Cached per url (dims are constant per device);
 // callers clone the result so per-handle disposal is safe. Normals are recomputed since the
 // optimized models ship without them (see scripts/build-models.mjs).
-const gltfLoader = new GLTFLoader();
+// GLTFLoader and the geometry-merge helper are ~a third of the 3D payload but only matter for the
+// few devices that ship a `model3d`, so they load on demand instead of riding along in the scene
+// chunk for every visitor. Both are cached by the module registry after the first call.
 const modelGeometryCache = new Map<string, Promise<THREE.BufferGeometry>>();
 function loadModelGeometry(
   model: { url: string; rotation?: [number, number, number] },
@@ -35,7 +37,12 @@ function loadModelGeometry(
 ): Promise<THREE.BufferGeometry> {
   let pending = modelGeometryCache.get(model.url);
   if (!pending) {
-    pending = gltfLoader.loadAsync(`/models/${model.url}`).then((gltf) => {
+    pending = (async () => {
+      const [{ GLTFLoader }, { mergeGeometries }] = await Promise.all([
+        import('three/examples/jsm/loaders/GLTFLoader.js'),
+        import('three/examples/jsm/utils/BufferGeometryUtils.js'),
+      ]);
+      const gltf = await new GLTFLoader().loadAsync(`/models/${model.url}`);
       gltf.scene.updateMatrixWorld(true);
       const parts: THREE.BufferGeometry[] = [];
       gltf.scene.traverse((o) => {
@@ -62,7 +69,7 @@ function loadModelGeometry(
       geo.scale(w / (size.x || 1), h / (size.y || 1), d / (size.z || 1));
       geo.computeVertexNormals();
       return geo;
-    });
+    })();
     modelGeometryCache.set(model.url, pending);
   }
   return pending.then((geo) => geo.clone());
