@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
-import { buildBananaGeometry } from '../scene';
+import { buildBananaGeometry } from '../geometry';
 
 test('buildBananaGeometry normalizes to an exact, centered w×h×d bounding box', () => {
   const geo = buildBananaGeometry(190, 80, 35);
