@@ -12,6 +12,7 @@ import type * as THREE from 'three';
 // Keys come from the same function the Worker looks them up with, so a layer is never written under a
 // name the route won't find.
 import { geometryKey } from '../src/shared/ar.ts';
+import type { GlbGeometry, GlbPart, GlbRange } from '../src/shared/glb.ts';
 import type { Catalog, Device } from '../src/shared/types.ts';
 import { deviceDims } from '../src/shared/types.ts';
 import { type UsdMesh, usdGeometryLayer } from '../src/shared/usdz.ts';
@@ -40,16 +41,57 @@ const variants: Variant[] = catalog.devices.flatMap((device): Variant[] =>
   device.states?.length ? device.states.map((s) => ({ device, state: s.label })) : [{ device }],
 );
 
-let bytes = 0;
+// Packs one geometry into the item's binary blob. Everything is Float32 or Uint32, so each range lands
+// 4-aligned on its own — which is what glTF requires of a bufferView offset.
+function packPart(
+  chunks: Uint8Array[],
+  geo: THREE.BufferGeometry,
+  at: { offset: number },
+): GlbPart {
+  const pos = geo.attributes.position;
+  if (!pos) throw new Error('geometry has no position attribute');
+  const push = (data: Float32Array | Uint32Array, count: number): GlbRange => {
+    const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    const range = { byteOffset: at.offset, byteLength: bytes.length, count };
+    chunks.push(bytes);
+    at.offset += bytes.length;
+    return range;
+  };
+
+  const posArr = new Float32Array(pos.array as ArrayLike<number>);
+  const min: [number, number, number] = [Infinity, Infinity, Infinity];
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < posArr.length; i += 3) {
+    for (let k = 0; k < 3; k++) {
+      const v = posArr[i + k]!;
+      if (v < min[k]!) min[k] = v;
+      if (v > max[k]!) max[k] = v;
+    }
+  }
+
+  const part: GlbPart = { position: push(posArr, pos.count), min, max };
+  const nor = geo.attributes.normal;
+  if (nor) part.normal = push(new Float32Array(nor.array as ArrayLike<number>), nor.count);
+  // Widened to Uint32 regardless of source width, so the Worker only ever emits one accessor type.
+  if (geo.index) {
+    part.index = push(new Uint32Array(geo.index.array as ArrayLike<number>), geo.index.count);
+  }
+  return part;
+}
+
+let usdBytes = 0;
+let binBytes = 0;
 let withScreen = 0;
+const manifest: Record<string, GlbGeometry> = {};
+
 for (const { device, state } of variants) {
   const dims = deviceDims(device, state);
   const spec = { ...dims, mesh: device.mesh };
+  const key = geometryKey(device, state);
 
   const body = buildGeometry(spec);
   body.computeVertexNormals();
   const meshes: UsdMesh[] = [mesh('Body', body)];
-
   const screen = screenGeometry(spec);
   if (screen) {
     screen.computeVertexNormals();
@@ -57,13 +99,35 @@ for (const { device, state } of variants) {
     withScreen++;
   }
 
-  const key = geometryKey(device, state);
+  // iOS: a USD layer the Worker references by path.
   const text = usdGeometryLayer(meshes);
   await writeFile(`${OUT}/${key}.usda`, text);
-  bytes += text.length;
+  usdBytes += text.length;
+
+  // Android: raw vertex data the Worker concatenates into a GLB's BIN chunk. Body and screen share one
+  // blob so a comparison costs one fetch per item, not per mesh.
+  const chunks: Uint8Array[] = [];
+  const at = { offset: 0 };
+  const entry: GlbGeometry = { byteLength: 0, body: packPart(chunks, body, at) };
+  if (screen) entry.screen = packPart(chunks, screen, at);
+  entry.byteLength = at.offset;
+  const blob = new Uint8Array(at.offset);
+  let o = 0;
+  for (const c of chunks) {
+    blob.set(c, o);
+    o += c.length;
+  }
+  await writeFile(`${OUT}/${key}.bin`, blob);
+  binBytes += blob.length;
+  manifest[key] = entry;
 }
 
+// One manifest for every item, so the Worker learns offsets and accessor bounds in a single fetch it
+// can cache for the isolate's lifetime.
+await writeFile(`${OUT}/geometry.json`, JSON.stringify(manifest));
+
+const mb = (n: number) => (n / 1024 / 1024).toFixed(2);
 console.log(
-  `Wrote ${variants.length} geometry layers (${withScreen} with a screen) to ${OUT}/ — ` +
-    `${(bytes / 1024 / 1024).toFixed(2)} MB total, ${(bytes / variants.length / 1024).toFixed(0)} kB avg`,
+  `Wrote ${variants.length} items (${withScreen} with a screen) to ${OUT}/ — ` +
+    `USD ${mb(usdBytes)} MB, GLB blobs ${mb(binBytes)} MB`,
 );

@@ -2,7 +2,7 @@ import { formatDims } from '../shared/dimensions';
 import type { Catalog, Device } from '../shared/types';
 import { itemDims } from '../shared/types';
 import { comparisonTitle, decodeComparison } from '../shared/urlCodec';
-import { arUsdz } from './ar';
+import { arModel } from './ar';
 import { OG_HEIGHT, OG_WIDTH, type OgFont, renderOgImage } from './og';
 
 interface Env {
@@ -117,9 +117,9 @@ export default {
     if (url.pathname === '/api/devices') return apiDevices(env, url.origin);
     if (url.pathname.startsWith('/api/og/')) return apiOg(request, env, url.origin, ctx);
     if (url.pathname.startsWith('/api/')) return new Response('not found', { status: 404 });
-    if (url.pathname.startsWith('/ar/') && url.pathname.endsWith('.usdz')) {
+    if (url.pathname.startsWith('/ar/') && /\.(usdz|glb)$/.test(url.pathname)) {
       const bySlug = await loadCatalog(env, url.origin);
-      return arUsdz(request, env.ASSETS, url.origin, bySlug, ctx);
+      return arModel(request, env.ASSETS, url.origin, bySlug, ctx);
     }
 
     // A path with a file extension is asking for an asset, and the asset layer has already had its

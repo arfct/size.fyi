@@ -1,7 +1,8 @@
 import { Check, ChevronDown, Scan } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { View } from '../../shared/types';
-import { canLaunchComparisonAR, comparisonArUrl, launchQuickLook } from '../ar';
+import { comparisonTitle } from '../../shared/urlCodec';
+import { canLaunchAR, launchComparisonAR } from '../ar';
 import { setStoredUnits } from '../localStore';
 import { useComparison } from '../store';
 
@@ -137,10 +138,9 @@ export default function ViewMenu() {
           ))}
 
           {/* An action rather than a setting, so it sits below the radio groups with its own icon and
-              no checkmark. Hidden unless the device can actually place it: the comparison model is
-              USDZ-only (see canLaunchComparisonAR), and with nothing in the comparison there'd be
-              nothing to place. */}
-          {canLaunchComparisonAR() && state.items.length > 0 && (
+              no checkmark. Hidden unless the device can actually place it, and unless there's
+              something in the comparison to place. */}
+          {canLaunchAR() && state.items.length > 0 && (
             <>
               <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
               <button
@@ -148,8 +148,9 @@ export default function ViewMenu() {
                 role="menuitem"
                 onClick={() => {
                   setOpen(false);
-                  // The current layout rides along — a stack and a row are different models.
-                  launchQuickLook(comparisonArUrl(state.items, state.layoutMode));
+                  // The current layout rides along — a stack and a row are different models. The
+                  // title is only read by Android's Scene Viewer, which shows it in its UI.
+                  launchComparisonAR(state.items, state.layoutMode, comparisonTitle(state.items));
                 }}
                 className={itemClass(false)}
               >

@@ -1,14 +1,18 @@
-// GET /ar/<comparison>.usdz — the whole comparison as one AR model, composed per request.
+// GET /ar/<comparison>.usdz — iOS, AR Quick Look
+// GET /ar/<comparison>.glb  — Android, Scene Viewer
 //
-// Pre-generating this is not an option: 2-8 items drawn from ~100, times two layout modes, is ~375
-// billion combinations before custom items (which take arbitrary dimensions) make the space infinite.
-// So the Worker composes on demand, which is cheap because it never touches geometry: per-item USD
-// layers are built at deploy time by scripts/build-ar-geometry.ts, and this only emits a root layer
-// that references them and zips the result. No three.js here.
-
+// Both compose the whole comparison per request. Pre-generating is not an option: 2-8 items drawn from
+// ~100, times two layout modes, is ~375 billion combinations before custom items (which take arbitrary
+// dimensions) make the space infinite.
+//
+// Neither format touches geometry, so there's no three.js here. scripts/build-ar-geometry.ts emits, per
+// catalog item and state, a USD layer for iOS and a raw vertex blob for Android. This module only
+// assembles: for USDZ, a root layer that references the layers by path, zipped; for GLB, a glTF JSON
+// whose bufferViews point into the concatenated blobs. Same placements, same layout, two containers.
 import { itemColor } from '../app/palette';
 import { geometryKey, SCREEN_PROUD_MM } from '../shared/ar';
-import { type Device, itemDims, type LayoutMode } from '../shared/types';
+import { boxGlb, buildGlb, type GlbGeometry, type GlbPlacement } from '../shared/glb';
+import { type ComparisonItem, type Device, itemDims, type LayoutMode } from '../shared/types';
 import { decodeComparison, encodeComparison } from '../shared/urlCodec';
 import {
   boxMesh,
@@ -32,39 +36,33 @@ function darken(hex: string, factor: number): string {
   return `#${parts.join('')}`;
 }
 
-export async function arUsdz(
-  request: Request,
-  assets: Fetcher,
-  origin: string,
-  bySlug: Map<string, Device>,
-  ctx: ExecutionContext,
-): Promise<Response> {
-  const url = new URL(request.url);
-  const spec = url.pathname.slice('/ar/'.length).replace(/\.usdz$/, '');
-  if (!spec) return new Response('not found', { status: 404 });
+// The GLB manifest is one fetch for the whole catalog, so hold it for the isolate's lifetime.
+let manifestCache: Promise<Record<string, GlbGeometry>> | null = null;
+function loadManifest(assets: Fetcher, origin: string): Promise<Record<string, GlbGeometry>> {
+  manifestCache ??= assets
+    .fetch(`${origin}/ar/geometry.json`)
+    .then((r) => {
+      if (r.ok) return r.json() as Promise<Record<string, GlbGeometry>>;
+      manifestCache = null; // don't cache a transient failure
+      return {};
+    })
+    .catch(() => {
+      manifestCache = null;
+      return {};
+    });
+  return manifestCache;
+}
 
-  const cache = caches.default;
-  const hit = await cache.match(request);
-  if (hit) return hit;
+// Where each item sits, and what it's called — shared by both formats so an Android model is the same
+// arrangement as the iOS one.
+interface Resolved {
+  items: ComparisonItem[];
+  dims: ReturnType<typeof itemDims>[];
+  at: { x: number; y: number; z: number }[];
+  mode: LayoutMode;
+}
 
-  const { items } = decodeComparison(`/${spec}`, bySlug);
-  if (items.length === 0) return new Response('not found', { status: 404 });
-
-  // One canonical URL per distinct model, so the edge cache doesn't hold the same bytes twice. Mostly
-  // this normalizes an implicit state to an explicit one: /ar/galaxy-z-fold8 and
-  // /ar/galaxy-z-fold8-closed are the same object, because closed is that device's default.
-  //
-  // It deliberately does NOT reorder items. Item order looks redundant — the layout sorts by volume, so
-  // it doesn't move anything — but palette colour is assigned by index, so a-vs-b and b-vs-a really are
-  // different models. Sorting them together would silently recolour one of them.
-  const mode: LayoutMode = url.searchParams.get('layout') === 'stack' ? 'stack' : 'row';
-  const canonical = encodeComparison(items);
-  if (canonical !== `/${spec}`) {
-    const to = new URL(`/ar${canonical}.usdz`, url.origin);
-    if (mode === 'stack') to.searchParams.set('layout', 'stack');
-    return Response.redirect(to.toString(), 301);
-  }
-
+function resolve(items: ComparisonItem[], mode: LayoutMode): Resolved {
   const dims = items.map(itemDims);
   const layoutItems = items.map((item, i) => ({
     name: item.kind === 'device' ? item.device.name : item.name,
@@ -78,23 +76,28 @@ export async function arUsdz(
   const keys = computeKeys(layoutItems);
   const targets = computeTargets(layoutItems, keys, mode);
 
-  // Re-centre for AR: Quick Look anchors to a horizontal plane, and the layout runs the row rightward
+  // Re-centre for AR: both viewers anchor to a horizontal plane, and the layout runs the row rightward
   // from x=0. Keep the base on y=0 so it rests on the surface; centre x and z on the anchor.
   const b = computeTargetBounds(layoutItems, keys, targets);
-  const shift = {
-    x: -(b.min.x + b.max.x) / 2,
-    y: -b.min.y,
-    z: -(b.min.z + b.max.z) / 2,
-  };
+  const shift = { x: -(b.min.x + b.max.x) / 2, y: -b.min.y, z: -(b.min.z + b.max.z) / 2 };
+  const at = items.map((_, i) => {
+    const pos = targets.get(keys[i]!)!.pos;
+    return { x: pos.x + shift.x, y: pos.y + shift.y, z: pos.z + shift.z };
+  });
+  return { items, dims, at, mode };
+}
 
+async function usdzBody(
+  r: Resolved,
+  assets: Fetcher,
+  origin: string,
+): Promise<Uint8Array | Response> {
   const layers = new Map<string, string>();
   const placements: UsdPlacement[] = [];
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i]!;
-    const d = dims[i]!;
-    const pos = targets.get(keys[i]!)!.pos;
-    const at = { x: pos.x + shift.x, y: pos.y + shift.y, z: pos.z + shift.z };
+  for (let i = 0; i < r.items.length; i++) {
+    const item = r.items[i]!;
+    const d = r.dims[i]!;
+    const at = r.at[i]!;
     const color = itemColor(item, i);
 
     let layer: string;
@@ -127,15 +130,115 @@ export async function arUsdz(
       });
     }
   }
+  return buildUsdz(usdRootLayer(placements, MM_TO_M), layers);
+}
 
-  const bytes = buildUsdz(usdRootLayer(placements, MM_TO_M), layers);
-  const etag = `"${[...new Uint8Array(await crypto.subtle.digest('SHA-1', bytes.buffer))]
+async function glbBody(
+  r: Resolved,
+  assets: Fetcher,
+  origin: string,
+): Promise<Uint8Array | Response> {
+  const manifest = await loadManifest(assets, origin);
+  const blobs: Uint8Array[] = [];
+  const blobIndex = new Map<string, number>();
+  const placements: GlbPlacement[] = [];
+
+  for (let i = 0; i < r.items.length; i++) {
+    const item = r.items[i]!;
+    const d = r.dims[i]!;
+    const at = r.at[i]!;
+    const color = itemColor(item, i);
+
+    if (item.kind === 'device') {
+      const key = geometryKey(item.device, item.state);
+      const entry = manifest[key];
+      if (!entry) return new Response(`missing geometry for ${key}`, { status: 500 });
+      let blob = blobIndex.get(key);
+      if (blob === undefined) {
+        const res = await assets.fetch(`${origin}/ar/${key}.bin`);
+        if (!res.ok) return new Response(`missing geometry for ${key}`, { status: 500 });
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        if (bytes.length !== entry.byteLength) {
+          // The manifest and the blob are written together, so a mismatch means a stale deploy rather
+          // than a bad request — and would otherwise surface as garbled geometry on the phone.
+          return new Response(`geometry for ${key} does not match the manifest`, { status: 500 });
+        }
+        blob = blobs.push(bytes) - 1;
+        blobIndex.set(key, blob);
+      }
+      placements.push({ name: `Item_${i}`, blob, part: entry.body, translate: at, color });
+      if (entry.screen) {
+        placements.push({
+          name: `Item_${i}_screen`,
+          blob,
+          part: entry.screen,
+          translate: { x: at.x, y: at.y, z: at.z + d.d / 2 + SCREEN_PROUD_MM },
+          color: darken(color, 0.35),
+        });
+      }
+    } else {
+      // No pre-built blob can exist for arbitrary dimensions, so build the box's vertex data here.
+      const { blob, part } = boxGlb(d.w, d.h, d.d);
+      placements.push({
+        name: `Item_${i}`,
+        blob: blobs.push(blob) - 1,
+        part,
+        translate: at,
+        color,
+      });
+    }
+  }
+  return buildGlb(blobs, placements, MM_TO_M);
+}
+
+export async function arModel(
+  request: Request,
+  assets: Fetcher,
+  origin: string,
+  bySlug: Map<string, Device>,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const url = new URL(request.url);
+  const glb = url.pathname.endsWith('.glb');
+  const ext = glb ? '.glb' : '.usdz';
+  const spec = url.pathname.slice('/ar/'.length).slice(0, -ext.length);
+  if (!spec) return new Response('not found', { status: 404 });
+
+  const cache = caches.default;
+  const hit = await cache.match(request);
+  if (hit) return hit;
+
+  const { items } = decodeComparison(`/${spec}`, bySlug);
+  if (items.length === 0) return new Response('not found', { status: 404 });
+
+  // One canonical URL per distinct model, so the edge cache doesn't hold the same bytes twice. Mostly
+  // this normalizes an implicit state to an explicit one: /ar/galaxy-z-fold8 and
+  // /ar/galaxy-z-fold8-closed are the same object, because closed is that device's default.
+  //
+  // It deliberately does NOT reorder items. Item order looks redundant — the layout sorts by volume, so
+  // it doesn't move anything — but palette colour is assigned by index, so a-vs-b and b-vs-a really are
+  // different models. Sorting them together would silently recolour one of them.
+  const mode: LayoutMode = url.searchParams.get('layout') === 'stack' ? 'stack' : 'row';
+  const canonical = encodeComparison(items);
+  if (canonical !== `/${spec}`) {
+    const to = new URL(`/ar${canonical}${ext}`, url.origin);
+    if (mode === 'stack') to.searchParams.set('layout', 'stack');
+    return Response.redirect(to.toString(), 301);
+  }
+
+  const resolved = resolve(items, mode);
+  const body = glb
+    ? await glbBody(resolved, assets, origin)
+    : await usdzBody(resolved, assets, origin);
+  if (body instanceof Response) return body;
+
+  const etag = `"${[...new Uint8Array(await crypto.subtle.digest('SHA-1', body.buffer))]
     .map((x) => x.toString(16).padStart(2, '0'))
     .join('')
     .slice(0, 16)}"`;
-  const res = new Response(bytes, {
+  const res = new Response(body, {
     headers: {
-      'content-type': 'model/vnd.usdz+zip',
+      'content-type': glb ? 'model/gltf-binary' : 'model/vnd.usdz+zip',
       // Deterministic for a given comparison, so it can be cached hard.
       'cache-control': 'public, max-age=31536000, immutable',
       etag,

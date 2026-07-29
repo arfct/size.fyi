@@ -28,7 +28,9 @@ test('comparisonArUrl points at the Worker route using the shareable path gramma
     { kind: 'custom', name: 'My Box', h: 300, w: 200, d: 100 },
   ];
   // Custom dimensions encode height x width x depth, matching the grammar the README documents.
-  expect(comparisonArUrl(items, 'row')).toBe('/ar/iphone-13-mini-vs-my_box~300x200x100.usdz');
+  expect(comparisonArUrl(items, 'row', 'usdz')).toBe(
+    '/ar/iphone-13-mini-vs-my_box~300x200x100.usdz',
+  );
 });
 
 test('comparisonArUrl carries the layout, since a stack and a row are different models', () => {
@@ -37,8 +39,8 @@ test('comparisonArUrl carries the layout, since a stack and a row are different 
     { kind: 'device', device: { slug: 'b', name: 'B' } as Device },
   ];
   // Side-by-side is the route's default, so it stays out of the URL and keeps one cache entry.
-  expect(comparisonArUrl(items, 'row')).toBe('/ar/a-vs-b.usdz');
-  expect(comparisonArUrl(items, 'stack')).toBe('/ar/a-vs-b.usdz?layout=stack');
+  expect(comparisonArUrl(items, 'row', 'usdz')).toBe('/ar/a-vs-b.usdz');
+  expect(comparisonArUrl(items, 'stack', 'usdz')).toBe('/ar/a-vs-b.usdz?layout=stack');
 });
 
 test('comparisonArUrl emits an explicit state, so the route never has to redirect', () => {
@@ -55,5 +57,16 @@ test('comparisonArUrl emits an explicit state, so the route never has to redirec
     { kind: 'device', device: fold, state: 'open' },
     { kind: 'device', device: { slug: 'x', name: 'X' } as Device },
   ];
-  expect(comparisonArUrl(items, 'row')).toBe('/ar/galaxy-z-fold8-open-vs-x.usdz');
+  expect(comparisonArUrl(items, 'row', 'usdz')).toBe('/ar/galaxy-z-fold8-open-vs-x.usdz');
+});
+
+test('comparisonArUrl serves both viewers off one path', () => {
+  const items: ComparisonItem[] = [
+    { kind: 'device', device: { slug: 'a', name: 'A' } as Device },
+    { kind: 'device', device: { slug: 'b', name: 'B' } as Device },
+  ];
+  // Quick Look takes USDZ, Scene Viewer takes GLB; same comparison, same layout handling.
+  expect(comparisonArUrl(items, 'row', 'usdz')).toBe('/ar/a-vs-b.usdz');
+  expect(comparisonArUrl(items, 'row', 'glb')).toBe('/ar/a-vs-b.glb');
+  expect(comparisonArUrl(items, 'stack', 'glb')).toBe('/ar/a-vs-b.glb?layout=stack');
 });

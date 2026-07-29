@@ -59,21 +59,36 @@ export function launchAR({ usdzUrl, glbUrl, title }: ARTarget): void {
   }
 }
 
-// The whole-comparison model is USDZ-only: the Worker composes it by referencing per-item USD layers,
-// and glTF has no equivalent composition arc, so there's no Android counterpart yet (A-151). Gate the
-// comparison AR affordance on this rather than canLaunchAR, which also passes on Android.
-export function canLaunchComparisonAR(): boolean {
-  const touch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
-  return touch && supportsQuickLook();
-}
-
 // The Worker route for a comparison — generated on request, so any set of items resolves. The path is
 // the same grammar as the shareable URL, and `encodeComparison` is already canonical (explicit device
 // states), so this never triggers the route's normalizing redirect.
 //
-// Layout rides along because a stack and a row are genuinely different models: `?layout=stack` for
-// stacked, omitted for side-by-side since that's the route's default.
-export function comparisonArUrl(items: ComparisonItem[], layoutMode: LayoutMode): string {
+// Two formats off one path, because the viewers disagree: Quick Look takes USDZ, Scene Viewer takes
+// GLB. Layout rides along either way, since a stack and a row are genuinely different models —
+// `?layout=stack` for stacked, omitted for side-by-side because that's the route's default.
+export function comparisonArUrl(
+  items: ComparisonItem[],
+  layoutMode: LayoutMode,
+  format: 'usdz' | 'glb',
+): string {
   const query = layoutMode === 'stack' ? '?layout=stack' : '';
-  return `/ar${encodeComparison(items)}.usdz${query}`;
+  return `/ar${encodeComparison(items)}.${format}${query}`;
+}
+
+// Launches the comparison on whichever viewer this device has. Both platforms are served now, so the
+// availability test is just canLaunchAR().
+export function launchComparisonAR(
+  items: ComparisonItem[],
+  layoutMode: LayoutMode,
+  title: string,
+): void {
+  if (supportsQuickLook()) {
+    launchQuickLook(comparisonArUrl(items, layoutMode, 'usdz'));
+  } else if (isAndroid()) {
+    window.location.href = sceneViewerUrl(
+      comparisonArUrl(items, layoutMode, 'glb'),
+      title,
+      window.location.href,
+    );
+  }
 }
