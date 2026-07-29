@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { beforeEach, expect, test } from 'vitest';
+import { AR_MODEL_VERSION } from '../../shared/ar';
 import type { Device } from '../../shared/types';
 import ViewMenu from '../components/ViewMenu';
 import { getStoredUnits } from '../localStore';
@@ -143,14 +144,14 @@ test('View in AR opens the comparison route, carrying the chosen layout', async 
 
     await user.click(screen.getByRole('button', { name: /view: 3d/i }));
     await user.click(screen.getByRole('menuitem', { name: /view in ar/i }));
-    expect(clicked).toEqual(['/ar/a-vs-b.usdz']);
+    expect(clicked).toEqual([`/ar/a-vs-b.usdz?v=${AR_MODEL_VERSION}`]);
 
     // Switching to Stack must change the model that gets launched, not just the on-screen view.
     await user.click(screen.getByRole('button', { name: /view: 3d/i }));
     await user.click(screen.getByRole('menuitemradio', { name: /stack/i }));
     await user.click(screen.getByRole('button', { name: /view: 3d/i }));
     await user.click(screen.getByRole('menuitem', { name: /view in ar/i }));
-    expect(clicked[1]).toBe('/ar/a-vs-b.usdz?layout=stack');
+    expect(clicked[1]).toBe(`/ar/a-vs-b.usdz?layout=stack&v=${AR_MODEL_VERSION}`);
   } finally {
     HTMLAnchorElement.prototype.click = realClick;
     restore();

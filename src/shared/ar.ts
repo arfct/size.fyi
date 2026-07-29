@@ -6,6 +6,21 @@
 // extensionless specifiers the way a bundler does.
 import { type Device, defaultStateLabel } from './types.ts';
 
+// Generator version, carried in the AR model URL as `?v=`.
+//
+// The route answers with `cache-control: immutable`, which is true of the bytes for a given generator
+// and false across a change to one. Shipping the uint16/bufferView-target fix proved it the hard way:
+// every already-requested URL kept serving the old broken model from the edge, with a year to run and
+// no way to purge from code.
+//
+// So the version is part of the resource identity. Bump it whenever the emitted USDZ or GLB changes in
+// a way that matters — a geometry change, a container fix, a material change — and every URL becomes a
+// new one that cannot hit a stale entry. Immutable then means what it says.
+//
+// 1: initial USDZ + GLB routes
+// 2: GLB uint16 indices, bufferView targets, explicit primitive mode (Scene Viewer compatibility)
+export const AR_MODEL_VERSION = 2;
+
 // How far proud of its front face a screen sits, in millimetres. Lives here rather than beside the
 // geometry because every consumer applies it as a placement offset — the renderer, the AR exporters,
 // and the Worker — and two copies of this number would drift into a z-fighting or wrong-depth bug.

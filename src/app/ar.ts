@@ -1,6 +1,7 @@
 // Mobile AR launch. iOS/iPadOS: AR Quick Look via a `rel="ar"` anchor to a USDZ. Android: Scene
 // Viewer via an intent URL to a GLB. Assets are opaque and real-scale (AR Quick Look culls
 // geometry inside transparent models), pre-generated per device — see scripts/build-ar.mjs.
+import { AR_MODEL_VERSION } from '../shared/ar';
 import type { ComparisonItem, LayoutMode } from '../shared/types';
 import { encodeComparison } from '../shared/urlCodec';
 
@@ -66,13 +67,17 @@ export function launchAR({ usdzUrl, glbUrl, title }: ARTarget): void {
 // Two formats off one path, because the viewers disagree: Quick Look takes USDZ, Scene Viewer takes
 // GLB. Layout rides along either way, since a stack and a row are genuinely different models —
 // `?layout=stack` for stacked, omitted for side-by-side because that's the route's default.
+// `v` is the generator version, not a preference: the route caches immutably, so a change to what it
+// emits has to arrive as a new URL or the edge keeps serving the old model. See AR_MODEL_VERSION.
 export function comparisonArUrl(
   items: ComparisonItem[],
   layoutMode: LayoutMode,
   format: 'usdz' | 'glb',
 ): string {
-  const query = layoutMode === 'stack' ? '?layout=stack' : '';
-  return `/ar${encodeComparison(items)}.${format}${query}`;
+  const params = new URLSearchParams();
+  if (layoutMode === 'stack') params.set('layout', 'stack');
+  params.set('v', String(AR_MODEL_VERSION));
+  return `/ar${encodeComparison(items)}.${format}?${params}`;
 }
 
 // Launches the comparison on whichever viewer this device has. Both platforms are served now, so the

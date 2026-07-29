@@ -221,8 +221,9 @@ export async function arModel(
   const mode: LayoutMode = url.searchParams.get('layout') === 'stack' ? 'stack' : 'row';
   const canonical = encodeComparison(items);
   if (canonical !== `/${spec}`) {
-    const to = new URL(`/ar${canonical}${ext}`, url.origin);
-    if (mode === 'stack') to.searchParams.set('layout', 'stack');
+    // Carry the query across verbatim: it holds the layout and the generator version, and dropping the
+    // latter would land the client on a URL whose cached copy predates the current generator.
+    const to = new URL(`/ar${canonical}${ext}${url.search}`, url.origin);
     return Response.redirect(to.toString(), 301);
   }
 

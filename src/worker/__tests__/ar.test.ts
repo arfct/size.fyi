@@ -240,3 +240,34 @@ describe('/ar/<comparison>.glb', () => {
     expect((await SELF.fetch('https://size.fyi/ar/not-a-device.glb')).status).toBe(404);
   });
 });
+
+// Regression: the route caches immutably, so the generator version travels in the URL. A redirect that
+// dropped it would land the client on a URL whose cached copy predates the current generator — which is
+// how a fixed GLB kept being served broken.
+describe('generator version', () => {
+  test('is preserved across the canonicalising redirect', async () => {
+    const res = await SELF.fetch('https://size.fyi/ar/galaxy-z-fold8.glb?v=2', {
+      redirect: 'manual',
+    });
+    expect(res.status).toBe(301);
+    const loc = res.headers.get('location') ?? '';
+    expect(loc).toContain('/ar/galaxy-z-fold8-closed.glb');
+    expect(loc).toContain('v=2');
+  });
+
+  test('keeps the layout alongside it', async () => {
+    const res = await SELF.fetch('https://size.fyi/ar/galaxy-z-fold8.glb?layout=stack&v=2', {
+      redirect: 'manual',
+    });
+    const loc = res.headers.get('location') ?? '';
+    expect(loc).toContain('layout=stack');
+    expect(loc).toContain('v=2');
+  });
+
+  test('an unknown version still serves a model rather than failing', async () => {
+    // The Worker doesn't interpret `v`; it only widens the cache key.
+    const res = await SELF.fetch(`${GLB}?v=999`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('model/gltf-binary');
+  });
+});
