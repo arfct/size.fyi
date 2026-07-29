@@ -1,6 +1,7 @@
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Scan } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { View } from '../../shared/types';
+import { canLaunchComparisonAR, comparisonArUrl, launchQuickLook } from '../ar';
 import { setStoredUnits } from '../localStore';
 import { useComparison } from '../store';
 
@@ -134,6 +135,29 @@ export default function ViewMenu() {
               {u.label} {check(state.units === u.units)}
             </button>
           ))}
+
+          {/* An action rather than a setting, so it sits below the radio groups with its own icon and
+              no checkmark. Hidden unless the device can actually place it: the comparison model is
+              USDZ-only (see canLaunchComparisonAR), and with nothing in the comparison there'd be
+              nothing to place. */}
+          {canLaunchComparisonAR() && state.items.length > 0 && (
+            <>
+              <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  // The current layout rides along — a stack and a row are different models.
+                  launchQuickLook(comparisonArUrl(state.items, state.layoutMode));
+                }}
+                className={itemClass(false)}
+              >
+                View in AR
+                <Scan size={14} aria-hidden className="text-stone-500 dark:text-stone-400" />
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

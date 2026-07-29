@@ -1,6 +1,8 @@
 // Mobile AR launch. iOS/iPadOS: AR Quick Look via a `rel="ar"` anchor to a USDZ. Android: Scene
 // Viewer via an intent URL to a GLB. Assets are opaque and real-scale (AR Quick Look culls
 // geometry inside transparent models), pre-generated per device — see scripts/build-ar.mjs.
+import type { ComparisonItem, LayoutMode } from '../shared/types';
+import { encodeComparison } from '../shared/urlCodec';
 
 export interface ARTarget {
   usdzUrl: string;
@@ -37,17 +39,41 @@ export function sceneViewerUrl(glbUrl: string, title: string, fallbackUrl: strin
   );
 }
 
+// Hands a USDZ to AR Quick Look. Synthesizing the anchor is the only way in — there's no JS API.
+export function launchQuickLook(usdzUrl: string): void {
+  const a = document.createElement('a');
+  a.rel = 'ar';
+  a.href = usdzUrl;
+  a.appendChild(document.createElement('img')); // Quick Look requires a child element
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export function launchAR({ usdzUrl, glbUrl, title }: ARTarget): void {
   if (supportsQuickLook()) {
-    const a = document.createElement('a');
-    a.rel = 'ar';
-    a.href = usdzUrl;
-    a.appendChild(document.createElement('img')); // Quick Look requires a child element
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    launchQuickLook(usdzUrl);
   } else if (isAndroid()) {
     window.location.href = sceneViewerUrl(glbUrl, title, window.location.href);
   }
+}
+
+// The whole-comparison model is USDZ-only: the Worker composes it by referencing per-item USD layers,
+// and glTF has no equivalent composition arc, so there's no Android counterpart yet (A-151). Gate the
+// comparison AR affordance on this rather than canLaunchAR, which also passes on Android.
+export function canLaunchComparisonAR(): boolean {
+  const touch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+  return touch && supportsQuickLook();
+}
+
+// The Worker route for a comparison — generated on request, so any set of items resolves. The path is
+// the same grammar as the shareable URL, and `encodeComparison` is already canonical (explicit device
+// states), so this never triggers the route's normalizing redirect.
+//
+// Layout rides along because a stack and a row are genuinely different models: `?layout=stack` for
+// stacked, omitted for side-by-side since that's the route's default.
+export function comparisonArUrl(items: ComparisonItem[], layoutMode: LayoutMode): string {
+  const query = layoutMode === 'stack' ? '?layout=stack' : '';
+  return `/ar${encodeComparison(items)}.usdz${query}`;
 }
