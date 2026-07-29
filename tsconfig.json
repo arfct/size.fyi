@@ -11,6 +11,6 @@
     "skipLibCheck": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "scripts"],
+  "include": ["src"],
   "exclude": ["src/worker"]
 }

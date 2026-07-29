@@ -10,7 +10,7 @@
     "test:worker": "npm run build && vitest run -c vitest.workers.config.mts",
     "validate": "node scripts/build-catalog.mjs --check",
     "check": "biome check",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p src/worker/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/worker/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
     "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
@@ -23,6 +23,7 @@
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^26.1.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.185.1",
