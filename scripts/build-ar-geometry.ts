@@ -50,7 +50,8 @@ function packPart(
 ): GlbPart {
   const pos = geo.attributes.position;
   if (!pos) throw new Error('geometry has no position attribute');
-  const push = (data: Float32Array | Uint32Array, count: number): GlbRange => {
+  type Packable = Float32Array | Uint32Array | Uint16Array | Uint8Array;
+  const push = (data: Packable, count: number): GlbRange => {
     const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     const range = { byteOffset: at.offset, byteLength: bytes.length, count };
     chunks.push(bytes);
@@ -72,9 +73,25 @@ function packPart(
   const part: GlbPart = { position: push(posArr, pos.count), min, max };
   const nor = geo.attributes.normal;
   if (nor) part.normal = push(new Float32Array(nor.array as ArrayLike<number>), nor.count);
-  // Widened to Uint32 regardless of source width, so the Worker only ever emits one accessor type.
+
+  // Uint16 wherever it fits, which is everywhere in this catalog — the largest body is ~2.5k vertices.
+  // Uint32 indices are legal glTF but the thing every mobile renderer is least likely to accept, and
+  // Scene Viewer rejected them. Uint32 stays available in case an imported model ever needs it.
   if (geo.index) {
-    part.index = push(new Uint32Array(geo.index.array as ArrayLike<number>), geo.index.count);
+    const src = geo.index.array as ArrayLike<number>;
+    let maxIndex = 0;
+    for (let i = 0; i < src.length; i++) if (src[i]! > maxIndex) maxIndex = src[i]!;
+    if (maxIndex < 65536) {
+      part.index = push(new Uint16Array(src), geo.index.count);
+      part.indexComponentType = 5123;
+      // Uint16 data can end on a 2-byte boundary; pad with real bytes so the next part's float ranges
+      // stay 4-aligned. Bumping the offset alone would desync it from the assembled blob.
+      const pad = (4 - (at.offset % 4)) % 4;
+      if (pad) push(new Uint8Array(pad), 0);
+    } else {
+      part.index = push(new Uint32Array(src), geo.index.count);
+      part.indexComponentType = 5125;
+    }
   }
   return part;
 }

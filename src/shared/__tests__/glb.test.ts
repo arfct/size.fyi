@@ -35,7 +35,8 @@ describe('boxGlb', () => {
     expect(part.position.count).toBe(24);
     expect(part.normal?.count).toBe(24);
     expect(part.index?.count).toBe(36);
-    expect(blob.length).toBe(24 * 12 + 24 * 12 + 36 * 4);
+    // Indices are uint16, so 2 bytes each; the blob is positions + normals + indices.
+    expect(blob.length).toBe(24 * 12 + 24 * 12 + 36 * 2);
   });
 
   test('reports bounds matching the requested dimensions', () => {
@@ -132,5 +133,51 @@ describe('buildGlb', () => {
     const { json } = parse(buildGlb([blob], [place({ part: noIndex })], 0.001));
     expect(json.meshes[0].primitives[0].indices).toBeUndefined();
     expect(json.accessors.length).toBe(2); // position + normal only
+  });
+});
+
+// Regression: Scene Viewer answered "Unable to view in your space" for a GLB that three and
+// gltf-transform both read happily. Three structural differences from a GLB known to work on Android
+// explained it — these lock in all three.
+describe('Scene Viewer compatibility', () => {
+  test('uses UNSIGNED_SHORT indices, not UNSIGNED_INT', () => {
+    const { blob, part } = boxGlb(10, 20, 30);
+    expect(part.indexComponentType).toBe(5123);
+    const { json } = parse(buildGlb([blob], [place()], 0.001));
+    const idx = json.accessors[json.meshes[0].primitives[0].indices];
+    expect(idx.componentType).toBe(5123);
+  });
+
+  test('declares bufferView targets', () => {
+    const { blob } = boxGlb(10, 20, 30);
+    const { json } = parse(buildGlb([blob], [place()], 0.001));
+    const targets = json.bufferViews.map((v: { target: number }) => v.target);
+    expect(targets).toContain(34962); // ARRAY_BUFFER, for attributes
+    expect(targets).toContain(34963); // ELEMENT_ARRAY_BUFFER, for indices
+    for (const v of json.bufferViews) expect(v.target).toBeDefined();
+  });
+
+  test('states the primitive mode rather than relying on the default', () => {
+    const { blob } = boxGlb(10, 20, 30);
+    const { json } = parse(buildGlb([blob], [place()], 0.001));
+    expect(json.meshes[0].primitives[0].mode).toBe(4); // TRIANGLES
+  });
+
+  // Plumbing only — the declared component type follows the part, for geometry that ever needs the
+  // wider index type.
+  test('honours an explicit UNSIGNED_INT part', () => {
+    const { blob, part } = boxGlb(1, 1, 1);
+    const wide = { ...part, indexComponentType: 5125 as const };
+    const { json } = parse(buildGlb([blob], [place({ part: wide })], 0.001));
+    expect(json.accessors[json.meshes[0].primitives[0].indices].componentType).toBe(5125);
+  });
+
+  test('index byteOffset stays aligned to its component size', () => {
+    const { blob, part } = boxGlb(10, 20, 30);
+    const { json } = parse(buildGlb([blob], [place()], 0.001));
+    const idxAccessor = json.accessors[json.meshes[0].primitives[0].indices];
+    const view = json.bufferViews[idxAccessor.bufferView];
+    expect(view.byteOffset % 2).toBe(0);
+    expect(part.index!.byteLength).toBe(36 * 2);
   });
 });

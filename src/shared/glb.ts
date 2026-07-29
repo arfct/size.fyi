@@ -20,6 +20,9 @@ export interface GlbPart {
   position: GlbRange;
   normal?: GlbRange;
   index?: GlbRange; // absent for non-indexed geometry, which is valid glTF
+  // UNSIGNED_SHORT (5123) or UNSIGNED_INT (5125). Prefer the former: it's what every mobile renderer
+  // handles without an extension, and no item here comes close to 65536 vertices.
+  indexComponentType?: 5123 | 5125;
   // Required by the glTF spec for POSITION accessors.
   min: [number, number, number];
   max: [number, number, number];
@@ -106,7 +109,7 @@ export function boxGlb(w: number, h: number, d: number): { blob: Uint8Array; par
   ];
   const positions = new Float32Array(24 * 3);
   const normals = new Float32Array(24 * 3);
-  const indices = new Uint32Array(36);
+  const indices = new Uint16Array(36);
   faces.forEach((f, i) => {
     f.q.forEach((v, k) => {
       positions.set(v, (i * 4 + k) * 3);
@@ -116,7 +119,11 @@ export function boxGlb(w: number, h: number, d: number): { blob: Uint8Array; par
     indices.set([b, b + 1, b + 2, b, b + 2, b + 3], i * 6);
   });
 
-  const blob = new Uint8Array(positions.byteLength + normals.byteLength + indices.byteLength);
+  // Indices go last, and uint16 data can end on a 2-byte boundary (any index count not a multiple of
+  // two). Round the blob up so it stays a whole number of 4-byte words, which is what keeps every
+  // float accessor's offset 4-aligned once blobs are concatenated. A no-op at 36 indices.
+  const idxPadded = indices.byteLength + ((4 - (indices.byteLength % 4)) % 4);
+  const blob = new Uint8Array(positions.byteLength + normals.byteLength + idxPadded);
   blob.set(new Uint8Array(positions.buffer), 0);
   blob.set(new Uint8Array(normals.buffer), positions.byteLength);
   blob.set(new Uint8Array(indices.buffer), positions.byteLength + normals.byteLength);
@@ -130,6 +137,7 @@ export function boxGlb(w: number, h: number, d: number): { blob: Uint8Array; par
         byteLength: indices.byteLength,
         count: 36,
       },
+      indexComponentType: UNSIGNED_SHORT,
       min: [-x, -y, -z],
       max: [x, y, z],
     },
@@ -140,7 +148,12 @@ const GLB_MAGIC = 0x46546c67; // 'glTF'
 const JSON_CHUNK = 0x4e4f534a;
 const BIN_CHUNK = 0x004e4942;
 const FLOAT = 5126;
-const UNSIGNED_INT = 5125;
+const UNSIGNED_SHORT = 5123;
+// bufferView.target. Optional per spec, but every GLB that Scene Viewer is known to accept sets it,
+// and omitting it was one of only three structural differences from a working reference file.
+const ARRAY_BUFFER = 34962; // vertex attributes
+const ELEMENT_ARRAY_BUFFER = 34963; // indices
+const TRIANGLES = 4;
 
 function linearRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
@@ -180,14 +193,19 @@ export function buildGlb(
 
   placements.forEach((p) => {
     const base = bases[p.blob]!;
-    const view = (r: { byteOffset: number; byteLength: number }) => {
-      bufferViews.push({ buffer: 0, byteOffset: base + r.byteOffset, byteLength: r.byteLength });
+    const view = (r: { byteOffset: number; byteLength: number }, target: number) => {
+      bufferViews.push({
+        buffer: 0,
+        byteOffset: base + r.byteOffset,
+        byteLength: r.byteLength,
+        target,
+      });
       return bufferViews.length - 1;
     };
     const attributes: Record<string, number> = {};
 
     accessors.push({
-      bufferView: view(p.part.position),
+      bufferView: view(p.part.position, ARRAY_BUFFER),
       componentType: FLOAT,
       count: p.part.position.count,
       type: 'VEC3',
@@ -198,7 +216,7 @@ export function buildGlb(
 
     if (p.part.normal) {
       accessors.push({
-        bufferView: view(p.part.normal),
+        bufferView: view(p.part.normal, ARRAY_BUFFER),
         componentType: FLOAT,
         count: p.part.normal.count,
         type: 'VEC3',
@@ -209,8 +227,8 @@ export function buildGlb(
     let indices: number | undefined;
     if (p.part.index) {
       accessors.push({
-        bufferView: view(p.part.index),
-        componentType: UNSIGNED_INT,
+        bufferView: view(p.part.index, ELEMENT_ARRAY_BUFFER),
+        componentType: p.part.indexComponentType ?? UNSIGNED_SHORT,
         count: p.part.index.count,
         type: 'SCALAR',
       });
@@ -232,6 +250,7 @@ export function buildGlb(
         {
           attributes,
           ...(indices === undefined ? {} : { indices }),
+          mode: TRIANGLES,
           material: materials.length - 1,
         },
       ],
