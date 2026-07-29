@@ -11,6 +11,10 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    // Deliberately NOT single-page-application. That made every miss return index.html with a 200,
+    // which broke two things: a mistyped /models/*.usdz handed AR Quick Look a web page and a success
+    // code, and an ASSETS.fetch for a missing geometry layer looked like a hit. The Worker serves the
+    // app shell for real app routes itself and 404s anything that looks like a file — see src/worker.
+    "not_found_handling": "none"
   }
 }

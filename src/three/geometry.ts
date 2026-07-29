@@ -281,7 +281,3 @@ export function screenGeometry(item: SolidSpec): THREE.BufferGeometry | null {
   const screenR = Math.max(item.screen.radius ?? 0, item.radius ? item.radius - inset : 0);
   return new THREE.ShapeGeometry(roundedRectShape(item.screen.w, item.screen.h, screenR));
 }
-
-// How far proud of the front face the screen sits. Large enough that no renderer or AR viewer
-// z-fights it against the body, small enough to be invisible at true scale (0.4 mm on a ~8 mm phone).
-export const SCREEN_PROUD_MM = 0.4;

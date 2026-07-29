@@ -16,8 +16,9 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import * as THREE from 'three';
 import { USDZExporter } from 'three/examples/jsm/exporters/USDZExporter.js';
+import { SCREEN_PROUD_MM } from '../src/shared/ar.ts';
 import { type Device, deviceDims } from '../src/shared/types.ts';
-import { buildGeometry, SCREEN_PROUD_MM, screenGeometry } from '../src/three/geometry.ts';
+import { buildGeometry, screenGeometry } from '../src/three/geometry.ts';
 
 const MM_TO_M = 0.001;
 const DATA = 'data/devices';

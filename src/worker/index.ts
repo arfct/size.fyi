@@ -2,6 +2,7 @@ import { formatDims } from '../shared/dimensions';
 import type { Catalog, Device } from '../shared/types';
 import { itemDims } from '../shared/types';
 import { comparisonTitle, decodeComparison } from '../shared/urlCodec';
+import { arUsdz } from './ar';
 import { OG_HEIGHT, OG_WIDTH, type OgFont, renderOgImage } from './og';
 
 interface Env {
@@ -116,6 +117,15 @@ export default {
     if (url.pathname === '/api/devices') return apiDevices(env, url.origin);
     if (url.pathname.startsWith('/api/og/')) return apiOg(request, env, url.origin, ctx);
     if (url.pathname.startsWith('/api/')) return new Response('not found', { status: 404 });
+    if (url.pathname.startsWith('/ar/') && url.pathname.endsWith('.usdz')) {
+      const bySlug = await loadCatalog(env, url.origin);
+      return arUsdz(request, env.ASSETS, url.origin, bySlug, ctx);
+    }
+
+    // A path with a file extension is asking for an asset, and the asset layer has already had its
+    // chance. Falling through to the app shell would answer a missing model or image with a web page
+    // and a 200 — which AR Quick Look reports as a broken file, with nothing in the logs to explain it.
+    if (/\.[a-z0-9]+$/i.test(url.pathname)) return new Response('not found', { status: 404 });
 
     // Everything else: serve the app shell with OG tags — comparison-specific when the path decodes,
     // site defaults otherwise (so the homepage unfurls too). Owning all OG here avoids duplicate

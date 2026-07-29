@@ -16,8 +16,9 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import * as THREE from 'three';
 import { USDZExporter } from 'three/examples/jsm/exporters/USDZExporter.js';
 import { colorFor } from '../src/app/palette.ts';
+import { SCREEN_PROUD_MM } from '../src/shared/ar.ts';
 import { type Device, deviceDims } from '../src/shared/types.ts';
-import { buildGeometry, SCREEN_PROUD_MM, screenGeometry } from '../src/three/geometry.ts';
+import { buildGeometry, screenGeometry } from '../src/three/geometry.ts';
 import { computeKeys, computeTargetBounds, computeTargets } from '../src/three/layout.ts';
 
 const MM_TO_M = 0.001;
@@ -140,7 +141,8 @@ await writeFile(out, Buffer.from(usdz));
 
 // The layout's own bounds are the reference: if the exported object doesn't match them, items have
 // drifted out of the arrangement the comparison shows.
-const expected = computeTargetBounds(layoutItems, keys, targets).getSize(new THREE.Vector3());
+const eb = computeTargetBounds(layoutItems, keys, targets);
+const expected = { x: eb.max.x - eb.min.x, y: eb.max.y - eb.min.y, z: eb.max.z - eb.min.z };
 const actual = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
 const mm = (v: number) => v / MM_TO_M;
 console.log(`${name}  (${mode})`);

@@ -1,11 +1,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { SCREEN_PROUD_MM } from '../shared/ar';
 // NOTE: GLTFLoader and BufferGeometryUtils are deliberately NOT imported here — see
 // loadModelGeometry below, which pulls them in on demand.
 import { formatLengthValue } from '../shared/dimensions';
 import type { LayoutMode, Units } from '../shared/types';
-import { buildGeometry, buildSeamGeometry, SCREEN_PROUD_MM, screenGeometry } from './geometry';
-import { computeKeys, computeTargetBounds, computeTargets, type LayoutTarget } from './layout';
+import { buildGeometry, buildSeamGeometry, screenGeometry } from './geometry';
+import {
+  computeKeys,
+  computeTargetBounds,
+  computeTargets,
+  type LayoutTarget,
+  type Vec3 as LayoutVec3,
+} from './layout';
 
 // Re-exported so callers keep reaching for the scene's public surface in one place.
 export { computeKeys, computeTargetBounds, computeTargets, type LayoutTarget };
@@ -839,7 +846,8 @@ export function createScene(container: HTMLElement): SizeScene {
     );
   }
 
-  function tweenPosition(handle: ItemHandle, target: THREE.Vector3) {
+  // Takes a plain vector: layout is three-free, and Vector3.equals/lerpVectors only read x/y/z.
+  function tweenPosition(handle: ItemHandle, target: LayoutVec3) {
     const from = handle.mesh.position.clone();
     if (from.equals(target)) return;
     addTween(`${handle.keyId}:pos`, TWEEN_MS, (k) => {
@@ -1082,7 +1090,13 @@ export function createScene(container: HTMLElement): SizeScene {
     lastItems = items;
     const keys = computeKeys(items);
     const targets = computeTargets(items, keys, layoutMode);
-    bounds = computeTargetBounds(items, keys, targets);
+    // Layout returns plain vectors (it stays three-free so the Worker can use it); the renderer wants
+    // a Box3 for the camera fit and the grid.
+    const b = computeTargetBounds(items, keys, targets);
+    bounds = new THREE.Box3(
+      new THREE.Vector3(b.min.x, b.min.y, b.min.z),
+      new THREE.Vector3(b.max.x, b.max.y, b.max.z),
+    );
     // Label height is derived from the narrowest device (so ~LABEL_CHARS chars span its width);
     // recompute before building handles so new labels get the right size and existing ones rebuild
     // if it changed.

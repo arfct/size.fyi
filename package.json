@@ -2,16 +2,17 @@
   "name": "size.fyi",
   "version": "0.0.1",
   "private": true,
-  "description": "Compare the size of everyday objects — a modern sizeasy",
+  "description": "Compare the size of everyday objects \u2014 a modern sizeasy",
   "scripts": {
-    "dev": "node scripts/build-catalog.mjs && vite",
-    "build": "node scripts/build-catalog.mjs && vite build",
+    "dev": "node scripts/build-catalog.mjs && npm run build:ar && vite",
+    "build": "node scripts/build-catalog.mjs && npm run build:ar && vite build",
     "test": "vitest run",
     "test:worker": "npm run build && vitest run -c vitest.workers.config.mts",
     "validate": "node scripts/build-catalog.mjs --check",
     "check": "biome check",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/worker/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "build:ar": "node --experimental-strip-types --no-warnings scripts/build-ar-geometry.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.5",

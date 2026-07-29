@@ -1,11 +1,21 @@
 // Layout: where each item sits in the comparison, and the bounds that follow. Pure — no renderer, no
-// DOM — so the AR exporters can place items exactly where the viewer does. Kept out of scene.ts for
-// the same reason as geometry.ts: a build script or Worker can't import the renderer.
+// DOM, and deliberately no three.js either — so the AR exporters place items exactly where the viewer
+// does. Kept out of scene.ts for the same reason as geometry.ts: a build script or Worker can't import
+// the renderer.
+//
+// Positions are plain {x,y,z} rather than THREE.Vector3 so the Worker can compose an AR scene without
+// bundling three for two vector classes. Vector3.copy/lerpVectors/equals all read .x/.y/.z, so the
+// renderer consumes these unchanged.
 //
 // LayoutMode is imported as a type only, which Node's type stripping erases outright — scene.ts can't
 // be imported outside a bundler because its value imports omit file extensions.
-import * as THREE from 'three';
 import type { LayoutMode } from '../shared/types';
+
+export interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
 
 // The layout-relevant subset of LayoutItem, structural so this module needn't import from scene.ts.
 export interface LayoutItem {
@@ -19,7 +29,7 @@ export interface LayoutItem {
 }
 
 export interface LayoutTarget {
-  pos: THREE.Vector3;
+  pos: Vec3;
   renderOrder: number;
 }
 
@@ -75,7 +85,7 @@ export function computeTargets(
     seq.forEach(({ item, key }, idx) => {
       // Left edge at x=0 (center at w/2) so items align at the bottom-left corner, not centered.
       targets.set(key, {
-        pos: new THREE.Vector3(item.w / 2, item.h / 2, z + item.d / 2),
+        pos: { x: item.w / 2, y: item.h / 2, z: z + item.d / 2 },
         renderOrder: idx,
       });
       z += item.d + Math.min(gapBetween(seq, idx), MAX_STACK_GAP); // cap the stack gap at 1 cm
@@ -84,7 +94,7 @@ export function computeTargets(
     let x = 0; // left edge; kept on a whole-centimetre line so each front-left corner lands on a grid mark
     order.forEach(({ item, key }) => {
       targets.set(key, {
-        pos: new THREE.Vector3(x + item.w / 2, item.h / 2, -item.d / 2),
+        pos: { x: x + item.w / 2, y: item.h / 2, z: -item.d / 2 },
         renderOrder: 0,
       });
       x = Math.ceil((x + item.w) / ROW_CM) * ROW_CM + ROW_CM; // next corner on a cm line, 1–2 cm gap
@@ -93,24 +103,32 @@ export function computeTargets(
   return targets;
 }
 
-// Builds a Box3 from TARGET positions/dims (not the live, possibly mid-tween, group) — used both
-// for the camera refit and the grid recompute. Pure — exported for direct unit testing.
+// Bounds from TARGET positions/dims (not the live, possibly mid-tween, group) — used for the camera
+// refit, the grid recompute, and the AR exporters' placement check. Pure — exported for direct unit
+// testing. Screened items get a little extra depth so the camera fit clears the proud screen face.
 export function computeTargetBounds(
   items: LayoutItem[],
   keys: string[],
   targets: Map<string, LayoutTarget>,
-): THREE.Box3 {
+): { min: Vec3; max: Vec3 } {
   if (items.length === 0) {
-    return new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
+    return { min: { x: -100, y: 0, z: -100 }, max: { x: 100, y: 100, z: 100 } };
   }
-  const box = new THREE.Box3();
+  const min = { x: Infinity, y: Infinity, z: Infinity };
+  const max = { x: -Infinity, y: -Infinity, z: -Infinity };
+  const expand = (p: Vec3) => {
+    min.x = Math.min(min.x, p.x);
+    min.y = Math.min(min.y, p.y);
+    min.z = Math.min(min.z, p.z);
+    max.x = Math.max(max.x, p.x);
+    max.y = Math.max(max.y, p.y);
+    max.z = Math.max(max.z, p.z);
+  };
   items.forEach((item, i) => {
     const t = targets.get(keys[i]!)!;
-    const half = new THREE.Vector3(item.w / 2, item.h / 2, item.d / 2);
-    box.expandByPoint(t.pos.clone().sub(half));
-    box.expandByPoint(t.pos.clone().add(half));
-    if (item.screen)
-      box.expandByPoint(t.pos.clone().add(new THREE.Vector3(0, 0, item.d / 2 + 0.5)));
+    expand({ x: t.pos.x - item.w / 2, y: t.pos.y - item.h / 2, z: t.pos.z - item.d / 2 });
+    expand({ x: t.pos.x + item.w / 2, y: t.pos.y + item.h / 2, z: t.pos.z + item.d / 2 });
+    if (item.screen) expand({ x: t.pos.x, y: t.pos.y, z: t.pos.z + item.d / 2 + 0.5 });
   });
-  return box;
+  return { min, max };
 }
