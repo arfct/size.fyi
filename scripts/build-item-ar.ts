@@ -4,7 +4,10 @@
 // ones); the full pipeline will fold it into build-ar.mjs once the open questions below are settled.
 //
 // TypeScript rather than .mjs because it imports src/three/geometry.ts, so it runs under Node's type
-// stripping: node --experimental-strip-types scripts/build-item-ar.ts <slug>
+// stripping: node --experimental-strip-types scripts/build-item-ar.ts <slug> [state]
+//
+// A state is required for items whose dimensions live in `states` (foldables) — a closed Fold and an
+// open one are different objects, so each gets its own asset.
 //
 // Two things deliberately NOT decided here:
 //   - The screen sits SCREEN_PROUD_MM off the front face, a figure chosen for the WebGL renderer's
@@ -13,13 +16,15 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import * as THREE from 'three';
 import { USDZExporter } from 'three/examples/jsm/exporters/USDZExporter.js';
+import { type Device, deviceDims } from '../src/shared/types.ts';
 import { buildGeometry, SCREEN_PROUD_MM, screenGeometry } from '../src/three/geometry.ts';
 
 const MM_TO_M = 0.001;
 const DATA = 'data/devices';
 const slug = process.argv[2];
+const stateArg = process.argv[3];
 if (!slug) {
-  console.error('usage: node --experimental-strip-types scripts/build-item-ar.ts <slug>');
+  console.error('usage: node --experimental-strip-types scripts/build-item-ar.ts <slug> [state]');
   process.exit(1);
 }
 
@@ -35,17 +40,28 @@ async function findItem(want: string) {
   return null;
 }
 
-const item = await findItem(slug);
+const item: Device | null = await findItem(slug);
 if (!item) {
   console.error(`no catalog item "${slug}" under ${DATA}/`);
   process.exit(1);
 }
 
+// Foldables and cases keep their dimensions per state, so resolve through the app's own resolver.
+// Reject an unknown label rather than letting activeState() fall back to states[0] — silently
+// shipping the open Fold when "closed" was asked for is exactly the kind of lie this asset can't tell.
+if (stateArg && !item.states?.some((s) => s.label === stateArg)) {
+  const known = item.states?.map((s) => s.label).join(', ') ?? 'none';
+  console.error(`"${slug}" has no state "${stateArg}" (states: ${known})`);
+  process.exit(1);
+}
+const dims = deviceDims(item, stateArg);
+
 // Opaque materials: AR Quick Look frustum-culls geometry inside transparent models, so the
 // translucent on-screen look can't carry over (see docs/2026-07-20-mobile-ar-plan.md).
-const body = buildGeometry(item);
+const spec = { ...dims, mesh: item.mesh };
+const body = buildGeometry(spec);
 body.computeVertexNormals();
-const screen = screenGeometry(item);
+const screen = screenGeometry(spec);
 screen?.computeVertexNormals();
 
 const root = new THREE.Group();
@@ -60,8 +76,15 @@ if (screen) {
     screen,
     new THREE.MeshStandardMaterial({ color: 0x1c1f22, metalness: 0, roughness: 0.35 }),
   );
-  screenMesh.position.set(0, 0, item.d / 2 + SCREEN_PROUD_MM);
+  screenMesh.position.set(0, 0, dims.d / 2 + SCREEN_PROUD_MM);
   root.add(screenMesh);
+}
+// The fold parting line is LineSegments in the viewer, and USDZExporter only walks meshes — so a
+// closed foldable loses its seam rather than exporting a broken one. Say so instead of hiding it.
+if (dims.seam) {
+  console.warn(
+    `  warn      ${slug} has a fold seam; line geometry has no USDZ equivalent, omitted`,
+  );
 }
 // Author in metres — AR reads real-world scale off the file, and our geometry is millimetres.
 root.scale.setScalar(MM_TO_M);
@@ -71,29 +94,32 @@ scene.add(root);
 scene.updateMatrixWorld(true);
 
 const usdz = await new USDZExporter().parseAsync(scene);
-const out = `${process.env.OUT_DIR ?? 'public/models'}/${slug}-ar.usdz`;
+// State goes in the filename: a closed Fold and an open one are different objects at different sizes.
+const name = stateArg ? `${slug}-${stateArg}` : slug;
+const out = `${process.env.OUT_DIR ?? 'public/models'}/${name}-ar.usdz`;
 await writeFile(out, Buffer.from(usdz));
 
 // Dimensional honesty check — the whole feature is worthless if AR lies about size. Width and height
 // must match the catalog exactly; depth is expected to exceed it by SCREEN_PROUD_MM on screened items.
 const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
 const mm = (v: number) => v / MM_TO_M;
-const expectedD = item.d + (screen ? SCREEN_PROUD_MM : 0);
+const expectedD = dims.d + (screen ? SCREEN_PROUD_MM : 0);
 const off = [
-  Math.abs(mm(size.x) - item.w),
-  Math.abs(mm(size.y) - item.h),
+  Math.abs(mm(size.x) - dims.w),
+  Math.abs(mm(size.y) - dims.h),
   Math.abs(mm(size.z) - expectedD),
 ];
 const verts = (g: THREE.BufferGeometry | null) => g?.attributes.position?.count ?? 0;
-console.log(`${item.name} → ${out}  (${(usdz.byteLength / 1024).toFixed(1)} kB)`);
+const label = stateArg ? `${item.name} (${stateArg})` : item.name;
+console.log(`${label} → ${out}  (${(usdz.byteLength / 1024).toFixed(1)} kB)`);
 console.log(`  verts     body ${verts(body)}, screen ${verts(screen)}`);
-console.log(`  catalog   ${item.w} × ${item.h} × ${item.d} mm`);
+console.log(`  catalog   ${dims.w} × ${dims.h} × ${dims.d} mm`);
 console.log(
   `  exported  ${mm(size.x).toFixed(3)} × ${mm(size.y).toFixed(3)} × ${mm(size.z).toFixed(3)} mm`,
 );
 if (screen) {
   console.log(
-    `  note      depth is ${SCREEN_PROUD_MM} mm over the real ${item.d} mm — the screen floats proud of the face`,
+    `  note      depth is ${SCREEN_PROUD_MM} mm over the real ${dims.d} mm — the screen floats proud of the face`,
   );
 }
 if (off.some((d) => d > 0.001)) {
