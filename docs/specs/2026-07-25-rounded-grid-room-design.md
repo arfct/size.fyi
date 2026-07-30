@@ -12,7 +12,7 @@ from three orthogonal stacks of rounded-rectangle line rings.
 
 - One rounded box instead of six planes: a cube whose side is twice the content's largest dimension,
   centred on the content (so a flat object still gets a room with depth).
-- Corner rounding with a configurable radius (default 7 units), wide enough to read as a curve.
+- Corner rounding with a configurable radius (default 1 unit), enough to soften the edge.
 - Grid ruling stays continuous across every rounded edge (lines wrap the fillets).
 - Only inner faces visible: near-facing walls fade out, far (inner) walls draw.
 - Preserve the existing integer-cm alignment — grid lines pass through object corners.
@@ -47,9 +47,10 @@ Constants:
 
 - `GRID_PAD_SCALE` — padding per side as a fraction of the content's **largest** dimension. `0.5`,
   so the room's side is twice that dimension.
-- `GRID_RADIUS` — corner fillet radius. `7 * unitMM` (7 units). A whole number of units, so the fillet
-  tangents land on grid lines in either unit system. Wide enough that the fillet spans several grid
-  columns and the ruling visibly compresses as the surface turns away; a tight radius reads as a crease.
+- `GRID_RADIUS` — corner fillet radius. `1 * unitMM` (1 unit). A whole number of units, so the fillet
+  tangents land on grid lines in either unit system. Originally 7, so the fillet spanned several grid
+  columns and the ruling visibly compressed as the surface turned away. Now 1: the fillet is a single
+  column, the compression is gone, and the corner reads as a chamfer on a box rather than a curve.
 
 **The room is a CUBE, sized from the largest content dimension.** Padding proportional to each axis
 separately would give a flat object (a tablet 5 mm deep) a room with almost no depth, so all three

@@ -146,9 +146,11 @@ export function gridSpec(units: Units, span: number) {
 // number of grid units, which (with the lattice-snapped faces) keeps the fillet tangents (face ∓ radius)
 // on grid lines so the wrapping ruling stays aligned.
 const GRID_PAD_SCALE = 0.5;
-// Wide enough that the fillet spans several grid columns, so the ruling visibly compresses as the
-// surface turns away — a tight radius reads as a crease instead of a curve.
-const GRID_RADIUS_UNITS = 7;
+// One unit: the corner reads as a chamfer that softens the edge rather than a broad curve. This was 7,
+// chosen so the fillet spanned several grid columns and the ruling visibly compressed as the surface
+// turned away; at 1 unit the fillet is a single column, so that compression is gone and the corner is
+// closer to a crease. That's the intended look now — the room reads as a box, not a rounded shell.
+const GRID_RADIUS_UNITS = 1;
 const GRID_MAX_UNITS_PER_AXIS = 48; // coarsen the ring spacing past this so huge objects stay bounded
 const RING_ARC_SEGS = 14; // polyline segments per quarter-circle corner
 // The room is a backdrop, so it must draw before every item. Nothing in the scene writes depth (see
