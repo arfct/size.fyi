@@ -158,7 +158,9 @@ describe('walls line up at the edges', () => {
 });
 
 describe('buildGridRings', () => {
-  const box = { min: { x: -85, y: -105, z: -165 }, max: { x: 245, y: 225, z: 165 } };
+  // Built by gridBox, not by hand: the faces have to be on the ruling lattice for face rings to exist at
+  // all, and a hand-picked box that misses it silently skips everything about the edges.
+  const box = gridBox({ x: 0, y: 0, z: 0 }, { x: 161.9, y: 131.5, z: 8.05 }, 0.5, 10, 10);
 
   // Regression: the room briefly divided by a zero fillet radius, giving 0/0 = NaN at every vertex.
   // Nothing threw, no test failed, and the entire grid silently vanished from the render.
@@ -184,15 +186,56 @@ describe('buildGridRings', () => {
     });
   }
 
-  test('emits four edges per ring — eight vertices, not a shared-vertex loop', () => {
-    const group = buildGridRings(box, 10, 10);
-    let vertices = 0;
-    group.traverse((o) => {
+  // Collects every emitted segment as an order-independent key, so duplicates are detectable.
+  const segments = (unitMM: number, fine: number) => {
+    const out: string[] = [];
+    buildGridRings(box, unitMM, fine).traverse((o) => {
       const attr = (o as THREE.LineSegments).geometry?.attributes?.position;
-      if (attr) vertices += attr.count;
+      if (!attr) return;
+      for (let i = 0; i < attr.count; i += 2) {
+        const p = (k: number) =>
+          [attr.getX(k), attr.getY(k), attr.getZ(k)].map((v) => v.toFixed(4)).join(',');
+        out.push([p(i), p(i + 1)].sort().join(' -> '));
+      }
     });
+    return out;
+  };
+
+  test('emits four edges per ring, less the box edges that two families share', () => {
     const rings = gridRingSpecs(box.min, box.max, 10, 10).reduce((n, f) => n + f.rings.length, 0);
-    expect(vertices).toBe(rings * 8);
+    // Every ring contributes four sides, except that the twelve box edges would each be emitted twice
+    // (once per adjoining face ring) and one copy of each is dropped.
+    expect(segments(10, 10)).toHaveLength(rings * 4 - 12);
+  });
+
+  test('draws no line twice — the box edges are not double-stroked', () => {
+    // Regression: face rings from two families both drew each box edge, compositing to a visibly darker
+    // line than every other line in the room.
+    for (const [unitMM, fine] of [
+      [10, 10],
+      [25.4, 12.7],
+    ]) {
+      const segs = segments(unitMM!, fine!);
+      expect(new Set(segs).size).toBe(segs.length);
+    }
+  });
+
+  test('the twelve box edges are each drawn exactly once', () => {
+    const segs = segments(10, 10);
+    const at = (v: number, lo: number, hi: number) =>
+      Math.abs(v - lo) < 1e-3 || Math.abs(v - hi) < 1e-3;
+    // A box edge has two of its three coordinates pinned to a face at both endpoints.
+    const edges = segs.filter((k) => {
+      const [a] = k.split(' -> ');
+      const [x, y, z] = a!.split(',').map(Number);
+      const pinned = [
+        at(x!, box.min.x, box.max.x),
+        at(y!, box.min.y, box.max.y),
+        at(z!, box.min.z, box.max.z),
+      ].filter(Boolean).length;
+      return pinned === 3; // an endpoint of a box edge is a box corner
+    });
+    expect(edges).toHaveLength(12);
   });
 
   test('every normal is a unit axis direction, perpendicular to its ring family', () => {

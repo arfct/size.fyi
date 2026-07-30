@@ -18,6 +18,11 @@
 > an edge agree there to the micron, and those face rings are what stroke the room's twelve edges. They
 > are major lines, because `snap` is also a whole unit.
 >
+> Each box edge is reached by two families — the edge where x=min meets y=max belongs to family x's ring
+> at x=min and to family y's ring at y=max — so one copy is dropped, assigning the edge to the
+> lower-ordered axis. Drawn twice it composited to a visibly darker line than every other. Halving the
+> opacity would not have matched it: two layers at a/2 composite to 1-(1-a/2)², which undershoots a.
+>
 > The two rejected attempts, since both looked plausible: snapping to the *unit* while ruling by a
 > different step (half-inch lines, or a coarsened step for large content) left the last cell short of the
 > wall. Offsetting faces half a unit put the edge mid-cell, so each wall's ruling stopped at a different

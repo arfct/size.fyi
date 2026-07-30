@@ -227,10 +227,13 @@ export function gridStep(units: Units, span: number, minPad: number) {
   return { unitMM, fine, snap: Math.max(unitMM, fine) };
 }
 
-// One ring in a family: where it sits along the axis, and whether it's a major (whole-unit) line.
+// One ring in a family: where it sits along the axis, whether it's a major (whole-unit) line, and
+// whether it lies on one of the room's two faces along that axis. A face ring's four sides run along box
+// edges, which the perpendicular families also reach — see buildGridRings for who draws them.
 export interface RingSpec {
   coord: number;
   major: boolean;
+  face: boolean;
 }
 
 // One family of rings, perpendicular to `axis`, centred at (cu, cv) with half-extents (halfU, halfV) in
@@ -263,7 +266,8 @@ export function gridRingSpecs(min: Vec3, max: Vec3, unitMM: number, fine: number
   ): RingFamily => {
     const rings: RingSpec[] = [];
     for (let c = Math.ceil(a0 / fine - 1e-6) * fine; c <= a1 + 1e-6; c += fine) {
-      rings.push({ coord: c, major: onUnit(c) });
+      const face = Math.abs(c - a0) < 1e-6 || Math.abs(c - a1) < 1e-6;
+      rings.push({ coord: c, major: onUnit(c), face });
     }
     return {
       axis,
@@ -310,13 +314,28 @@ export function buildGridRings(
     [0, 1],
     [0, -1],
   ] as const;
+  // A face ring's four sides run along box edges, and each box edge is reached by two families: the edge
+  // where faces x=min and y=max meet belongs to family x's ring at x=min AND family y's ring at y=max.
+  // Drawn twice it composites to a darker line than every other, which reads as an accident rather than
+  // an emphasis — so each edge is assigned to the lower-ordered of the two axes and drawn once.
+  //
+  // Halving the opacity instead would not have matched: two layers at a/2 composite to 1-(1-a/2)², which
+  // undershoots a. Only drawing it once is exact.
+  const AXIS_UV = { x: ['y', 'z'], y: ['x', 'z'], z: ['x', 'y'] } as const;
+  const AXIS_ORDER = { x: 0, y: 1, z: 2 } as const;
   for (const fam of families) {
+    const [uAxis, vAxis] = AXIS_UV[fam.axis];
     for (const ring of fam.rings) {
       const pos = ring.major ? majorPos : minorPos,
         norm = ring.major ? majorNorm : minorNorm;
       for (const [du, dv] of EDGES) {
         // The edge runs along whichever of u/v the normal is perpendicular to.
         const alongU = du === 0;
+        if (ring.face) {
+          // This side lies on a box edge; the other family sharing it is the one its normal points along.
+          const sharer = alongU ? vAxis : uAxis;
+          if (AXIS_ORDER[fam.axis] > AXIS_ORDER[sharer]) continue;
+        }
         for (const end of [-1, 1]) {
           const u = fam.cu + (alongU ? end * fam.halfU : du * fam.halfU);
           const v = fam.cv + (alongU ? dv * fam.halfV : end * fam.halfV);
