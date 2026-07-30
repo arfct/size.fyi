@@ -162,10 +162,15 @@ const GRID_RENDER_ORDER = -1;
 // can be tightened without also swinging the viewing angle.
 //
 // ORTHO_MARGIN is the fraction of slack around the content in the flat views; 1.0 would fit it exactly to
-// the frame edge. The front view adds its own label padding on top, since labels overhang the boxes.
+// the frame edge.
+//
+// Don't take this much below 1.06. Side and top have no other padding, so the tallest item lands at
+// 1/ORTHO_MARGIN of the frame height and its stroke touches the edge — at 1.02 a 131.5 mm phone filled
+// 98% of the frame and read as clipped. The front view masks this, because its label padding adds slack
+// that the other two don't have.
 const VIEW_3D_DIR = { x: 1.2, y: 0.9, z: 1.6 };
 const VIEW_3D_BACKOFF = 0.85;
-const ORTHO_MARGIN = 1.02;
+const ORTHO_MARGIN = 1.06;
 // Fade shaping. Visibility is a screen-space "flashlight": a radial gradient centred on the room, full
 // inside GRID_LIGHT_INNER and gone by GRID_LIGHT_OUTER, measured in NDC radius (1 = viewport edge, so
 // the pool conforms to the canvas). GRID_FACING_CULL is only wide enough to drop the near-facing walls
