@@ -1,8 +1,6 @@
-import { Check, ChevronDown, Scan } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { View } from '../../shared/types';
-import { comparisonTitle } from '../../shared/urlCodec';
-import { canLaunchAR, launchComparisonAR } from '../ar';
 import { setStoredUnits } from '../localStore';
 import { useComparison } from '../store';
 
@@ -21,10 +19,10 @@ const UNITS: Array<{ units: 'metric' | 'imperial'; label: string }> = [
   { units: 'imperial', label: 'Imperial' },
 ];
 
-// Single dropdown that owns every display control — view (3D/front/side/top), layout
-// (side-by-side vs stack), and units (metric/imperial). Used identically on both breakpoints:
-// inline in the mobile top toolbar and floating over the canvas (top-right) on desktop.
-// Self-contained dropdown (mousedown-outside + Escape close).
+// Single dropdown that owns every display SETTING — view (3D/front/side/top), layout (side-by-side vs
+// stack), and units (metric/imperial). Actions live outside it: see ArButton, which sits beside the
+// trigger. Used identically on both breakpoints: inline in the mobile top toolbar and floating over the
+// canvas (top-right) on desktop. Self-contained dropdown (mousedown-outside + Escape close).
 export default function ViewMenu() {
   const { state, dispatch } = useComparison();
   const [open, setOpen] = useState(false);
@@ -136,29 +134,6 @@ export default function ViewMenu() {
               {u.label} {check(state.units === u.units)}
             </button>
           ))}
-
-          {/* An action rather than a setting, so it sits below the radio groups with its own icon and
-              no checkmark. Hidden unless the device can actually place it, and unless there's
-              something in the comparison to place. */}
-          {canLaunchAR() && state.items.length > 0 && (
-            <>
-              <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  // The current layout rides along — a stack and a row are different models. The
-                  // title is only read by Android's Scene Viewer, which shows it in its UI.
-                  launchComparisonAR(state.items, state.layoutMode, comparisonTitle(state.items));
-                }}
-                className={itemClass(false)}
-              >
-                View in AR
-                <Scan size={14} aria-hidden className="text-stone-500 dark:text-stone-400" />
-              </button>
-            </>
-          )}
         </div>
       )}
     </div>

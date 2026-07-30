@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import ArButton from './components/ArButton';
 import ItemDialog, { type DialogState } from './components/ItemDialog';
 import ItemList from './components/ItemList';
 import RecentComparisons from './components/RecentComparisons';
@@ -41,6 +42,7 @@ function Shell() {
         </a>
         <div className="flex items-center gap-2">
           <ShareButton />
+          <ArButton />
           <ViewMenu />
         </div>
       </div>
@@ -82,7 +84,8 @@ function Shell() {
       <section className="relative z-0 order-1 -mt-14 aspect-square shrink-0 overflow-hidden md:order-2 md:mt-0 md:aspect-auto md:h-screen md:flex-1 md:shrink md:pointer-events-none">
         {/* Desktop-only floating display menu (top-right). Opts back into pointer events since the
             section is md:pointer-events-none so orbit drags reach the canvas behind it. */}
-        <div className="pointer-events-auto absolute right-3 top-3 z-10 hidden md:block">
+        <div className="pointer-events-auto absolute right-3 top-3 z-10 hidden items-center gap-2 md:flex">
+          <ArButton />
           <ViewMenu />
         </div>
         {!isDesktop && <Viewer />}
