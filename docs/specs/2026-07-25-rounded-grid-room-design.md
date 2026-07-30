@@ -12,7 +12,8 @@ from three orthogonal stacks of rounded-rectangle line rings.
 
 - One rounded box instead of six planes: a cube whose side is twice the content's largest dimension,
   centred on the content (so a flat object still gets a room with depth).
-- Corner rounding with a configurable radius (default 1 unit), enough to soften the edge.
+- Corner rounding with a configurable radius. **Default 0: square corners.** The fillet machinery
+  remains, and a whole-unit radius still works, but see `GRID_RADIUS` for why 0 is the default.
 - Grid ruling stays continuous across every rounded edge (lines wrap the fillets).
 - Only inner faces visible: near-facing walls fade out, far (inner) walls draw.
 - Preserve the existing integer-cm alignment — grid lines pass through object corners.
@@ -47,10 +48,21 @@ Constants:
 
 - `GRID_PAD_SCALE` — padding per side as a fraction of the content's **largest** dimension. `0.5`,
   so the room's side is twice that dimension.
-- `GRID_RADIUS` — corner fillet radius. `1 * unitMM` (1 unit). A whole number of units, so the fillet
-  tangents land on grid lines in either unit system. Originally 7, so the fillet spanned several grid
-  columns and the ruling visibly compressed as the surface turned away. Now 1: the fillet is a single
-  column, the compression is gone, and the corner reads as a chamfer on a box rather than a curve.
+- `GRID_RADIUS` — corner fillet radius. **`0` (square corners).** A whole number of units, so the fillet
+  tangents land on grid lines in either unit system.
+
+  History, because the reasoning matters more than the value: 7 units originally, so the fillet spanned
+  ~22 cap rings and the compression toward the corner read as an intentional curve. Then 1 unit, which
+  gave it three cap rings at 5.00 / 8.66 / 10.00 mm on a 5 mm lattice — the final cells crushed to
+  1.34 mm and the middle ring off-grid, reading as a defect rather than a curve. Cap rings step by equal
+  ARC and so can never sit on the lattice at any non-zero radius; 0 is the only radius that puts every
+  ruling line, on every axis, on the integer lattice.
+
+  `roundedGridRingSpecs` needs no special case at 0: `capSteps` clamps to 1, the cap loop runs
+  `j = 1; j < capSteps` and emits nothing, and every ring lands in the flat core band with `w = 0`.
+- `GRID_MIN_PAD_UNITS` — minimum clearance from content to wall, `1` unit. Deliberately separate from
+  the radius, which it used to be passed: that tied the room's size to its corner shape, so reducing the
+  radius silently shrank small rooms.
 
 **The room is a CUBE, sized from the largest content dimension.** Padding proportional to each axis
 separately would give a flat object (a tablet 5 mm deep) a room with almost no depth, so all three

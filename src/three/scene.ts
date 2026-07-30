@@ -146,11 +146,23 @@ export function gridSpec(units: Units, span: number) {
 // number of grid units, which (with the lattice-snapped faces) keeps the fillet tangents (face ∓ radius)
 // on grid lines so the wrapping ruling stays aligned.
 const GRID_PAD_SCALE = 0.5;
-// One unit: the corner reads as a chamfer that softens the edge rather than a broad curve. This was 7,
-// chosen so the fillet spanned several grid columns and the ruling visibly compressed as the surface
-// turned away; at 1 unit the fillet is a single column, so that compression is gone and the corner is
-// closer to a crease. That's the intended look now — the room reads as a box, not a rounded shell.
-const GRID_RADIUS_UNITS = 1;
+// Minimum clearance between the content and each wall, so a very small object still gets a room with
+// room in it. Independent of the fillet radius: it used to be passed the radius, which quietly tied the
+// size of the room to the shape of its corners — dropping the radius shrank small rooms as a side
+// effect. One unit preserves the sizing this had at radius 1.
+const GRID_MIN_PAD_UNITS = 1;
+// Square corners. No fillet at all: every ring is a plain rectangle, so all three axes and every ruling
+// line land on the integer lattice.
+//
+// This was 7, then 1. At 7 the fillet spanned ~22 cap rings and the compression toward the corner read
+// as an intentional curve. At 1 it got three, at 5.00/8.66/10.00 mm on a 5 mm lattice — the last cells
+// crushed to 1.34 mm and the middle ring off-grid, which read as a defect rather than a curve. The cap
+// rings step by equal ARC (see roundedGridRingSpecs), so they can never sit on the lattice; the only
+// radius that puts every line on it is zero.
+//
+// roundedGridRingSpecs handles this without a special case: capSteps clamps to 1, its cap loop runs
+// `j = 1; j < capSteps` and so emits nothing, and every ring falls in the flat core band with w = 0.
+const GRID_RADIUS_UNITS = 0;
 const GRID_MAX_UNITS_PER_AXIS = 48; // coarsen the ring spacing past this so huge objects stay bounded
 const RING_ARC_SEGS = 14; // polyline segments per quarter-circle corner
 // The room is a backdrop, so it must draw before every item. Nothing in the scene writes depth (see
@@ -332,7 +344,9 @@ function roundedRectLoop(hu: number, hv: number, r: number) {
 // rounded-rectangle rings whose ruling wraps continuously over every corner. A single shader fades each
 // fragment by how much its outward surface normal faces away from the camera, so only the far (inner)
 // walls draw — replacing the old six-plane angle fade. Spacing coarsens for very large content.
-function buildRoundedGridRings(
+// Exported for testing: a NaN in the vertex normals removes the whole room from the shader without any
+// error, so a test that just asserts finite output is worth more than it looks.
+export function buildRoundedGridRings(
   box: { min: Vec3; max: Vec3 },
   radius: number,
   units: Units,
@@ -363,8 +377,12 @@ function buildRoundedGridRings(
   for (const fam of families) {
     const [uAxis, vAxis] = AXIS_UV[fam.axis];
     for (const ring of fam.rings) {
-      const s = ring.w / radius,
-        naxis = ring.dAxis / radius;
+      // Normal shaping, split between the in-plane part (scaled by s) and the axial tilt into the cap.
+      // Both are fractions of the radius, so a zero radius would make them 0/0 = NaN, and a NaN normal
+      // takes the whole room out of the shader silently. At radius 0 there are no caps: the normal is
+      // purely in-plane and untilted.
+      const s = radius === 0 ? 1 : ring.w / radius,
+        naxis = radius === 0 ? 0 : ring.dAxis / radius;
       const loop = roundedRectLoop(fam.coreHalfU + ring.w, fam.coreHalfV + ring.w, ring.w);
       const N = loop.u.length;
       const pos = ring.major ? majorPos : minorPos,
@@ -725,7 +743,14 @@ export function createScene(container: HTMLElement): SizeScene {
     const span = Math.max(s.x, s.y, s.z, 1);
     const { unitMM } = gridSpec(units, span);
     const radius = GRID_RADIUS_UNITS * unitMM;
-    const box = roundedGridBox(bounds.min, bounds.max, GRID_PAD_SCALE, radius, unitMM);
+    // Padding is its own constant, not the radius — see GRID_MIN_PAD_UNITS.
+    const box = roundedGridBox(
+      bounds.min,
+      bounds.max,
+      GRID_PAD_SCALE,
+      GRID_MIN_PAD_UNITS * unitMM,
+      unitMM,
+    );
     grids = buildRoundedGridRings(box, radius, units, span);
     scene.add(grids);
     updateGridCamera();

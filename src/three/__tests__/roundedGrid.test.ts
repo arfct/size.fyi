@@ -1,5 +1,6 @@
-import { expect, test } from 'vitest';
-import { roundedGridBox, roundedGridRingSpecs } from '../scene';
+import type * as THREE from 'three';
+import { describe, expect, test } from 'vitest';
+import { buildRoundedGridRings, roundedGridBox, roundedGridRingSpecs } from '../scene';
 
 const onLattice = (v: number, unit: number) => Math.abs(Math.round(v / unit) * unit - v) < 1e-6;
 
@@ -119,4 +120,45 @@ test('ring specs: imperial half-unit spacing marks only whole-inch core rings as
   expect(caps.some((r) => r.major)).toBe(true);
   expect(caps.some((r) => !r.major)).toBe(true);
   for (const r of caps) expect(r.major).toBe(arcStep(r.dAxis) % majorEvery === 0);
+});
+
+// Regression: the room's radius went to 0 for square corners, and the normal shaping divided the ring's
+// w and dAxis by the radius — 0/0 = NaN at every vertex. Nothing threw, no test failed, and the entire
+// grid silently vanished from the render. These assert the geometry is actually usable, not just present.
+describe('grid ring geometry is renderable', () => {
+  const box = { min: { x: -80, y: -100, z: -160 }, max: { x: 250, y: 230, z: 170 } };
+
+  for (const radius of [0, 10, 70]) {
+    test(`radius ${radius}: every position and normal is finite`, () => {
+      const group = buildRoundedGridRings(box, radius, 'metric', 330);
+      let vertices = 0;
+      group.traverse((o) => {
+        const geo = (o as THREE.LineSegments).geometry;
+        if (!geo?.attributes) return;
+        for (const name of ['position', 'normal']) {
+          const attr = geo.attributes[name];
+          if (!attr) continue;
+          for (let i = 0; i < attr.array.length; i++) {
+            expect(Number.isFinite(attr.array[i])).toBe(true);
+          }
+          if (name === 'position') vertices += attr.count;
+        }
+      });
+      // A room with no vertices renders exactly like a NaN one, so check it drew something.
+      expect(vertices).toBeGreaterThan(0);
+    });
+  }
+
+  test('radius 0 puts every ring on the flat core band, with no cap rings', () => {
+    const families = roundedGridRingSpecs(box.min, box.max, 0, 10, 10);
+    expect(families.length).toBe(3);
+    for (const fam of families) {
+      expect(fam.rings.length).toBeGreaterThan(0);
+      // dAxis !== 0 marks a cap ring; w is the ring's corner radius. Square corners have neither.
+      for (const r of fam.rings) {
+        expect(r.dAxis).toBe(0);
+        expect(r.w).toBe(0);
+      }
+    }
+  });
 });
