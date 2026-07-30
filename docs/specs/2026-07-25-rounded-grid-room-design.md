@@ -4,8 +4,12 @@
 >
 > Everything below about the *structure* still holds — three orthogonal families of rings, one per axis,
 > crossing to form the face grid, with the facing fade picking out the far walls. What's gone is the
-> rounding: no fillet radius, no cap rings, no arc-sampled corner loop, no duplicate-line dedupe. Rings
-> are plain rectangles emitted as four edges.
+> rounding: no fillet radius, no cap rings, no arc-sampled corner loop. Rings are plain rectangles
+> emitted as four edges.
+>
+> A duplicate-line dedupe still exists, but for a different reason than the one described below. The old
+> one removed a cap ring's straight runs, which two families drew along a shared fillet. The current one
+> removes a face ring's sides, which two families draw along a shared box edge — see below.
 >
 > Why: cap rings step by equal *arc*, so they can never land on the unit lattice. That's invisible at a
 > wide radius (~22 rings across the fillet, reading as an intentional curve) and obvious at a narrow one
