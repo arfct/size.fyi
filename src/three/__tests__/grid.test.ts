@@ -1,23 +1,20 @@
 import type * as THREE from 'three';
 import { describe, expect, test } from 'vitest';
-import { buildGridRings, gridBox, gridRingSpecs } from '../scene';
+import { buildGridRings, gridBox, gridRingSpecs, gridStep } from '../scene';
 
+const unitOf = (units: 'metric' | 'imperial') => (units === 'imperial' ? 25.4 : 10);
+const unitMM_ = unitOf;
 const onLattice = (v: number, unit: number) => Math.abs(Math.round(v / unit) * unit - v) < 1e-6;
-// Faces sit mid-cell: half a unit off the lattice, so each face keeps a half-unit margin at every edge
-// and two adjacent margins meet as one full cell wrapping the edge.
-const onHalfLattice = (v: number, unit: number) =>
-  Math.abs((Math.round(v / unit - 0.5) + 0.5) * unit - v) < 1e-6;
 
 describe('gridBox', () => {
-  test('is a cube sized from the largest content dimension, faces mid-cell', () => {
+  test('is a cube sized from the largest content dimension, faces on the lattice', () => {
     const unit = 10;
     // content bounds with non-integer faces (device-like widths); largest dimension is x = 171.5
     const min = { x: 0, y: 0, z: -120 },
       max = { x: 171.5, y: 90, z: 0 };
     const box = gridBox(min, max, 0.5, unit, unit);
     for (const face of [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z]) {
-      expect(onHalfLattice(face, unit)).toBe(true);
-      expect(onLattice(face, unit)).toBe(false);
+      expect(onLattice(face, unit)).toBe(true);
     }
     // equal side on every axis — a cube
     const side = box.max.x - box.min.x;
@@ -61,24 +58,27 @@ describe('gridRingSpecs', () => {
 
     for (const fam of families) {
       expect(fam.rings.length).toBeGreaterThan(0);
+      const lo = fam.axis === 'x' ? box.min.x : fam.axis === 'y' ? box.min.y : box.min.z;
+      const hi = fam.axis === 'x' ? box.max.x : fam.axis === 'y' ? box.max.y : box.max.z;
       for (const r of fam.rings) {
         expect(onLattice(r.coord, fine)).toBe(true);
-        // Faces are mid-cell, so no ring can ever land on a wall.
-        const lo = fam.axis === 'x' ? box.min.x : fam.axis === 'y' ? box.min.y : box.min.z;
-        const hi = fam.axis === 'x' ? box.max.x : fam.axis === 'y' ? box.max.y : box.max.z;
-        expect(r.coord).toBeGreaterThan(lo);
-        expect(r.coord).toBeLessThan(hi);
+        expect(r.coord).toBeGreaterThanOrEqual(lo - 1e-9);
+        expect(r.coord).toBeLessThanOrEqual(hi + 1e-9);
       }
+      // The first and last rings ARE the faces — that's what strokes the room's edges.
+      const coords = fam.rings.map((r) => r.coord).sort((a, b) => a - b);
+      expect(coords[0]!).toBeCloseTo(lo, 9);
+      expect(coords[coords.length - 1]!).toBeCloseTo(hi, 9);
     }
   });
 
-  test('a ring family spans the full side, one ring per unit', () => {
+  test('a ring family spans the full side, inclusive of both faces', () => {
     const unit = 10;
     const box = gridBox({ x: 0, y: 0, z: -95 }, { x: 171.5, y: 90, z: 0 }, 0.5, unit, unit);
     const [fx] = gridRingSpecs(box.min, box.max, unit, unit);
     const side = (box.max.x - box.min.x) / unit;
-    // Half a unit of margin at each end means exactly `side` interior lattice lines.
-    expect(fx!.rings.length).toBe(side);
+    // n intervals means n+1 lines, because both faces carry one.
+    expect(fx!.rings.length).toBe(side + 1);
   });
 
   test('half-extents come from the other two axes', () => {
@@ -111,45 +111,47 @@ describe('gridRingSpecs', () => {
   });
 });
 
-describe('faces sit mid-cell so edges get a whole wrapped cell', () => {
-  const unit = 10;
+describe('walls line up at the edges', () => {
+  const content = { min: { x: 0, y: 0, z: -8.25 }, max: { x: 71.5, y: 149.6, z: 0 } };
 
-  test('each face is a whole number of units across', () => {
-    const box = gridBox({ x: 0, y: 0, z: -8.25 }, { x: 71.5, y: 149.6, z: 0 }, 0.5, unit, unit);
-    for (const axis of ['x', 'y', 'z'] as const) {
-      const size = box.max[axis] - box.min[axis];
-      expect(Math.abs(size / unit - Math.round(size / unit))).toBeLessThan(1e-9);
+  test('every face is a whole number of ruling steps from the origin, and the side is too', () => {
+    for (const units of ['metric', 'imperial'] as const) {
+      const unit = unitOf(units);
+      const { fine, snap } = gridStep(units, 149.6, unit);
+      const box = gridBox(content.min, content.max, 0.5, unit, snap);
+      for (const axis of ['x', 'y', 'z'] as const) {
+        // On the ruling lattice, so a line lands exactly on the wall.
+        expect(onLattice(box.min[axis], fine)).toBe(true);
+        expect(onLattice(box.max[axis], fine)).toBe(true);
+        // And on a whole unit, so that line is a major one rather than a half-unit.
+        expect(onLattice(box.min[axis], unit)).toBe(true);
+        const size = box.max[axis] - box.min[axis];
+        expect(Math.abs(size / fine - Math.round(size / fine))).toBeLessThan(1e-9);
+      }
     }
   });
 
-  test('the margin from each face to its first ruling line is half a unit', () => {
-    const box = gridBox({ x: 0, y: 0, z: -8.25 }, { x: 71.5, y: 149.6, z: 0 }, 0.5, unit, unit);
-    for (const axis of ['x', 'y', 'z'] as const) {
-      const lo = box.min[axis];
-      const hi = box.max[axis];
-      const firstLine = Math.ceil(lo / unit) * unit;
-      const lastLine = Math.floor(hi / unit) * unit;
-      expect(firstLine - lo).toBeCloseTo(unit / 2, 9);
-      expect(hi - lastLine).toBeCloseTo(unit / 2, 9);
-      // The two margins meeting at an edge make one full cell.
-      expect(firstLine - lo + (hi - lastLine)).toBeCloseTo(unit, 9);
+  test('the ruling step always divides the snap step, so no cell is ever short', () => {
+    // This is the invariant the alignment rests on: either `fine` divides the unit (half-inch lines) or
+    // the unit divides `fine` (coarsened), so the larger of the two is a common multiple of both.
+    for (const units of ['metric', 'imperial'] as const) {
+      for (const span of [20, 150, 400, 2400, 20000]) {
+        const { unitMM, fine, snap } = gridStep(units, span, unitMM_(units));
+        expect(Math.abs(snap / fine - Math.round(snap / fine))).toBeLessThan(1e-9);
+        expect(Math.abs(snap / unitMM - Math.round(snap / unitMM))).toBeLessThan(1e-9);
+      }
     }
   });
 
-  test('holds for both unit systems and a range of content sizes', () => {
-    for (const u of [10, 25.4]) {
-      for (const [w, h, d] of [
-        [161.9, 131.5, 8.05],
-        [2410, 1370, 200],
-        [43, 36, 10.9],
-      ]) {
-        const box = gridBox({ x: 0, y: 0, z: 0 }, { x: w!, y: h!, z: d! }, 0.5, u, u);
-        for (const axis of ['x', 'y', 'z'] as const) {
-          expect(onHalfLattice(box.min[axis], u)).toBe(true);
-          expect(onHalfLattice(box.max[axis], u)).toBe(true);
-          const size = box.max[axis] - box.min[axis];
-          expect(Math.abs(size / u - Math.round(size / u))).toBeLessThan(1e-9);
-        }
+  test('face rings are major, so the edge stroke is a full-strength line', () => {
+    for (const units of ['metric', 'imperial'] as const) {
+      const unit = unitOf(units);
+      const { unitMM, fine, snap } = gridStep(units, 149.6, unit);
+      const box = gridBox(content.min, content.max, 0.5, unit, snap);
+      for (const fam of gridRingSpecs(box.min, box.max, unitMM, fine)) {
+        const sorted = [...fam.rings].sort((a, b) => a.coord - b.coord);
+        expect(sorted[0]!.major).toBe(true);
+        expect(sorted[sorted.length - 1]!.major).toBe(true);
       }
     }
   });
@@ -162,7 +164,8 @@ describe('buildGridRings', () => {
   // Nothing threw, no test failed, and the entire grid silently vanished from the render.
   for (const units of ['metric', 'imperial'] as const) {
     test(`${units}: every position and normal is finite, and something is emitted`, () => {
-      const group = buildGridRings(box, units, 330);
+      const { unitMM, fine } = gridStep(units, 330, unitOf(units));
+      const group = buildGridRings(box, unitMM, fine);
       let vertices = 0;
       group.traverse((o) => {
         const geo = (o as THREE.LineSegments).geometry;
@@ -182,7 +185,7 @@ describe('buildGridRings', () => {
   }
 
   test('emits four edges per ring — eight vertices, not a shared-vertex loop', () => {
-    const group = buildGridRings(box, 'metric', 330);
+    const group = buildGridRings(box, 10, 10);
     let vertices = 0;
     group.traverse((o) => {
       const attr = (o as THREE.LineSegments).geometry?.attributes?.position;
@@ -195,7 +198,7 @@ describe('buildGridRings', () => {
   test('every normal is a unit axis direction, perpendicular to its ring family', () => {
     // The facing fade depends on these: a corner vertex shared between two walls could only carry one
     // normal, which is why each edge is its own segment pair.
-    const group = buildGridRings(box, 'metric', 330);
+    const group = buildGridRings(box, 10, 10);
     group.traverse((o) => {
       const attr = (o as THREE.LineSegments).geometry?.attributes?.normal;
       if (!attr) return;

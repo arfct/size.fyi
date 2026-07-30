@@ -187,28 +187,44 @@ export function gridBox(
   max: Vec3,
   padScale: number,
   minPad: number,
-  unitMM: number,
+  snap: number,
 ): { min: Vec3; max: Vec3 } {
   const maxSize = Math.max(max.x - min.x, max.y - min.y, max.z - min.z);
+  // Both the side and every face are whole multiples of `snap`, which is the ruling step (see gridStep).
+  // That's what makes the walls line up: a ring lands exactly ON each face, so every face is ruled edge
+  // to edge in whole cells and the two faces meeting at an edge agree there to the millimetre.
+  //
+  // Earlier attempts got this wrong in both directions. Snapping to the unit while ruling by a finer or
+  // coarser step left the last cell short. Offsetting the faces half a unit put the edge mid-cell, so
+  // each wall's ruling simply stopped at a different place and the edges read as ragged.
   const side =
-    Math.ceil(Math.max(maxSize * (1 + 2 * padScale), maxSize + 2 * minPad) / unitMM) * unitMM;
-  // Centre each axis on the content, then snap the low face to the lattice OFFSET BY HALF A UNIT, so
-  // the faces sit mid-cell rather than on a ruling line. `side` being a whole number of units carries
-  // the high face along with it, so both ends of every axis land on a half.
-  //
-  // The point is what happens at an edge. With faces on the lattice, a ruling line lands exactly on the
-  // edge and the cells either side of it are whole — the edge reads as a seam. Half a unit in, each face
-  // keeps a half-unit margin at every edge, and the two margins meeting at an edge add up to one full
-  // cell that wraps it. Corners then sit at the centre of a cell instead of on its boundary.
-  //
-  // The ruling itself is unchanged: rings still step from the lattice, so lines still pass through object
-  // corners. Only the walls moved.
-  const lowFace = (lo: number, hi: number) =>
-    (Math.round(((lo + hi) / 2 - side / 2) / unitMM - 0.5) + 0.5) * unitMM;
+    Math.ceil(Math.max(maxSize * (1 + 2 * padScale), maxSize + 2 * minPad) / snap) * snap;
+  const lowFace = (lo: number, hi: number) => Math.round(((lo + hi) / 2 - side / 2) / snap) * snap;
   const x0 = lowFace(min.x, max.x),
     y0 = lowFace(min.y, max.y),
     z0 = lowFace(min.z, max.z);
   return { min: { x: x0, y: y0, z: z0 }, max: { x: x0 + side, y: y0 + side, z: z0 + side } };
+}
+
+// The ruling step for the current unit system and content span, and the lattice the room snaps to.
+//
+// `fine` is the line spacing: 1 cm in metric, half an inch in imperial, coarsened by a whole multiple
+// of the unit once the content would otherwise need more than GRID_MAX_UNITS_PER_AXIS lines.
+//
+// `snap` is what the room's faces and side are rounded to. It has to be a common multiple of the unit
+// and the ruling step so that faces land on a ruling line (they get stroked, and adjacent walls agree at
+// the edge) AND on a whole unit (so those strokes are major lines, not half-unit ones). Since either
+// `fine` divides the unit or the unit divides `fine`, the larger of the two is that common multiple.
+//
+// The step is derived from the content span rather than the finished room, so it can be known before the
+// box is snapped to it. The room is close to twice the span, which is what the estimate below uses.
+export function gridStep(units: Units, span: number, minPad: number) {
+  const { unitMM, minorMM } = gridSpec(units, span);
+  const approxSide = Math.max(span * (1 + 2 * GRID_PAD_SCALE), span + 2 * minPad);
+  const stepMul = Math.max(1, Math.ceil(approxSide / unitMM / GRID_MAX_UNITS_PER_AXIS));
+  const showMinor = units === 'imperial' && stepMul === 1; // half-unit lines only when not coarsened
+  const fine = showMinor ? minorMM : unitMM * stepMul;
+  return { unitMM, fine, snap: Math.max(unitMM, fine) };
 }
 
 // One ring in a family: where it sits along the axis, and whether it's a major (whole-unit) line.
@@ -230,9 +246,10 @@ export interface RingFamily {
   rings: RingSpec[];
 }
 
-// Rings step by `fine` across the full axis span, from the lattice — so the ruling stays aligned to
-// object corners. Because the box's faces sit half a unit off the lattice (see gridBox), no ring ever
-// lands on a face, and every ring is strictly inside the room. Pure.
+// Rings step by `fine` across the full axis span, starting exactly ON the low face and ending exactly on
+// the high face — gridBox snaps both to a multiple of the ruling step, so the first and last rings are
+// the faces themselves. Those two rings are what stroke the room's edges: a ring lying on a face is a
+// rectangle whose four sides run along four of the box's twelve edges. Pure.
 export function gridRingSpecs(min: Vec3, max: Vec3, unitMM: number, fine: number): RingFamily[] {
   const onUnit = (v: number) => Math.abs(Math.round(v / unitMM) * unitMM - v) < 1e-6;
   const family = (
@@ -272,15 +289,9 @@ export function gridRingSpecs(min: Vec3, max: Vec3, unitMM: number, fine: number
 // error, so a test that just asserts finite output is worth more than it looks.
 export function buildGridRings(
   box: { min: Vec3; max: Vec3 },
-  units: Units,
-  span: number,
+  unitMM: number,
+  fine: number,
 ): THREE.Group {
-  const { unitMM, minorMM } = gridSpec(units, span);
-  const maxUnits =
-    Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z) / unitMM;
-  const stepMul = Math.max(1, Math.ceil(maxUnits / GRID_MAX_UNITS_PER_AXIS));
-  const showMinor = units === 'imperial' && stepMul === 1; // half-unit lines only when not coarsened
-  const fine = showMinor ? minorMM : unitMM * stepMul;
   const families = gridRingSpecs(box.min, box.max, unitMM, fine);
 
   const majorPos: number[] = [],
@@ -652,14 +663,11 @@ export function createScene(container: HTMLElement): SizeScene {
     const s = bounds.getSize(new THREE.Vector3());
     const span = Math.max(s.x, s.y, s.z, 1);
     const { unitMM } = gridSpec(units, span);
-    const box = gridBox(
-      bounds.min,
-      bounds.max,
-      GRID_PAD_SCALE,
-      GRID_MIN_PAD_UNITS * unitMM,
-      unitMM,
-    );
-    grids = buildGridRings(box, units, span);
+    const minPad = GRID_MIN_PAD_UNITS * unitMM;
+    // The ruling step comes first: the room snaps to it, so the walls land on ruling lines.
+    const { fine, snap } = gridStep(units, span, minPad);
+    const box = gridBox(bounds.min, bounds.max, GRID_PAD_SCALE, minPad, snap);
+    grids = buildGridRings(box, unitMM, fine);
     scene.add(grids);
     updateGridCamera();
   }

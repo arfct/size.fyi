@@ -12,11 +12,23 @@
 > — at 1 unit the fillet got three rings at 5.00 / 8.66 / 10.00 mm on a 5 mm lattice, the last cells
 > crushed to 1.34 mm. Zero is the only radius that puts every ruling line, on every axis, on the lattice.
 >
-> Two changes accompanied it. Faces now sit **half a unit off the lattice** rather than on it, so each
-> face is still a whole number of units across but keeps a half-unit margin at every edge — and two
-> margins meeting at an edge form one full cell wrapping it, putting corners mid-cell instead of on a
-> cell boundary. And the minimum content-to-wall padding became its own constant (`GRID_MIN_PAD_UNITS`)
-> instead of being passed the radius, which had tied the room's size to its corner shape.
+> **Face alignment took three attempts; the third is the one to keep.** Faces snap to `snap`, a common
+> multiple of the unit and the ruling step, and the side is a whole number of `snap`. A ring therefore
+> lands exactly ON each face: every wall is ruled edge to edge in whole cells, the two walls meeting at
+> an edge agree there to the micron, and those face rings are what stroke the room's twelve edges. They
+> are major lines, because `snap` is also a whole unit.
+>
+> The two rejected attempts, since both looked plausible: snapping to the *unit* while ruling by a
+> different step (half-inch lines, or a coarsened step for large content) left the last cell short of the
+> wall. Offsetting faces half a unit put the edge mid-cell, so each wall's ruling stopped at a different
+> place and the edges read as ragged.
+>
+> `gridStep(units, span, minPad)` derives `fine` and `snap` from the content span, before the box is
+> snapped to them. The invariant it rests on: either `fine` divides the unit (half-inch lines) or the unit
+> divides `fine` (coarsened), so `max(unit, fine)` is always a common multiple of both.
+>
+> Also: the minimum content-to-wall padding became its own constant (`GRID_MIN_PAD_UNITS`) instead of
+> being passed the radius, which had tied the room's size to its corner shape.
 >
 > Names dropped the "rounded": `gridBox`, `gridRingSpecs`, `buildGridRings`.
 >
