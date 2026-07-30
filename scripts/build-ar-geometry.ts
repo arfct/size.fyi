@@ -19,6 +19,9 @@ import { type UsdMesh, usdGeometryLayer } from '../src/shared/usdz.ts';
 import { buildGeometry, screenGeometry } from '../src/three/geometry.ts';
 
 const OUT = process.env.OUT_DIR ?? 'public/ar';
+// GLB blobs are authored in metres; the USD layers stay in millimetres, where a scale on the root
+// Xform is honoured and already verified on-device.
+const MM_TO_M = 0.001;
 
 function mesh(name: string, geo: THREE.BufferGeometry): UsdMesh {
   const pos = geo.attributes.position;
@@ -59,7 +62,14 @@ function packPart(
     return range;
   };
 
+  // Metres, baked into the vertex data rather than left to a node scale.
+  //
+  // Scene Viewer rendered a mm-authored model fine in its 3D view but refused AR with "unable to view
+  // in your space", because a size estimate taken from POSITION accessor bounds — without walking the
+  // node hierarchy — read a 0.44 m comparison as 440 m, which is not placeable in a room. Node
+  // transforms are not a reliable carrier of real-world scale; the geometry has to be right.
   const posArr = new Float32Array(pos.array as ArrayLike<number>);
+  for (let i = 0; i < posArr.length; i++) posArr[i] = posArr[i]! * MM_TO_M;
   const min: [number, number, number] = [Infinity, Infinity, Infinity];
   const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
   for (let i = 0; i < posArr.length; i += 3) {

@@ -149,6 +149,9 @@ async function glbBody(
     const at = r.at[i]!;
     const color = itemColor(item, i);
 
+    // GLB coordinates are metres (see src/shared/glb.ts); the layout works in millimetres.
+    const atM = { x: at.x * MM_TO_M, y: at.y * MM_TO_M, z: at.z * MM_TO_M };
+
     if (item.kind === 'device') {
       const key = geometryKey(item.device, item.state);
       const entry = manifest[key];
@@ -166,29 +169,34 @@ async function glbBody(
         blob = blobs.push(bytes) - 1;
         blobIndex.set(key, blob);
       }
-      placements.push({ name: `Item_${i}`, blob, part: entry.body, translate: at, color });
+      placements.push({ name: `Item_${i}`, blob, part: entry.body, translate: atM, color });
       if (entry.screen) {
         placements.push({
           name: `Item_${i}_screen`,
           blob,
           part: entry.screen,
-          translate: { x: at.x, y: at.y, z: at.z + d.d / 2 + SCREEN_PROUD_MM },
+          translate: {
+            x: atM.x,
+            y: atM.y,
+            z: atM.z + (d.d / 2 + SCREEN_PROUD_MM) * MM_TO_M,
+          },
           color: darken(color, 0.35),
         });
       }
     } else {
-      // No pre-built blob can exist for arbitrary dimensions, so build the box's vertex data here.
-      const { blob, part } = boxGlb(d.w, d.h, d.d);
+      // No pre-built blob can exist for arbitrary dimensions, so build the box's vertex data here —
+      // in metres, like the pre-built ones.
+      const { blob, part } = boxGlb(d.w * MM_TO_M, d.h * MM_TO_M, d.d * MM_TO_M);
       placements.push({
         name: `Item_${i}`,
         blob: blobs.push(blob) - 1,
         part,
-        translate: at,
+        translate: atM,
         color,
       });
     }
   }
-  return buildGlb(blobs, placements, MM_TO_M);
+  return buildGlb(blobs, placements);
 }
 
 export async function arModel(

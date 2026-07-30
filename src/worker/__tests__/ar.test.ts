@@ -193,15 +193,16 @@ describe('/ar/<comparison>.glb', () => {
   test('lays items out identically to the USDZ route', async () => {
     // Both formats go through the same resolve(), so the two models must agree on placement.
     const glb = glbParse(await (await SELF.fetch(GLB)).arrayBuffer());
-    const root = glb.json.nodes[glb.json.scenes[0].nodes[0]];
-    const translations = root.children.map(
-      (i: number) => glb.json.nodes[i].translation as number[],
+    // GLB is authored in metres so its accessor bounds read as real size on their own; USD stays in
+    // millimetres with the scale on its Content transform. Convert before comparing.
+    const translations = (glb.json.scenes[0].nodes as number[]).map((i) =>
+      (glb.json.nodes[i].translation as number[]).map((v) => v * 1000),
     );
     const usdz = await (await SELF.fetch(AR)).arrayBuffer();
     const rootLayer = text(usdz, entries(usdz)[0]!);
     // The USD matrix puts translation in the last row. Compared numerically, not as text: the USD
-    // writer trims coordinates to micron precision while glTF keeps full float precision, so the two
-    // agree on position without agreeing on digits.
+    // writer trims to micron precision, glTF keeps full float precision, and the metre round-trip adds
+    // its own rounding — so the two agree on position without agreeing on digits.
     const usdTranslations = [
       ...rootLayer.matchAll(/\(([-\d.e]+), ([-\d.e]+), ([-\d.e]+), 1\)/g),
     ].map((m) => [Number(m[1]), Number(m[2]), Number(m[3])]);
@@ -209,11 +210,26 @@ describe('/ar/<comparison>.glb', () => {
     for (const t of translations) {
       const match = usdTranslations.find(
         (u) =>
-          Math.abs(u[0]! - t[0]!) < 0.001 &&
-          Math.abs(u[1]! - t[1]!) < 0.001 &&
-          Math.abs(u[2]! - t[2]!) < 0.001,
+          Math.abs(u[0]! - t[0]!) < 0.01 &&
+          Math.abs(u[1]! - t[1]!) < 0.01 &&
+          Math.abs(u[2]! - t[2]!) < 0.01,
       );
       expect(match, `no USD placement matches GLB translation ${t.join(', ')}`).toBeDefined();
+    }
+  });
+
+  // Regression: real-world scale used to ride on a parent node's scale, so anything sizing the model
+  // from POSITION bounds alone saw metres as millimetres — 440 m instead of 0.44 m — and Scene Viewer
+  // rendered it in 3D but refused to place it in a room.
+  test('reads as a room-sized object from accessor bounds alone, with no transform applied', async () => {
+    const { json } = glbParse(await (await SELF.fetch(GLB)).arrayBuffer());
+    for (const n of json.nodes) expect(n.scale).toBeUndefined();
+    for (const m of json.meshes) {
+      const a = json.accessors[m.primitives[0].attributes.POSITION];
+      for (const v of [...a.min, ...a.max]) {
+        // A phone-or-tablet mesh, in metres. Anything past a couple of metres means units slipped.
+        expect(Math.abs(v)).toBeLessThan(2);
+      }
     }
   });
 
@@ -246,22 +262,22 @@ describe('/ar/<comparison>.glb', () => {
 // how a fixed GLB kept being served broken.
 describe('generator version', () => {
   test('is preserved across the canonicalising redirect', async () => {
-    const res = await SELF.fetch('https://size.fyi/ar/galaxy-z-fold8.glb?v=2', {
+    const res = await SELF.fetch('https://size.fyi/ar/galaxy-z-fold8.glb?v=3', {
       redirect: 'manual',
     });
     expect(res.status).toBe(301);
     const loc = res.headers.get('location') ?? '';
     expect(loc).toContain('/ar/galaxy-z-fold8-closed.glb');
-    expect(loc).toContain('v=2');
+    expect(loc).toContain('v=3');
   });
 
   test('keeps the layout alongside it', async () => {
-    const res = await SELF.fetch('https://size.fyi/ar/galaxy-z-fold8.glb?layout=stack&v=2', {
+    const res = await SELF.fetch('https://size.fyi/ar/galaxy-z-fold8.glb?layout=stack&v=3', {
       redirect: 'manual',
     });
     const loc = res.headers.get('location') ?? '';
     expect(loc).toContain('layout=stack');
-    expect(loc).toContain('v=2');
+    expect(loc).toContain('v=3');
   });
 
   test('an unknown version still serves a model rather than failing', async () => {

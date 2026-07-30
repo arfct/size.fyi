@@ -53,7 +53,7 @@ describe('boxGlb', () => {
 describe('buildGlb', () => {
   test('emits a valid container with 4-byte-aligned chunks', () => {
     const { blob } = boxGlb(10, 20, 30);
-    const glb = buildGlb([blob], [place()], 0.001);
+    const glb = buildGlb([blob], [place()]);
     const { total, jsonLen } = parse(glb);
     expect(total).toBe(glb.length);
     expect(jsonLen % 4).toBe(0);
@@ -63,7 +63,7 @@ describe('buildGlb', () => {
   test('pads the JSON chunk with spaces so it stays parseable', () => {
     // A name of awkward length forces padding; JSON.parse would throw on NUL bytes.
     const { blob } = boxGlb(1, 1, 1);
-    const glb = buildGlb([blob], [place({ name: 'x' })], 0.001);
+    const glb = buildGlb([blob], [place({ name: 'x' })]);
     expect(() => parse(glb)).not.toThrow();
   });
 
@@ -73,7 +73,6 @@ describe('buildGlb', () => {
     const glb = buildGlb(
       [a.blob, b.blob],
       [place({ part: a.part, blob: 0 }), place({ name: 'Item_1', part: b.part, blob: 1 })],
-      0.001,
     );
     const { json } = parse(glb);
     expect(json.bufferViews.length).toBe(6); // position + normal + index, twice
@@ -83,24 +82,39 @@ describe('buildGlb', () => {
   test('copies a shared blob once however many meshes reference it', () => {
     // A body and its screen live in one blob; copying it twice would double the payload.
     const { blob, part } = boxGlb(10, 20, 30);
-    const one = buildGlb([blob], [place()], 0.001);
-    const two = buildGlb([blob], [place(), place({ name: 'Item_0_screen', part })], 0.001);
+    const one = buildGlb([blob], [place()]);
+    const two = buildGlb([blob], [place(), place({ name: 'Item_0_screen', part })]);
     const binOf = (g: Uint8Array) => parse(g).bin.length;
     expect(binOf(two)).toBe(binOf(one));
     expect(parse(two).json.meshes.length).toBe(2);
   });
 
-  test('puts the unit scale on a parent node, keeping item translations in authoring units', () => {
-    const { blob } = boxGlb(10, 20, 30);
-    const { json } = parse(buildGlb([blob], [place()], 0.001));
-    const root = json.nodes[json.scenes[0].nodes[0]];
-    expect(root.scale).toEqual([0.001, 0.001, 0.001]);
-    expect(json.nodes[root.children[0]].translation).toEqual([1, 2, 3]);
+  // Regression: real-world scale used to sit on a parent node's `scale`, and Scene Viewer's AR path
+  // read POSITION bounds without walking the hierarchy — so a 0.44 m comparison looked like 440 m and
+  // could not be placed in a room. Geometry and translations are metres now, and nothing scales.
+  test('carries no scale anywhere: metres live in the geometry', () => {
+    const { blob } = boxGlb(0.01, 0.02, 0.03);
+    const { json } = parse(buildGlb([blob], [place()]));
+    for (const n of json.nodes) expect(n.scale).toBeUndefined();
+    expect(json.scenes[0].nodes).toEqual(json.nodes.map((_: unknown, i: number) => i));
+    expect(json.nodes[0].translation).toEqual([1, 2, 3]);
+  });
+
+  test('POSITION bounds read as real-world metres on their own', () => {
+    // A 10 x 20 x 30 cm box must measure that from the accessor alone, with no transform applied.
+    const { blob, part } = boxGlb(0.1, 0.2, 0.3);
+    expect(part.max).toEqual([0.05, 0.1, 0.15]);
+    const { json } = parse(buildGlb([blob], [place({ part })]));
+    const pos = json.accessors[json.meshes[0].primitives[0].attributes.POSITION];
+    const size = pos.max.map((v: number, i: number) => v - pos.min[i]);
+    expect(size[0]).toBeCloseTo(0.1, 6);
+    expect(size[1]).toBeCloseTo(0.2, 6);
+    expect(size[2]).toBeCloseTo(0.3, 6);
   });
 
   test('declares a buffer whose length matches the BIN chunk', () => {
     const { blob } = boxGlb(10, 20, 30);
-    const glb = buildGlb([blob], [place()], 0.001);
+    const glb = buildGlb([blob], [place()]);
     const { json, bin } = parse(glb);
     // The chunk may carry trailing pad; the declared buffer must not exceed it.
     expect(json.buffers[0].byteLength).toBeLessThanOrEqual(bin.length);
@@ -109,7 +123,7 @@ describe('buildGlb', () => {
 
   test('converts sRGB palette colours to linear for baseColorFactor', () => {
     const { blob } = boxGlb(1, 1, 1);
-    const { json } = parse(buildGlb([blob], [place({ color: '#0072B2' })], 0.001));
+    const { json } = parse(buildGlb([blob], [place({ color: '#0072B2' })]));
     const [r, g, b, a] = json.materials[0].pbrMetallicRoughness.baseColorFactor;
     expect(r).toBeCloseTo(0, 3);
     expect(g).toBeCloseTo(0.1683, 3);
@@ -120,7 +134,7 @@ describe('buildGlb', () => {
   test('gives each placement its own material and mesh', () => {
     const { blob } = boxGlb(1, 1, 1);
     const { json } = parse(
-      buildGlb([blob], [place(), place({ name: 'Item_1', color: '#D55E00' })], 0.001),
+      buildGlb([blob], [place(), place({ name: 'Item_1', color: '#D55E00' })]),
     );
     expect(json.meshes.map((m: { name: string }) => m.name)).toEqual(['Item_0', 'Item_1']);
     expect(json.materials.length).toBe(2);
@@ -130,7 +144,7 @@ describe('buildGlb', () => {
   test('omits indices for non-indexed geometry rather than emitting an empty accessor', () => {
     const { blob, part } = boxGlb(1, 1, 1);
     const noIndex = { ...part, index: undefined };
-    const { json } = parse(buildGlb([blob], [place({ part: noIndex })], 0.001));
+    const { json } = parse(buildGlb([blob], [place({ part: noIndex })]));
     expect(json.meshes[0].primitives[0].indices).toBeUndefined();
     expect(json.accessors.length).toBe(2); // position + normal only
   });
@@ -143,14 +157,14 @@ describe('Scene Viewer compatibility', () => {
   test('uses UNSIGNED_SHORT indices, not UNSIGNED_INT', () => {
     const { blob, part } = boxGlb(10, 20, 30);
     expect(part.indexComponentType).toBe(5123);
-    const { json } = parse(buildGlb([blob], [place()], 0.001));
+    const { json } = parse(buildGlb([blob], [place()]));
     const idx = json.accessors[json.meshes[0].primitives[0].indices];
     expect(idx.componentType).toBe(5123);
   });
 
   test('declares bufferView targets', () => {
     const { blob } = boxGlb(10, 20, 30);
-    const { json } = parse(buildGlb([blob], [place()], 0.001));
+    const { json } = parse(buildGlb([blob], [place()]));
     const targets = json.bufferViews.map((v: { target: number }) => v.target);
     expect(targets).toContain(34962); // ARRAY_BUFFER, for attributes
     expect(targets).toContain(34963); // ELEMENT_ARRAY_BUFFER, for indices
@@ -159,7 +173,7 @@ describe('Scene Viewer compatibility', () => {
 
   test('states the primitive mode rather than relying on the default', () => {
     const { blob } = boxGlb(10, 20, 30);
-    const { json } = parse(buildGlb([blob], [place()], 0.001));
+    const { json } = parse(buildGlb([blob], [place()]));
     expect(json.meshes[0].primitives[0].mode).toBe(4); // TRIANGLES
   });
 
@@ -168,13 +182,13 @@ describe('Scene Viewer compatibility', () => {
   test('honours an explicit UNSIGNED_INT part', () => {
     const { blob, part } = boxGlb(1, 1, 1);
     const wide = { ...part, indexComponentType: 5125 as const };
-    const { json } = parse(buildGlb([blob], [place({ part: wide })], 0.001));
+    const { json } = parse(buildGlb([blob], [place({ part: wide })]));
     expect(json.accessors[json.meshes[0].primitives[0].indices].componentType).toBe(5125);
   });
 
   test('index byteOffset stays aligned to its component size', () => {
     const { blob, part } = boxGlb(10, 20, 30);
-    const { json } = parse(buildGlb([blob], [place()], 0.001));
+    const { json } = parse(buildGlb([blob], [place()]));
     const idxAccessor = json.accessors[json.meshes[0].primitives[0].indices];
     const view = json.bufferViews[idxAccessor.bufferView];
     expect(view.byteOffset % 2).toBe(0);

@@ -18,8 +18,10 @@ import { type Device, defaultStateLabel } from './types.ts';
 // new one that cannot hit a stale entry. Immutable then means what it says.
 //
 // 1: initial USDZ + GLB routes
-// 2: GLB uint16 indices, bufferView targets, explicit primitive mode (Scene Viewer compatibility)
-export const AR_MODEL_VERSION = 2;
+// 2: GLB uint16 indices, bufferView targets, explicit primitive mode
+// 3: GLB authored in metres with no scale node — a node transform did not carry real-world size into
+//    Scene Viewer's AR placement, which read POSITION bounds directly
+export const AR_MODEL_VERSION = 3;
 
 // How far proud of its front face a screen sits, in millimetres. Lives here rather than beside the
 // geometry because every consumer applies it as a placement offset — the renderer, the AR exporters,

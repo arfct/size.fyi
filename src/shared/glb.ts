@@ -7,6 +7,11 @@
 // A GLB is: a 12-byte header, then a JSON chunk, then a BIN chunk. Both chunks are 4-byte aligned —
 // JSON padded with spaces, BIN with zeros — and every bufferView offset must be aligned to its
 // component size, which is 4 for the float and uint32 data used here.
+//
+// EVERYTHING HERE IS IN METRES, in the vertex data itself — no scale node. Scene Viewer rendered a
+// millimetre-authored model in its 3D view but refused AR, because a size estimate read from POSITION
+// accessor bounds without walking the node hierarchy saw a 0.44 m comparison as 440 m. Real-world scale
+// has to live in the geometry, not in a transform.
 
 export interface GlbRange {
   byteOffset: number;
@@ -46,7 +51,8 @@ export interface GlbPlacement {
 
 // A centred box as a self-contained blob plus its description — the Android counterpart to boxMesh().
 // Custom items carry arbitrary dimensions, so no pre-built blob can exist for them, but a box needs no
-// extruder. Four vertices per face so each face gets a flat normal.
+// extruder. Four vertices per face so each face gets a flat normal. Dimensions are METRES, like every
+// other coordinate in this module.
 export function boxGlb(w: number, h: number, d: number): { blob: Uint8Array; part: GlbPart } {
   const x = w / 2;
   const y = h / 2;
@@ -166,19 +172,14 @@ function linearRgb(hex: string): [number, number, number] {
 
 const pad4 = (n: number) => (4 - (n % 4)) % 4;
 
-// Builds the whole GLB. `unitScale` converts the placements' units to metres, which is what Scene
-// Viewer reads real-world size from; it rides on a parent node so item translations stay in
-// millimetres, matching the USD route.
-export function buildGlb(
-  blobs: Uint8Array[],
-  placements: GlbPlacement[],
-  unitScale: number,
-): Uint8Array {
+// Builds the whole GLB. Placements carry metre translations and the blobs hold metre coordinates, so
+// the scene needs no scale anywhere — which is the point: a transform is not a reliable carrier of
+// real-world size.
+export function buildGlb(blobs: Uint8Array[], placements: GlbPlacement[]): Uint8Array {
   const bufferViews: Record<string, number>[] = [];
   const accessors: Record<string, unknown>[] = [];
   const meshes: Record<string, unknown>[] = [];
   const materials: Record<string, unknown>[] = [];
-  const children: number[] = [];
   const nodes: Record<string, unknown>[] = [];
 
   // Lay the blobs out back to back, once each however many meshes reference them. Every blob length is
@@ -260,17 +261,12 @@ export function buildGlb(
       mesh: meshes.length - 1,
       translation: [p.translate.x, p.translate.y, p.translate.z],
     });
-    children.push(nodes.length - 1);
   });
-
-  // Parent node carries the unit conversion, so children keep authoring units.
-  nodes.push({ name: 'Content', scale: [unitScale, unitScale, unitScale], children });
-  const rootNode = nodes.length - 1;
 
   const gltf = {
     asset: { version: '2.0', generator: 'size.fyi' },
     scene: 0,
-    scenes: [{ nodes: [rootNode] }],
+    scenes: [{ nodes: nodes.map((_, i) => i) }],
     nodes,
     meshes,
     materials,
