@@ -110,10 +110,20 @@ export default function Viewer({ asideRef }: ViewerProps) {
     sceneRef.current?.setView(state.view);
   }, [state.view, ready]);
 
+  // Side view looks along +x, which is the axis a row spreads along — every item would sit directly
+  // behind the nearest one and only the front one would be visible. Stack spreads along z instead, so
+  // the items stay separate and the view reads as a depth comparison.
+  //
+  // Derived rather than dispatched: the store keeps the user's own choice untouched, so it comes back on
+  // its own when they leave side view, with no previous-value to stash and nothing to get out of sync if
+  // they change layout while they're in there. The layout controls stay bound to their real preference,
+  // which is what will apply everywhere else.
+  const effectiveLayout = state.view === 'side' ? 'stack' : state.layoutMode;
+
   useEffect(() => {
     if (!ready) return;
-    sceneRef.current?.setLayout(state.layoutMode);
-  }, [state.layoutMode, ready]);
+    sceneRef.current?.setLayout(effectiveLayout);
+  }, [effectiveLayout, ready]);
 
   useEffect(() => {
     if (!ready) return;
