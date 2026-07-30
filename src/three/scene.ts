@@ -155,6 +155,17 @@ const GRID_MAX_UNITS_PER_AXIS = 48; // coarsen the ring spacing past this so hug
 // default 0 lets the distance tiebreak flip as the camera moves — the grid then paints over the device
 // screens and they look transparent. Items start at renderOrder 0, so stay below that.
 const GRID_RENDER_ORDER = -1;
+// Base framing. Both are the knob for "how much of the frame do the objects fill" — lower is bigger.
+//
+// VIEW_3D_DIR is the camera's direction from the content centre and VIEW_3D_BACKOFF how far along it the
+// camera sits, as a multiple of the content's largest dimension. Keeping them separate means the framing
+// can be tightened without also swinging the viewing angle.
+//
+// ORTHO_MARGIN is the fraction of slack around the content in the flat views; 1.0 would fit it exactly to
+// the frame edge. The front view adds its own label padding on top, since labels overhang the boxes.
+const VIEW_3D_DIR = { x: 1.2, y: 0.9, z: 1.6 };
+const VIEW_3D_BACKOFF = 0.85;
+const ORTHO_MARGIN = 1.02;
 // Fade shaping. Visibility is a screen-space "flashlight": a radial gradient centred on the room, full
 // inside GRID_LIGHT_INNER and gone by GRID_LIGHT_OUTER, measured in NDC radius (1 = viewport edge, so
 // the pool conforms to the canvas). GRID_FACING_CULL is only wide enough to drop the near-facing walls
@@ -162,7 +173,9 @@ const GRID_RENDER_ORDER = -1;
 // near-fade band is view-axis depth normalized to the box (-1 = nearest point, +1 = farthest) and keeps
 // geometry very close to the camera from blaring through the middle of the light.
 const GRID_LIGHT_INNER = 0.0;
-const GRID_LIGHT_OUTER = 0.7;
+// 1.1: the falloff finishes just past the viewport edge, so the grid stays legible out to the corners
+// rather than fading well inside them. Was 0.7, which put the pool visibly smaller than the canvas.
+const GRID_LIGHT_OUTER = 1.1;
 const GRID_FACING_CULL = 0.1;
 const GRID_NEAR_FADE_START = -0.95;
 const GRID_NEAR_FADE_END = -0.1;
@@ -1143,16 +1156,19 @@ export function createScene(container: HTMLElement): SizeScene {
     let targetCam: THREE.Camera;
     if (next === '3d') {
       persp.aspect = aspect;
-      const radius = Math.max(s.x, s.y, s.z, 1);
-      persp.position.set(c.x + radius * 1.2, c.y + radius * 0.9, c.z + radius * 1.6);
+      const radius = Math.max(s.x, s.y, s.z, 1) * VIEW_3D_BACKOFF;
+      persp.position.set(
+        c.x + radius * VIEW_3D_DIR.x,
+        c.y + radius * VIEW_3D_DIR.y,
+        c.z + radius * VIEW_3D_DIR.z,
+      );
       persp.lookAt(c);
       applyViewOffset(persp, frame, inset, insetTop);
       persp.updateProjectionMatrix();
       targetCam = persp;
     } else {
       const fit = (fw: number, fh: number) => {
-        const m = 1.1;
-        const half = ((Math.max(fw / aspect, fh) * m) / 2) * Math.max(aspect, 1);
+        const half = ((Math.max(fw / aspect, fh) * ORTHO_MARGIN) / 2) * Math.max(aspect, 1);
         ortho.left = -half * (aspect >= 1 ? 1 : aspect);
         ortho.right = -ortho.left;
         ortho.top = ortho.right / aspect;
