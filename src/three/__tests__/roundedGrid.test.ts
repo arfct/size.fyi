@@ -3,8 +3,12 @@ import { describe, expect, test } from 'vitest';
 import { buildRoundedGridRings, roundedGridBox, roundedGridRingSpecs } from '../scene';
 
 const onLattice = (v: number, unit: number) => Math.abs(Math.round(v / unit) * unit - v) < 1e-6;
+// Faces sit mid-cell: half a unit off the lattice, so each face keeps a half-unit margin at every edge
+// and two adjacent margins meet as one full cell wrapping the edge.
+const onHalfLattice = (v: number, unit: number) =>
+  Math.abs((Math.round(v / unit - 0.5) + 0.5) * unit - v) < 1e-6;
 
-test('roundedGridBox is a cube sized from the largest content dimension, on the unit lattice', () => {
+test('roundedGridBox is a cube sized from the largest content dimension, faces mid-cell', () => {
   const unit = 10,
     radius = 20;
   // content bounds with non-integer faces (device-like widths); largest dimension is x = 171.5
@@ -12,7 +16,9 @@ test('roundedGridBox is a cube sized from the largest content dimension, on the 
     max = { x: 171.5, y: 90, z: 0 };
   const box = roundedGridBox(min, max, 0.5, radius, unit);
   for (const face of [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z]) {
-    expect(onLattice(face, unit)).toBe(true);
+    // Half a unit off the lattice, and therefore NOT on it.
+    expect(onHalfLattice(face, unit)).toBe(true);
+    expect(onLattice(face, unit)).toBe(false);
   }
   // equal side on every axis — a cube
   const side = box.max.x - box.min.x;
@@ -41,13 +47,16 @@ test('roundedGridBox keeps the content enclosed and roughly centred', () => {
   expect(box.max.z - box.min.z).toBeGreaterThan(2 * radius);
 });
 
-test('fillet tangents fall on the lattice when radius is a whole number of units', () => {
+// Tangents used to land on the lattice, back when faces did. Faces are mid-cell now, so a whole-unit
+// radius carries its tangents mid-cell too — they no longer coincide with a ruling line. Recorded here
+// because it's the one thing the half-unit offset costs, and it only bites if rounding is re-enabled.
+test('fillet tangents follow the faces onto the half lattice for a whole-unit radius', () => {
   const unit = 10,
     radius = 20;
   const box = roundedGridBox({ x: 0, y: 0, z: -95 }, { x: 171.5, y: 90, z: 0 }, 0.5, radius, unit);
   for (const axis of ['x', 'y', 'z'] as const) {
-    expect(onLattice(box.min[axis] + radius, unit)).toBe(true);
-    expect(onLattice(box.max[axis] - radius, unit)).toBe(true);
+    expect(onHalfLattice(box.min[axis] + radius, unit)).toBe(true);
+    expect(onHalfLattice(box.max[axis] - radius, unit)).toBe(true);
   }
 });
 
@@ -158,6 +167,63 @@ describe('grid ring geometry is renderable', () => {
       for (const r of fam.rings) {
         expect(r.dAxis).toBe(0);
         expect(r.w).toBe(0);
+      }
+    }
+  });
+});
+
+describe('faces sit mid-cell so edges get a whole wrapped cell', () => {
+  const unit = 10;
+
+  test('each face is a whole number of units across', () => {
+    const box = roundedGridBox(
+      { x: 0, y: 0, z: -8.25 },
+      { x: 71.5, y: 149.6, z: 0 },
+      0.5,
+      unit,
+      unit,
+    );
+    for (const axis of ['x', 'y', 'z'] as const) {
+      const size = box.max[axis] - box.min[axis];
+      expect(Math.abs(size / unit - Math.round(size / unit))).toBeLessThan(1e-9);
+    }
+  });
+
+  test('the margin from each face to its first ruling line is half a unit', () => {
+    const box = roundedGridBox(
+      { x: 0, y: 0, z: -8.25 },
+      { x: 71.5, y: 149.6, z: 0 },
+      0.5,
+      unit,
+      unit,
+    );
+    for (const axis of ['x', 'y', 'z'] as const) {
+      const lo = box.min[axis];
+      const hi = box.max[axis];
+      // Ruling lines sit on the lattice; find the innermost one past each face.
+      const firstLine = Math.ceil(lo / unit) * unit;
+      const lastLine = Math.floor(hi / unit) * unit;
+      expect(firstLine - lo).toBeCloseTo(unit / 2, 9);
+      expect(hi - lastLine).toBeCloseTo(unit / 2, 9);
+      // The two margins meeting at an edge make one full cell.
+      expect(firstLine - lo + (hi - lastLine)).toBeCloseTo(unit, 9);
+    }
+  });
+
+  test('holds for both unit systems and a range of content sizes', () => {
+    for (const u of [10, 25.4]) {
+      for (const [w, h, d] of [
+        [161.9, 131.5, 8.05],
+        [2410, 1370, 200],
+        [43, 36, 10.9],
+      ]) {
+        const box = roundedGridBox({ x: 0, y: 0, z: 0 }, { x: w!, y: h!, z: d! }, 0.5, u, u);
+        for (const axis of ['x', 'y', 'z'] as const) {
+          expect(onHalfLattice(box.min[axis], u)).toBe(true);
+          expect(onHalfLattice(box.max[axis], u)).toBe(true);
+          const size = box.max[axis] - box.min[axis];
+          expect(Math.abs(size / u - Math.round(size / u))).toBeLessThan(1e-9);
+        }
       }
     }
   });

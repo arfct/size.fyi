@@ -190,9 +190,11 @@ interface Vec3 {
 
 // A CUBE room centred on the content: one side length, derived from the content's largest dimension
 // grown by `padScale` per side (0.5 → twice that dimension) and at least `minPad` clear of it, so a flat
-// or thin object still gets a room with depth. The side is a whole number of grid units and each low
-// face is snapped onto the lattice, so all six faces — and, with a whole-unit radius, the fillet
-// tangents (face ∓ radius) — land on grid lines. Pure — for testing.
+// or thin object still gets a room with depth.
+//
+// The side is a whole number of grid units, and every face sits half a unit off the lattice — so each
+// face is a whole number of units across and carries a half-unit margin at each of its edges, and the
+// two margins meeting at an edge form one full cell wrapping it. Pure — for testing.
 export function roundedGridBox(
   min: Vec3,
   max: Vec3,
@@ -203,11 +205,20 @@ export function roundedGridBox(
   const maxSize = Math.max(max.x - min.x, max.y - min.y, max.z - min.z);
   const side =
     Math.ceil(Math.max(maxSize * (1 + 2 * padScale), maxSize + 2 * minPad) / unitMM) * unitMM;
-  // Centre each axis on the content, then snap the low face to the lattice; `side` being a whole number
-  // of units carries the high face along with it. The half-unit shift this can introduce is well inside
-  // the padding, so the content always stays enclosed.
+  // Centre each axis on the content, then snap the low face to the lattice OFFSET BY HALF A UNIT, so
+  // the faces sit mid-cell rather than on a ruling line. `side` being a whole number of units carries
+  // the high face along with it, so both ends of every axis land on a half.
+  //
+  // The point is what happens at an edge. With faces on the lattice, a ruling line lands exactly on the
+  // edge and the cells either side of it are whole — the edge reads as a seam. Half a unit in, each face
+  // keeps a half-unit margin at every edge, and the two margins meeting at an edge add up to one full
+  // cell that wraps it. Corners then sit at the centre of a cell instead of on its boundary.
+  //
+  // The ruling itself is unchanged: rings still step from the lattice, so lines still pass through object
+  // corners. Only the walls moved. (If a non-zero fillet radius is ever restored, note that its tangents
+  // now land on halves too — see GRID_RADIUS_UNITS.)
   const lowFace = (lo: number, hi: number) =>
-    Math.round(((lo + hi) / 2 - side / 2) / unitMM) * unitMM;
+    (Math.round(((lo + hi) / 2 - side / 2) / unitMM - 0.5) + 0.5) * unitMM;
   const x0 = lowFace(min.x, max.x),
     y0 = lowFace(min.y, max.y),
     z0 = lowFace(min.z, max.z);
