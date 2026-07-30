@@ -1,5 +1,28 @@
 # Rounded grid room — design
 
+> **Superseded in part, 2026-07-30: the corner fillet is gone and the room has square corners.**
+>
+> Everything below about the *structure* still holds — three orthogonal families of rings, one per axis,
+> crossing to form the face grid, with the facing fade picking out the far walls. What's gone is the
+> rounding: no fillet radius, no cap rings, no arc-sampled corner loop, no duplicate-line dedupe. Rings
+> are plain rectangles emitted as four edges.
+>
+> Why: cap rings step by equal *arc*, so they can never land on the unit lattice. That's invisible at a
+> wide radius (~22 rings across the fillet, reading as an intentional curve) and obvious at a narrow one
+> — at 1 unit the fillet got three rings at 5.00 / 8.66 / 10.00 mm on a 5 mm lattice, the last cells
+> crushed to 1.34 mm. Zero is the only radius that puts every ruling line, on every axis, on the lattice.
+>
+> Two changes accompanied it. Faces now sit **half a unit off the lattice** rather than on it, so each
+> face is still a whole number of units across but keeps a half-unit margin at every edge — and two
+> margins meeting at an edge form one full cell wrapping it, putting corners mid-cell instead of on a
+> cell boundary. And the minimum content-to-wall padding became its own constant (`GRID_MIN_PAD_UNITS`)
+> instead of being passed the radius, which had tied the room's size to its corner shape.
+>
+> Names dropped the "rounded": `gridBox`, `gridRingSpecs`, `buildGridRings`.
+>
+> Sections below that describe fillets, cap rings, arc stepping or the dedupe are **historical**. They're
+> kept because the reasoning explains why the rounding was hard to keep, not because the code does it.
+
 ## Summary
 
 Replace the six flat reference grids (xz floor/ceiling + xy/zy walls) with a single

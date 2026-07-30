@@ -141,30 +141,15 @@ export function gridSpec(units: Units, span: number) {
   return { unitMM, minorMM, majorCount, halfExtent: majorCount * unitMM };
 }
 
-// Rounded reference room: a cube whose side comes from the content's largest dimension, padded by this
-// fraction of it per side (0.5 → the side is twice that dimension). The corner fillet radius is a whole
-// number of grid units, which (with the lattice-snapped faces) keeps the fillet tangents (face ∓ radius)
-// on grid lines so the wrapping ruling stays aligned.
+// Reference room: a cube whose side comes from the content's largest dimension, padded by this fraction
+// of it per side (0.5 → the side is twice that dimension). Corners are square — the room had a corner
+// fillet through several iterations, and the machinery for it is gone; see the design spec for why.
 const GRID_PAD_SCALE = 0.5;
 // Minimum clearance between the content and each wall, so a very small object still gets a room with
-// room in it. Independent of the fillet radius: it used to be passed the radius, which quietly tied the
-// size of the room to the shape of its corners — dropping the radius shrank small rooms as a side
-// effect. One unit preserves the sizing this had at radius 1.
+// room in it. Its own constant on purpose: it used to be passed the fillet radius, which quietly tied
+// the size of the room to the shape of its corners, so changing the corners resized small rooms.
 const GRID_MIN_PAD_UNITS = 1;
-// Square corners. No fillet at all: every ring is a plain rectangle, so all three axes and every ruling
-// line land on the integer lattice.
-//
-// This was 7, then 1. At 7 the fillet spanned ~22 cap rings and the compression toward the corner read
-// as an intentional curve. At 1 it got three, at 5.00/8.66/10.00 mm on a 5 mm lattice — the last cells
-// crushed to 1.34 mm and the middle ring off-grid, which read as a defect rather than a curve. The cap
-// rings step by equal ARC (see roundedGridRingSpecs), so they can never sit on the lattice; the only
-// radius that puts every line on it is zero.
-//
-// roundedGridRingSpecs handles this without a special case: capSteps clamps to 1, its cap loop runs
-// `j = 1; j < capSteps` and so emits nothing, and every ring falls in the flat core band with w = 0.
-const GRID_RADIUS_UNITS = 0;
 const GRID_MAX_UNITS_PER_AXIS = 48; // coarsen the ring spacing past this so huge objects stay bounded
-const RING_ARC_SEGS = 14; // polyline segments per quarter-circle corner
 // The room is a backdrop, so it must draw before every item. Nothing in the scene writes depth (see
 // LABEL_ORDER_BIAS), and the room's bounding sphere is centred on the devices, so leaving this at the
 // default 0 lets the distance tiebreak flip as the camera moves — the grid then paints over the device
@@ -195,7 +180,9 @@ interface Vec3 {
 // The side is a whole number of grid units, and every face sits half a unit off the lattice — so each
 // face is a whole number of units across and carries a half-unit margin at each of its edges, and the
 // two margins meeting at an edge form one full cell wrapping it. Pure — for testing.
-export function roundedGridBox(
+//
+// `minPad` is a minimum clearance, deliberately not tied to anything about the room's shape.
+export function gridBox(
   min: Vec3,
   max: Vec3,
   padScale: number,
@@ -215,8 +202,7 @@ export function roundedGridBox(
   // cell that wraps it. Corners then sit at the centre of a cell instead of on its boundary.
   //
   // The ruling itself is unchanged: rings still step from the lattice, so lines still pass through object
-  // corners. Only the walls moved. (If a non-zero fillet radius is ever restored, note that its tangents
-  // now land on halves too — see GRID_RADIUS_UNITS.)
+  // corners. Only the walls moved.
   const lowFace = (lo: number, hi: number) =>
     (Math.round(((lo + hi) / 2 - side / 2) / unitMM - 0.5) + 0.5) * unitMM;
   const x0 = lowFace(min.x, max.x),
@@ -225,60 +211,30 @@ export function roundedGridBox(
   return { min: { x: x0, y: y0, z: z0 }, max: { x: x0 + side, y: y0 + side, z: z0 + side } };
 }
 
-// One family of grid rings: the coordinates along `axis` at which a rounded-rectangle ring is drawn in
-// the perpendicular plane, whether each is a major (unit-lattice) line, and that shared ring's extent
-// and radius. A grid wrapping a rounded box = three such families (one per axis): on any flat face the
-// two in-plane families cross to a normal grid, and every rounded edge is wrapped by the family
-// parallel to it, so the ruling is continuous over the corners. Pure — exported for unit testing.
-// One ring in a family: its coordinate along the axis, whether it is a major (unit) line, its
-// perpendicular radius `w` (= `radius` across the flat core band, shrinking to 0 through the caps as
-// `sqrt(radius² − dAxis²)`), and the signed axial offset `dAxis` into the cap (0 in the core). The
-// shrinking cap rings are what let the ruling continue across the corner spheres.
+// One ring in a family: where it sits along the axis, and whether it's a major (whole-unit) line.
 export interface RingSpec {
   coord: number;
   major: boolean;
-  w: number;
-  dAxis: number;
 }
 
-// One family of rings, perpendicular to `axis`, centred at (cu, cv) in the other two axes. Each ring is
-// a rounded rectangle of half-extents (coreHalfU + w, coreHalfV + w) and corner radius w. A grid
-// wrapping a rounded box = three such families (one per axis): flat faces get the two in-plane
-// families crossing, fillets are wrapped by the parallel family, and the cap rings' corner arcs land on
-// the corner spheres — so the ruling is continuous over every edge and corner. Pure — for unit testing.
+// One family of rings, perpendicular to `axis`, centred at (cu, cv) with half-extents (halfU, halfV) in
+// the other two axes. Each ring is a rectangle in that plane. The room's grid is three such families,
+// one per axis: on any face the two in-plane families cross to form a normal grid, so the ruling is
+// continuous around the box. Pure — exported for unit testing.
 export interface RingFamily {
   axis: 'x' | 'y' | 'z';
   cu: number;
   cv: number;
-  coreHalfU: number;
-  coreHalfV: number;
+  halfU: number;
+  halfV: number;
   rings: RingSpec[];
 }
 
-// Rings cover the FULL axis span, in two regimes:
-//
-// - Across the flat core band `[min+radius, max-radius]`, one full-radius ring every `fine`, on the unit
-//   lattice — this is the face grid, so it stays aligned to object corners.
-// - Through the caps, rings step by equal ARC (`fine` of surface distance, i.e. `Δφ = fine / radius`)
-//   rather than by equal axis coordinate, with the radius shrinking as `radius·cos φ` so the corner arcs
-//   trace the corner spheres. Stepping by coordinate instead would bunch the ruling: each fillet is ruled
-//   by two families whose lines there are geometrically COINCIDENT, and under coordinate stepping the two
-//   sets interleave unevenly (near-duplicate lines a fraction of a unit apart near the middle of the arc,
-//   wide gaps elsewhere). Equal-arc stepping puts both families on the same angles, so the fillet ruling
-//   is evenly spaced and matches the faces; `buildRoundedGridRings` then drops one family's copy.
-//   Cap rings therefore do not sit on the lattice, which is fine — the caps are padding, not measurement.
-//
-// `major` follows arc distance from the tangent, so corners stay as bright as the faces. Pure.
-export function roundedGridRingSpecs(
-  min: Vec3,
-  max: Vec3,
-  radius: number,
-  unitMM: number,
-  fine: number,
-): RingFamily[] {
+// Rings step by `fine` across the full axis span, from the lattice — so the ruling stays aligned to
+// object corners. Because the box's faces sit half a unit off the lattice (see gridBox), no ring ever
+// lands on a face, and every ring is strictly inside the room. Pure.
+export function gridRingSpecs(min: Vec3, max: Vec3, unitMM: number, fine: number): RingFamily[] {
   const onUnit = (v: number) => Math.abs(Math.round(v / unitMM) * unitMM - v) < 1e-6;
-  const capSteps = Math.max(1, Math.round(((Math.PI / 2) * radius) / fine));
-  const majorEvery = Math.max(1, Math.round(unitMM / fine));
   const family = (
     axis: 'x' | 'y' | 'z',
     a0: number,
@@ -289,27 +245,16 @@ export function roundedGridRingSpecs(
     vMax: number,
   ): RingFamily => {
     const rings: RingSpec[] = [];
-    const tLo = a0 + radius,
-      tHi = a1 - radius; // fillet tangents: the flat core band
-    for (let c = Math.ceil(tLo / fine - 1e-6) * fine; c <= tHi + 1e-6; c += fine) {
-      rings.push({ coord: c, major: onUnit(c), w: radius, dAxis: 0 });
-    }
-    // j = 0 would repeat the tangent ring (already emitted above); j = capSteps is the degenerate pole.
-    for (let j = 1; j < capSteps; j++) {
-      const phi = (Math.PI / 2) * (j / capSteps);
-      const t = radius * Math.sin(phi),
-        w = radius * Math.cos(phi);
-      const major = j % majorEvery === 0;
-      rings.push({ coord: tHi + t, major, w, dAxis: t });
-      rings.push({ coord: tLo - t, major, w, dAxis: -t });
+    for (let c = Math.ceil(a0 / fine - 1e-6) * fine; c <= a1 + 1e-6; c += fine) {
+      rings.push({ coord: c, major: onUnit(c) });
     }
     return {
       axis,
       rings,
       cu: (uMin + uMax) / 2,
       cv: (vMin + vMax) / 2,
-      coreHalfU: (uMax - uMin) / 2 - radius,
-      coreHalfV: (vMax - vMin) / 2 - radius,
+      halfU: (uMax - uMin) / 2,
+      halfV: (vMax - vMin) / 2,
     };
   };
   return [
@@ -319,47 +264,14 @@ export function roundedGridRingSpecs(
   ];
 }
 
-// Points and outward normals around a rounded rectangle centred at the origin in a (u,v) plane: four
-// straight edges joined by quarter-circle arcs of radius r, ordered CCW as a closed loop. The normal is
-// the radial direction on the arcs and the edge normal on the straights, so the caller can drive the
-// facing fade that hides near walls.
-function roundedRectLoop(hu: number, hv: number, r: number) {
-  r = Math.min(r, hu, hv);
-  const u: number[] = [],
-    v: number[] = [],
-    nu: number[] = [],
-    nv: number[] = [];
-  const cu = hu - r,
-    cv = hv - r; // corner-centre offsets
-  const corners = [
-    [cu, cv, 0],
-    [-cu, cv, Math.PI / 2],
-    [-cu, -cv, Math.PI],
-    [cu, -cv, (3 * Math.PI) / 2],
-  ];
-  for (const [ou, ov, a0] of corners) {
-    for (let i = 0; i <= RING_ARC_SEGS; i++) {
-      const a = a0! + (Math.PI / 2) * (i / RING_ARC_SEGS);
-      const n0 = Math.cos(a),
-        n1 = Math.sin(a);
-      nu.push(n0);
-      nv.push(n1);
-      u.push(ou! + r * n0);
-      v.push(ov! + r * n1);
-    }
-  }
-  return { u, v, nu, nv };
-}
-
-// Builds the rounded reference room as line rings for a snapped box: three families of concentric
-// rounded-rectangle rings whose ruling wraps continuously over every corner. A single shader fades each
+// Builds the reference room as line rings for a snapped box: three families of concentric rectangle
+// rings, one per axis, so the ruling runs continuously around the box. A single shader fades each
 // fragment by how much its outward surface normal faces away from the camera, so only the far (inner)
 // walls draw — replacing the old six-plane angle fade. Spacing coarsens for very large content.
 // Exported for testing: a NaN in the vertex normals removes the whole room from the shader without any
 // error, so a test that just asserts finite output is worth more than it looks.
-export function buildRoundedGridRings(
+export function buildGridRings(
   box: { min: Vec3; max: Vec3 },
-  radius: number,
   units: Units,
   span: number,
 ): THREE.Group {
@@ -369,56 +281,43 @@ export function buildRoundedGridRings(
   const stepMul = Math.max(1, Math.ceil(maxUnits / GRID_MAX_UNITS_PER_AXIS));
   const showMinor = units === 'imperial' && stepMul === 1; // half-unit lines only when not coarsened
   const fine = showMinor ? minorMM : unitMM * stepMul;
-  const families = roundedGridRingSpecs(box.min, box.max, radius, unitMM, fine);
+  const families = gridRingSpecs(box.min, box.max, unitMM, fine);
 
   const majorPos: number[] = [],
     majorNorm: number[] = [];
   const minorPos: number[] = [],
     minorNorm: number[] = [];
-  // Each ring traces a rounded rect in its perpendicular plane. In the caps the radius shrinks (w) and
-  // the outward normal tilts toward the face by the axial component `dAxis/radius`, while the in-plane
-  // part scales by `w/radius` — so the corner arcs sit on the corner spheres with correct normals for
-  // the facing fade. A LineSegments pair is emitted between each adjacent loop point.
-  // A cap ring is entirely curved geometry: its four corner arcs lie on the corner spheres (one curve per
-  // family — all three are needed), but its four straight runs lie on fillets, where the other family
-  // sharing that fillet emits the very same line. Keep only the lower-ordered axis's copy so the fillet
-  // ruling isn't drawn twice (which would read as darker corners).
-  const AXIS_UV = { x: ['y', 'z'], y: ['x', 'z'], z: ['x', 'y'] } as const;
-  const AXIS_ORDER = { x: 0, y: 1, z: 2 } as const;
+  // Each ring is a rectangle in its perpendicular plane, emitted as its four edges. An edge is its own
+  // LineSegments pair carrying that wall's outward normal at both ends — which is why the rectangle isn't
+  // a shared-vertex loop: the two edges meeting at a corner lie on different walls and need different
+  // normals for the facing fade, and a corner vertex can only hold one.
+  //
+  // (du, dv) is the edge's midpoint direction from the ring centre, which is also its outward normal.
+  const EDGES = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const;
   for (const fam of families) {
-    const [uAxis, vAxis] = AXIS_UV[fam.axis];
     for (const ring of fam.rings) {
-      // Normal shaping, split between the in-plane part (scaled by s) and the axial tilt into the cap.
-      // Both are fractions of the radius, so a zero radius would make them 0/0 = NaN, and a NaN normal
-      // takes the whole room out of the shader silently. At radius 0 there are no caps: the normal is
-      // purely in-plane and untilted.
-      const s = radius === 0 ? 1 : ring.w / radius,
-        naxis = radius === 0 ? 0 : ring.dAxis / radius;
-      const loop = roundedRectLoop(fam.coreHalfU + ring.w, fam.coreHalfV + ring.w, ring.w);
-      const N = loop.u.length;
       const pos = ring.major ? majorPos : minorPos,
         norm = ring.major ? majorNorm : minorNorm;
-      for (let i = 0; i < N; i++) {
-        // The loop is four arcs; the segment joining one arc to the next is a straight run. Straight runs
-        // alternate between the v and u sides, and each lies on the fillet with that axis.
-        if (ring.dAxis !== 0 && i % (RING_ARC_SEGS + 1) === RING_ARC_SEGS) {
-          const partner = Math.floor(i / (RING_ARC_SEGS + 1)) % 2 === 0 ? vAxis : uAxis;
-          if (AXIS_ORDER[fam.axis] > AXIS_ORDER[partner]) continue;
-        }
-        for (const k of [i, (i + 1) % N]) {
-          const u = fam.cu + loop.u[k]!,
-            wv = fam.cv + loop.v[k]!,
-            pnu = s * loop.nu[k]!,
-            pnw = s * loop.nv[k]!;
+      for (const [du, dv] of EDGES) {
+        // The edge runs along whichever of u/v the normal is perpendicular to.
+        const alongU = du === 0;
+        for (const end of [-1, 1]) {
+          const u = fam.cu + (alongU ? end * fam.halfU : du * fam.halfU);
+          const v = fam.cv + (alongU ? dv * fam.halfV : end * fam.halfV);
           if (fam.axis === 'x') {
-            pos.push(ring.coord, u, wv);
-            norm.push(naxis, pnu, pnw);
+            pos.push(ring.coord, u, v);
+            norm.push(0, du, dv);
           } else if (fam.axis === 'y') {
-            pos.push(u, ring.coord, wv);
-            norm.push(pnu, naxis, pnw);
+            pos.push(u, ring.coord, v);
+            norm.push(du, 0, dv);
           } else {
-            pos.push(u, wv, ring.coord);
-            norm.push(pnu, pnw, naxis);
+            pos.push(u, v, ring.coord);
+            norm.push(du, dv, 0);
           }
         }
       }
@@ -745,24 +644,22 @@ export function createScene(container: HTMLElement): SizeScene {
     grids = null;
   }
 
-  // Rebuild the rounded reference room for the current content bounds + unit system: snap an outer box
-  // to the grid lattice with padding, then build the three wrapping ring families inside it. The box
-  // faces (and the fillet tangents) land on grid lines, so the ruling stays aligned to object corners.
+  // Rebuild the reference room for the current content bounds + unit system: snap an outer box around
+  // the content, then build the three ring families inside it. Rings step from the grid lattice, so the
+  // ruling stays aligned to object corners.
   function rebuildGrid() {
     removeGrid();
     const s = bounds.getSize(new THREE.Vector3());
     const span = Math.max(s.x, s.y, s.z, 1);
     const { unitMM } = gridSpec(units, span);
-    const radius = GRID_RADIUS_UNITS * unitMM;
-    // Padding is its own constant, not the radius — see GRID_MIN_PAD_UNITS.
-    const box = roundedGridBox(
+    const box = gridBox(
       bounds.min,
       bounds.max,
       GRID_PAD_SCALE,
       GRID_MIN_PAD_UNITS * unitMM,
       unitMM,
     );
-    grids = buildRoundedGridRings(box, radius, units, span);
+    grids = buildGridRings(box, units, span);
     scene.add(grids);
     updateGridCamera();
   }
