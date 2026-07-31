@@ -781,6 +781,11 @@ export function createScene(container: HTMLElement): SizeScene {
   // (rather than only while fading) so an opacity tween works uniformly across mesh kinds; at
   // opacity 1 a transparent material renders identically to an opaque one.
   const SCREEN_OPACITY = 1; // opaque, so the tinted screen reads cleanly against the body
+  // Every material an item is built from starts here, and the caller fades it in (or, on the first
+  // paint, snaps it to 1). ItemHandle.fadeFactor must be initialised to the SAME value: opacity is
+  // tracked in that field now rather than read back off a material, and if the two disagree the
+  // fade-in concludes it has nothing to do and the item never becomes visible.
+  const INITIAL_FADE = 0;
   const SCREEN_TINT_LIGHT = 0.6; // mix toward white in light mode → paler than the body
   const SCREEN_TINT_DARK = 0.8; // mix toward black in dark mode → clearly darker than the body
 
@@ -962,14 +967,17 @@ export function createScene(container: HTMLElement): SizeScene {
     return { nameLabel, widthLabel, sepLabel, heightLabel };
   }
 
-  // Rebuilds a handle's three labels in place (after a unit switch or a content-size change that
-  // moved labelWorldH), preserving the item's current fade opacity.
+  // Rebuilds a handle's three labels in place (after a unit switch or a content-size change that moved
+  // labelWorldH), preserving the item's current opacity. Fresh labels are born at INITIAL_FADE, so this
+  // goes back through applyOpacityFactor rather than assigning the fade directly — that's the only thing
+  // that also accounts for the highlight dim, and without it a rebuild while another row is hovered
+  // would snap this item's labels back to full while its box stayed dimmed.
   function rebuildLabels(handle: ItemHandle) {
     const factor = currentOpacityFactor(handle);
     for (const l of labelsOf(handle)) disposeLabel(l);
     const built = buildLabels(handle.mesh, handle.item, handle.mesh.renderOrder);
     Object.assign(handle, built);
-    for (const l of labelsOf(handle)) (l.material as THREE.Material).opacity = factor;
+    applyOpacityFactor(handle, factor);
   }
 
   function createHandle(item: SceneItem, keyId: string, target: Target): ItemHandle {
@@ -991,13 +999,13 @@ export function createScene(container: HTMLElement): SizeScene {
           color: item.color,
           wireframe: true,
           transparent: true,
-          opacity: 0,
+          opacity: INITIAL_FADE,
           depthWrite: false,
         })
       : new THREE.MeshLambertMaterial({
           color: item.color,
           transparent: true,
-          opacity: 0,
+          opacity: INITIAL_FADE,
           depthWrite: false,
         });
     const mesh = new THREE.Mesh(geo, mat);
@@ -1020,7 +1028,7 @@ export function createScene(container: HTMLElement): SizeScene {
         new THREE.LineBasicMaterial({
           color: item.color,
           transparent: true,
-          opacity: 0,
+          opacity: INITIAL_FADE,
           depthWrite: false,
         }),
       );
@@ -1036,7 +1044,7 @@ export function createScene(container: HTMLElement): SizeScene {
         new THREE.LineBasicMaterial({
           color: item.color,
           transparent: true,
-          opacity: 0,
+          opacity: INITIAL_FADE,
           depthWrite: false,
         }),
       );
@@ -1050,7 +1058,7 @@ export function createScene(container: HTMLElement): SizeScene {
       const screenMat = new THREE.MeshBasicMaterial({
         color: screenColor(item.color), // paler than the body (light mode) / darker (dark mode)
         transparent: true,
-        opacity: 0,
+        opacity: INITIAL_FADE,
         depthWrite: false,
       });
       screenMesh = new THREE.Mesh(screenGeo, screenMat);
@@ -1091,7 +1099,8 @@ export function createScene(container: HTMLElement): SizeScene {
       heightLabel,
       item,
       meshBaseOpacity,
-      fadeFactor: 1,
+      // Must match the opacity the materials above were created with — see INITIAL_FADE.
+      fadeFactor: INITIAL_FADE,
       fading: false,
     };
   }
