@@ -177,6 +177,24 @@ const VIEW_3D_DIR = { x: 1.2, y: 0.9, z: 1.6 };
 // is deliberately unequal, which reads better but makes distant items smaller.
 const VIEW_ISO_DIR = { x: 1, y: 1, z: 1 };
 const VIEW_3D_BACKOFF = 0.85;
+
+// How far either 3D camera sits from the content centre, and the offset that puts it there along a given
+// direction. Both projections use this, which is the point: an orthographic camera's framing depends only
+// on its frustum extents, not its distance, so the distance is free — and making it equal to the
+// perspective one turns a projection switch into a pure rotation. Otherwise the transition lerps position
+// and projection separately and the camera visibly flies out and back. Pure — exported for testing.
+export function view3dCameraDistance(maxDimension: number): number {
+  const dir = Math.hypot(VIEW_3D_DIR.x, VIEW_3D_DIR.y, VIEW_3D_DIR.z);
+  return Math.max(maxDimension, 1) * VIEW_3D_BACKOFF * dir;
+}
+
+export function view3dCameraOffset(
+  maxDimension: number,
+  dir: { x: number; y: number; z: number },
+): { x: number; y: number; z: number } {
+  const k = view3dCameraDistance(maxDimension) / Math.hypot(dir.x, dir.y, dir.z);
+  return { x: dir.x * k, y: dir.y * k, z: dir.z * k };
+}
 const ORTHO_MARGIN = 1.06;
 // Fade shaping. Visibility is a screen-space "flashlight": a radial gradient centred on the room, full
 // inside GRID_LIGHT_INNER and gone by GRID_LIGHT_OUTER, measured in NDC radius (1 = viewport edge, so
@@ -1231,12 +1249,8 @@ export function createScene(container: HTMLElement): SizeScene {
     let targetCam: THREE.Camera;
     if (next === '3d' && projection === 'perspective') {
       persp.aspect = aspect;
-      const radius = Math.max(s.x, s.y, s.z, 1) * VIEW_3D_BACKOFF;
-      persp.position.set(
-        c.x + radius * VIEW_3D_DIR.x,
-        c.y + radius * VIEW_3D_DIR.y,
-        c.z + radius * VIEW_3D_DIR.z,
-      );
+      const off = view3dCameraOffset(Math.max(s.x, s.y, s.z), VIEW_3D_DIR);
+      persp.position.set(c.x + off.x, c.y + off.y, c.z + off.z);
       persp.lookAt(c);
       applyViewOffset(persp, frame, inset, insetTop);
       persp.updateProjectionMatrix();
@@ -1247,11 +1261,10 @@ export function createScene(container: HTMLElement): SizeScene {
       // rescale as it turns — a box fit would clip as soon as the diagonal swung into view.
       const r = 0.5 * Math.hypot(s.x, s.y, s.z);
       fit(2 * r, 2 * r);
-      ortho.position.set(
-        c.x + far * VIEW_ISO_DIR.x,
-        c.y + far * VIEW_ISO_DIR.y,
-        c.z + far * VIEW_ISO_DIR.z,
-      );
+      // Same distance as the perspective camera — see view3dCameraDistance. It used to sit out at `far`,
+      // which made switching projection a 4x-to-14x fly-out rather than a rotation.
+      const isoOff = view3dCameraOffset(Math.max(s.x, s.y, s.z), VIEW_ISO_DIR);
+      ortho.position.set(c.x + isoOff.x, c.y + isoOff.y, c.z + isoOff.z);
       ortho.lookAt(c);
       applyViewOffset(ortho, frame, inset, insetTop);
       ortho.updateProjectionMatrix();
