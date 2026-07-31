@@ -1,5 +1,5 @@
 import { createContext, type Dispatch, type ReactNode, useContext, useReducer } from 'react';
-import type { ComparisonItem, LayoutMode, Units, View } from '../shared/types';
+import type { ComparisonItem, LayoutMode, Projection, Units, View } from '../shared/types';
 import { itemDims, MAX_ITEMS } from '../shared/types';
 import { getStoredUnits } from './localStore';
 
@@ -9,6 +9,7 @@ export interface ComparisonState {
   units: Units;
   missing: string[];
   layoutMode: LayoutMode;
+  projection: Projection;
   // Index into `items` of the row the pointer (or keyboard focus) is on, or null. Lives here rather
   // than inside ItemList because the 3D view highlights the same item, and both need one answer.
   hovered: number | null;
@@ -21,6 +22,7 @@ export type Action =
   | { type: 'setView'; view: View }
   | { type: 'setUnits'; units: Units }
   | { type: 'setLayout'; mode: LayoutMode }
+  | { type: 'setProjection'; projection: Projection }
   | { type: 'setHover'; index: number | null }
   | { type: 'load'; items: ComparisonItem[]; missing: string[] }
   | { type: 'dismissMissing' };
@@ -62,6 +64,8 @@ export function reducer(state: ComparisonState, action: Action): ComparisonState
       return { ...state, units: action.units };
     case 'setLayout':
       return { ...state, layoutMode: action.mode };
+    case 'setProjection':
+      return { ...state, projection: action.projection };
     case 'setHover':
       return state.hovered === action.index ? state : { ...state, hovered: action.index };
     case 'load':
@@ -85,6 +89,7 @@ export function ComparisonProvider({ children }: { children: ReactNode }) {
     units: getStoredUnits() ?? 'metric',
     missing: [],
     layoutMode: 'row' as LayoutMode,
+    projection: 'perspective' as Projection,
     hovered: null,
   }));
   return <Ctx.Provider value={{ state, dispatch }}>{children}</Ctx.Provider>;

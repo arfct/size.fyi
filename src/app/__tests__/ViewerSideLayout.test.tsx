@@ -1,13 +1,17 @@
 import { render, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
-import type { LayoutMode, View } from '../../shared/types';
+import type { LayoutMode, Projection, View } from '../../shared/types';
 import Viewer from '../components/Viewer';
 import { ComparisonProvider, useComparison } from '../store';
 
 // A stand-in scene that just records what it's told, so the assertions are about what the Viewer sends
 // rather than about anything rendered. Hoisted because vi.mock runs before the module body.
-const calls = vi.hoisted(() => ({ layout: [] as string[], view: [] as string[] }));
+const calls = vi.hoisted(() => ({
+  layout: [] as string[],
+  view: [] as string[],
+  projection: [] as string[],
+}));
 
 vi.mock('../../three/scene', () => ({
   createScene: () => ({
@@ -19,6 +23,9 @@ vi.mock('../../three/scene', () => ({
       calls.layout.push(m);
     },
     setHighlight: () => {},
+    setProjection: (p: string) => {
+      calls.projection.push(p);
+    },
     setInset: () => {},
     setUnits: () => {},
     resize: () => {},
@@ -29,18 +36,21 @@ vi.mock('../../three/scene', () => ({
 beforeEach(() => {
   calls.layout.length = 0;
   calls.view.length = 0;
+  calls.projection.length = 0;
 });
 
 // Drives the store from outside and reports the layout the user actually chose, so a test can tell the
 // difference between "the scene was told stack" and "the preference was changed to stack".
 let setView: (v: View) => void;
 let setLayout: (m: LayoutMode) => void;
+let setProjection: (p: Projection) => void;
 let storedLayout: LayoutMode;
 
 function Harness() {
   const { state, dispatch } = useComparison();
   setView = (v) => dispatch({ type: 'setView', view: v });
   setLayout = (m) => dispatch({ type: 'setLayout', mode: m });
+  setProjection = (p) => dispatch({ type: 'setProjection', projection: p });
   storedLayout = state.layoutMode;
   useEffect(() => {
     dispatch({ type: 'add', item: { kind: 'custom', name: 'Phone', h: 150, w: 75, d: 8 } });
@@ -114,4 +124,11 @@ test('the other flat views use the chosen layout', async () => {
     await waitFor(() => expect(calls.view.at(-1)).toBe(view));
     expect(calls.layout.at(-1)).toBe('row');
   }
+});
+
+test('the projection choice reaches the scene', async () => {
+  await mount();
+  expect(calls.projection).toEqual(['perspective']);
+  setProjection('isometric');
+  await waitFor(() => expect(calls.projection.at(-1)).toBe('isometric'));
 });

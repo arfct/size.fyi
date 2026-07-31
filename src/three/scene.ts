@@ -18,6 +18,7 @@ import {
 export { computeKeys, computeTargetBounds, computeTargets, type LayoutTarget };
 
 export type ViewName = '3d' | 'front' | 'side' | 'top';
+export type Projection = 'perspective' | 'isometric';
 export interface SceneItem {
   name: string;
   h: number;
@@ -89,6 +90,7 @@ export interface SizeScene {
   setItems(items: SceneItem[]): void;
   setView(view: ViewName): void;
   setLayout(mode: LayoutMode): void;
+  setProjection(projection: Projection): void;
   setHighlight(index: number | null): void;
   setInset(px: number, top?: number): void;
   setUnits(units: Units): void;
@@ -170,6 +172,10 @@ const GRID_RENDER_ORDER = -1;
 // 98% of the frame and read as clipped. The front view masks this, because its label padding adds slack
 // that the other two don't have.
 const VIEW_3D_DIR = { x: 1.2, y: 0.9, z: 1.6 };
+// True isometric: equal components, so the three axes project 120 degrees apart and equal lengths along
+// them stay equal on screen. That's the property the mode is for — the perspective view's own direction
+// is deliberately unequal, which reads better but makes distant items smaller.
+const VIEW_ISO_DIR = { x: 1, y: 1, z: 1 };
 const VIEW_3D_BACKOFF = 0.85;
 const ORTHO_MARGIN = 1.06;
 // Fade shaping. Visibility is a screen-space "flashlight": a radial gradient centred on the room, full
@@ -546,11 +552,19 @@ export function createScene(container: HTMLElement): SizeScene {
   const persp = new THREE.PerspectiveCamera(40, 1, 1, 1e6);
   const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 1e6);
   let camera: THREE.Camera = persp;
+  // 3D renders through either camera: perspective by default, or the ortho one from an equal-component
+  // direction for isometric. The flat views always use ortho regardless.
+  let projection: Projection = 'perspective';
   let view: ViewName = '3d';
   let inset = 0; // left inset (px) reserved for the floating sidebar; 0 on mobile
   let insetTop = 0; // top inset (px) reserved for the overlapping segmented control; used on mobile
 
-  const controls = new OrbitControls(persp, renderer.domElement);
+  // Typed over both cameras: 3D orbits the perspective one normally and the ortho one in isometric, and
+  // controls.object is retargeted when that changes.
+  const controls = new OrbitControls<THREE.PerspectiveCamera | THREE.OrthographicCamera>(
+    persp,
+    renderer.domElement,
+  );
   controls.enableDamping = true;
   controls.addEventListener('change', requestRender);
 
@@ -1174,6 +1188,13 @@ export function createScene(container: HTMLElement): SizeScene {
     requestRender();
   }
 
+  function setProjection(next: Projection) {
+    if (next === projection) return;
+    projection = next;
+    // Only 3D renders through the choice; in a flat view it just takes effect on the way back.
+    if (view === '3d') beginTransition('3d');
+  }
+
   function setLayout(mode: LayoutMode) {
     if (layoutMode === mode) return;
     layoutMode = mode;
@@ -1189,8 +1210,17 @@ export function createScene(container: HTMLElement): SizeScene {
     const { width, height } = container.getBoundingClientRect();
     const frame = safeAreaFrame(width, height, inset, insetTop);
     const aspect = frame.aspect;
+    // Shared by the isometric and flat branches, which both frame with the ortho camera.
+    const fit = (fw: number, fh: number) => {
+      const half = ((Math.max(fw / aspect, fh) * ORTHO_MARGIN) / 2) * Math.max(aspect, 1);
+      ortho.left = -half * (aspect >= 1 ? 1 : aspect);
+      ortho.right = -ortho.left;
+      ortho.top = ortho.right / aspect;
+      ortho.bottom = -ortho.top;
+    };
+    const far = Math.max(s.x, s.y, s.z) * 4 + 1000;
     let targetCam: THREE.Camera;
-    if (next === '3d') {
+    if (next === '3d' && projection === 'perspective') {
       persp.aspect = aspect;
       const radius = Math.max(s.x, s.y, s.z, 1) * VIEW_3D_BACKOFF;
       persp.position.set(
@@ -1202,15 +1232,22 @@ export function createScene(container: HTMLElement): SizeScene {
       applyViewOffset(persp, frame, inset, insetTop);
       persp.updateProjectionMatrix();
       targetCam = persp;
+    } else if (next === '3d') {
+      // Isometric 3D: the ortho camera, looking down an equal-component direction. Fit to the content's
+      // bounding SPHERE rather than its box, because 3D is orbitable and an ortho frustum doesn't
+      // rescale as it turns — a box fit would clip as soon as the diagonal swung into view.
+      const r = 0.5 * Math.hypot(s.x, s.y, s.z);
+      fit(2 * r, 2 * r);
+      ortho.position.set(
+        c.x + far * VIEW_ISO_DIR.x,
+        c.y + far * VIEW_ISO_DIR.y,
+        c.z + far * VIEW_ISO_DIR.z,
+      );
+      ortho.lookAt(c);
+      applyViewOffset(ortho, frame, inset, insetTop);
+      ortho.updateProjectionMatrix();
+      targetCam = ortho;
     } else {
-      const fit = (fw: number, fh: number) => {
-        const half = ((Math.max(fw / aspect, fh) * ORTHO_MARGIN) / 2) * Math.max(aspect, 1);
-        ortho.left = -half * (aspect >= 1 ? 1 : aspect);
-        ortho.right = -ortho.left;
-        ortho.top = ortho.right / aspect;
-        ortho.bottom = -ortho.top;
-      };
-      const far = Math.max(s.x, s.y, s.z) * 4 + 1000;
       // Front view is fit tightly to the geometry; the name label sits just below each box, so leave
       // room for its overhang (label height + gap) or it clips at the bottom edge.
       const labelPad = 2 * (labelWorldH + Math.max(0, ...lastItems.map((i) => labelGap(i))));
@@ -1265,7 +1302,10 @@ export function createScene(container: HTMLElement): SizeScene {
     const end = computeEnd(next);
     view = next;
     if (next === '3d') {
-      camera = persp;
+      camera = projection === 'perspective' ? persp : ortho;
+      // OrbitControls handles either camera type, but it has to be pointed at the one in use or it
+      // orbits an object nobody is looking through.
+      controls.object = projection === 'perspective' ? persp : ortho;
       controls.target.copy(end.controlsTarget);
       controls.enabled = true;
     } else {
@@ -1283,7 +1323,7 @@ export function createScene(container: HTMLElement): SizeScene {
     animTo = null;
     animRaf = 0;
     animating = false;
-    if (next === '3d') {
+    if (next === '3d' && projection === 'perspective') {
       camera = persp;
       persp.position.copy(end.position);
       persp.quaternion.copy(end.quaternion);
@@ -1292,6 +1332,13 @@ export function createScene(container: HTMLElement): SizeScene {
       persp.aspect = frame.aspect;
       applyViewOffset(persp, frame, inset, insetTop);
       persp.updateProjectionMatrix(); // restore auto (non-lerped) projection
+      controls.object = persp;
+      controls.target.copy(end.controlsTarget);
+      controls.enabled = true;
+    } else if (next === '3d') {
+      // Isometric: ortho's pose was set by computeEnd, but unlike the flat views this one orbits.
+      camera = ortho;
+      controls.object = ortho;
       controls.target.copy(end.controlsTarget);
       controls.enabled = true;
     } else {
@@ -1388,6 +1435,7 @@ export function createScene(container: HTMLElement): SizeScene {
     },
     setView,
     setLayout,
+    setProjection,
     setHighlight,
     setInset,
     setUnits(next: Units) {

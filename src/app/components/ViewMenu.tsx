@@ -1,6 +1,6 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { View } from '../../shared/types';
+import type { Projection, View } from '../../shared/types';
 import { setStoredUnits } from '../localStore';
 import { useComparison } from '../store';
 
@@ -9,6 +9,10 @@ const VIEWS: Array<{ id: View; label: string }> = [
   { id: 'front', label: 'Front' },
   { id: 'side', label: 'Side' },
   { id: 'top', label: 'Top' },
+];
+const PROJECTIONS: Array<{ id: Projection; label: string }> = [
+  { id: 'perspective', label: 'Perspective' },
+  { id: 'isometric', label: 'Isometric' },
 ];
 const LAYOUTS: Array<{ mode: 'stack' | 'row'; label: string }> = [
   { mode: 'row', label: 'Side-by-side' },
@@ -87,6 +91,36 @@ export default function ViewMenu() {
               {v.label} {check(state.view === v.id)}
             </button>
           ))}
+
+          {/* Only 3D projects; the flat views are orthographic by definition, so the choice would be
+              inert there. Shown conditionally rather than disabled — a control that can't do anything
+              is better absent than greyed out. */}
+          {state.view === '3d' && (
+            <>
+              <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
+              <p
+                role="presentation"
+                className="px-3 pt-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400"
+              >
+                Projection
+              </p>
+              {PROJECTIONS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={state.projection === p.id}
+                  onClick={() => {
+                    setOpen(false);
+                    dispatch({ type: 'setProjection', projection: p.id });
+                  }}
+                  className={itemClass(state.projection === p.id)}
+                >
+                  {p.label} {check(state.projection === p.id)}
+                </button>
+              ))}
+            </>
+          )}
 
           <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
           <p

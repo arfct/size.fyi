@@ -65,6 +65,8 @@ export type ComparisonItem =
   | { kind: 'device'; device: Device; state?: string } // state = active DeviceState label (foldables)
   | { kind: 'custom'; name: string; h: number; w: number; d: number };
 export type View = '3d' | 'front' | 'side' | 'top';
+// How the 3D view projects. The flat views are always orthographic regardless.
+export type Projection = 'perspective' | 'isometric';
 export type Units = 'metric' | 'imperial';
 export type LayoutMode = 'row' | 'stack';
 export const MAX_ITEMS = 8;

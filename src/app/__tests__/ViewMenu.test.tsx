@@ -69,3 +69,38 @@ test('choosing Imperial units updates checked state and persists', async () => {
   );
   expect(getStoredUnits()).toBe('imperial');
 });
+
+test('offers a projection choice in 3D, defaulting to perspective', async () => {
+  const user = open();
+  await user.click(screen.getByRole('button', { name: /view: 3d/i }));
+  const menu = screen.getByRole('menu');
+  expect(within(menu).getByRole('menuitemradio', { name: /^Perspective/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  expect(within(menu).getByRole('menuitemradio', { name: /^Isometric/ })).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
+});
+
+test('choosing Isometric updates the checked state', async () => {
+  const user = open();
+  await user.click(screen.getByRole('button', { name: /view: 3d/i }));
+  await user.click(screen.getByRole('menuitemradio', { name: /^Isometric/ }));
+  await user.click(screen.getByRole('button', { name: /view: 3d/i }));
+  expect(screen.getByRole('menuitemradio', { name: /^Isometric/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});
+
+test('hides the projection choice in the flat views, where it would do nothing', async () => {
+  const user = open();
+  await user.click(screen.getByRole('button', { name: /view: 3d/i }));
+  await user.click(screen.getByRole('menuitemradio', { name: /^Front/ }));
+  await user.click(screen.getByRole('button', { name: /view: front/i }));
+  // Orthographic by definition, so there is no choice to make.
+  expect(screen.queryByRole('menuitemradio', { name: /^Perspective/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('menuitemradio', { name: /^Isometric/ })).not.toBeInTheDocument();
+});

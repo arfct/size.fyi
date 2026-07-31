@@ -8,6 +8,7 @@ const empty: ComparisonState = {
   units: 'metric',
   missing: [],
   layoutMode: 'row',
+  projection: 'perspective',
   hovered: null,
 };
 const item = (name: string): ComparisonItem => ({ kind: 'custom', name, h: 10, w: 10, d: 10 });

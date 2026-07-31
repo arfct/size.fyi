@@ -130,6 +130,11 @@ export default function Viewer({ asideRef }: ViewerProps) {
     sceneRef.current?.setUnits(state.units);
   }, [state.units, ready]);
 
+  useEffect(() => {
+    if (!ready) return;
+    sceneRef.current?.setProjection(state.projection);
+  }, [state.projection, ready]);
+
   // Hovering a sidebar row picks out its item in the scene. The index is into state.items, which is the
   // same array and order setItems was given, so no key translation is needed here.
   useEffect(() => {
