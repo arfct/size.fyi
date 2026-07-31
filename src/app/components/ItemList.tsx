@@ -53,6 +53,12 @@ function StateToggle({
 // the leading category icon). Self-contained dropdown: a ref-scoped mousedown-outside listener
 // and Escape close it; the trigger and menu live inside the ref so clicking them never counts as
 // "outside".
+//
+// The trigger is invisible until the row is hovered or something inside it is focused, and always
+// visible on a coarse pointer, where there is no hover to reveal it. Opacity rather than display, so
+// the row's layout doesn't shift as it appears — and so the button stays in the tab order, with
+// group-focus-within bringing it into view when a keyboard reaches it. It also stays visible while its
+// own menu is open, or the menu would be left floating under an invisible trigger.
 function ItemMenu({
   name,
   ar,
@@ -89,7 +95,7 @@ function ItemMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-6 w-6 items-center justify-center rounded-full outline-none hover:bg-stone-200 focus-visible:bg-stone-200 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700"
+        className={`flex h-6 w-6 items-center justify-center rounded-full outline-none transition-opacity hover:bg-stone-200 focus-visible:bg-stone-200 pointer-coarse:opacity-100 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700 ${open ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`}
       >
         <Ellipsis size={18} className="text-stone-400 dark:text-stone-500" aria-hidden />
       </button>
@@ -169,17 +175,24 @@ export default function ItemList({
               }
             : undefined;
         const Icon = item.kind === 'device' ? deviceIcon(item.device) : MY_ITEM_ICON;
+        const color = itemColor(item, i);
         return (
           <li
             key={`${name}-${i}`}
-            className="flex items-center gap-2.5 rounded-md px-4 py-2 hover:bg-stone-200/60 dark:hover:bg-stone-800/60"
+            // Hover is React state rather than a CSS :hover, because the same signal drives the 3D
+            // highlight and the tint is per-item so it can't be a static class. Focus counts too, so a
+            // keyboard walking the rows lights up the same item a pointer would.
+            onMouseEnter={() => dispatch({ type: 'setHover', index: i })}
+            onMouseLeave={() => dispatch({ type: 'setHover', index: null })}
+            onFocus={() => dispatch({ type: 'setHover', index: i })}
+            onBlur={() => dispatch({ type: 'setHover', index: null })}
+            // The row tints with the item's own colour at low alpha, so the highlight names which item
+            // it belongs to instead of being a generic grey. `20` is the alpha byte — ~12%, enough to
+            // read as a wash without fighting the text on either theme.
+            style={{ backgroundColor: state.hovered === i ? `${color}20` : undefined }}
+            className="group flex items-center gap-2.5 rounded-md px-4 py-2 transition-colors"
           >
-            <Icon
-              size={18}
-              style={{ color: itemColor(item, i) }}
-              className="shrink-0"
-              aria-hidden
-            />
+            <Icon size={18} style={{ color }} className="shrink-0" aria-hidden />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 {url ? (

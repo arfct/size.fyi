@@ -18,6 +18,7 @@ vi.mock('../../three/scene', () => ({
     setLayout: (m: string) => {
       calls.layout.push(m);
     },
+    setHighlight: () => {},
     setInset: () => {},
     setUnits: () => {},
     resize: () => {},

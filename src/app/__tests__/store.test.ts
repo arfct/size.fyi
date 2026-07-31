@@ -8,6 +8,7 @@ const empty: ComparisonState = {
   units: 'metric',
   missing: [],
   layoutMode: 'row',
+  hovered: null,
 };
 const item = (name: string): ComparisonItem => ({ kind: 'custom', name, h: 10, w: 10, d: 10 });
 
@@ -46,4 +47,29 @@ test('setLayout switches back to row', () => {
 test('layoutMode survives unrelated actions', () => {
   const stacked = reducer(empty, { type: 'setLayout', mode: 'stack' });
   expect(reducer(stacked, { type: 'setView', view: 'top' }).layoutMode).toBe('stack');
+});
+
+// `hovered` is an index into `items`, and the reducer keeps items volume-sorted, so any mutation can
+// move a different item into that slot. Stale indices would highlight the wrong row and the wrong box.
+test('every mutation clears the hovered index, which addresses a slot rather than an item', () => {
+  const two = reducer(reducer(empty, { type: 'add', item: item('A') }), {
+    type: 'add',
+    item: item('B'),
+  });
+  const hovered = reducer(two, { type: 'setHover', index: 1 });
+  expect(hovered.hovered).toBe(1);
+
+  // A bigger item sorts to the end and pushes the others down a slot.
+  const big: ComparisonItem = { kind: 'custom', name: 'Big', h: 99, w: 99, d: 99 };
+  expect(reducer(hovered, { type: 'add', item: big }).hovered).toBeNull();
+  expect(reducer(hovered, { type: 'remove', index: 0 }).hovered).toBeNull();
+  expect(reducer(hovered, { type: 'update', index: 0, item: big }).hovered).toBeNull();
+  expect(reducer(hovered, { type: 'clear' }).hovered).toBeNull();
+  expect(reducer(hovered, { type: 'load', items: [item('C')], missing: [] }).hovered).toBeNull();
+});
+
+test('setting the same hover twice returns the identical state, so React can skip the render', () => {
+  const hovered = reducer(empty, { type: 'setHover', index: 2 });
+  expect(reducer(hovered, { type: 'setHover', index: 2 })).toBe(hovered);
+  expect(reducer(hovered, { type: 'setHover', index: null }).hovered).toBeNull();
 });

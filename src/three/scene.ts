@@ -89,6 +89,7 @@ export interface SizeScene {
   setItems(items: SceneItem[]): void;
   setView(view: ViewName): void;
   setLayout(mode: LayoutMode): void;
+  setHighlight(index: number | null): void;
   setInset(px: number, top?: number): void;
   setUnits(units: Units): void;
   resize(): void;
@@ -781,9 +782,18 @@ export function createScene(container: HTMLElement): SizeScene {
     heightLabel: THREE.Mesh; // bottom-right, on the face (white, unitless)
     item: SceneItem;
     meshBaseOpacity: number;
+    // The item's own fade (add/remove), kept as state rather than read back off the material — final
+    // opacity is this times the highlight dim, so the material alone can no longer tell you the fade.
+    fadeFactor: number;
     fading: boolean; // true while a fade-out (pending removal) is in flight
   }
   type Target = LayoutTarget;
+
+  // Hovering a row in the sidebar picks out its item here. Rather than brightening the one — every
+  // material is already at its intended opacity — the others fade back, which reads as emphasis without
+  // changing any colour. Applied instantly: hover feedback that eases in feels unresponsive.
+  const HIGHLIGHT_DIM = 0.15; // what the others drop to
+  let highlightKey: string | null = null;
 
   const handles = new Map<string, ItemHandle>();
   let lastItems: SceneItem[] = [];
@@ -794,17 +804,22 @@ export function createScene(container: HTMLElement): SizeScene {
     return [handle.nameLabel, handle.widthLabel, handle.sepLabel, handle.heightLabel];
   }
 
+  const dimFor = (handle: ItemHandle) =>
+    highlightKey === null || handle.keyId === highlightKey ? 1 : HIGHLIGHT_DIM;
+
   function applyOpacityFactor(handle: ItemHandle, factor: number) {
-    (handle.mesh.material as THREE.Material).opacity = handle.meshBaseOpacity * factor;
-    if (handle.edges) (handle.edges.material as THREE.Material).opacity = factor;
-    if (handle.seam) (handle.seam.material as THREE.Material).opacity = factor;
+    handle.fadeFactor = factor;
+    const f = factor * dimFor(handle);
+    (handle.mesh.material as THREE.Material).opacity = handle.meshBaseOpacity * f;
+    if (handle.edges) (handle.edges.material as THREE.Material).opacity = f;
+    if (handle.seam) (handle.seam.material as THREE.Material).opacity = f;
     if (handle.screenMesh)
-      (handle.screenMesh.material as THREE.Material).opacity = SCREEN_OPACITY * factor;
-    for (const l of labelsOf(handle)) (l.material as THREE.Material).opacity = factor;
+      (handle.screenMesh.material as THREE.Material).opacity = SCREEN_OPACITY * f;
+    for (const l of labelsOf(handle)) (l.material as THREE.Material).opacity = f;
   }
 
   function currentOpacityFactor(handle: ItemHandle): number {
-    return (handle.mesh.material as THREE.Material).opacity / (handle.meshBaseOpacity || 1);
+    return handle.fadeFactor;
   }
 
   // Tweens opacity from wherever it currently is (live value, so a fade interrupted mid-flight —
@@ -1062,6 +1077,7 @@ export function createScene(container: HTMLElement): SizeScene {
       heightLabel,
       item,
       meshBaseOpacity,
+      fadeFactor: 1,
       fading: false,
     };
   }
@@ -1141,6 +1157,21 @@ export function createScene(container: HTMLElement): SizeScene {
     } else {
       beginTransition(view);
     }
+  }
+
+  // Highlights one item by index into the last `setItems` array, or clears with null. Indices rather
+  // than keys because the caller (a sidebar row) already has one and shouldn't need to know how the
+  // scene keys its handles.
+  function setHighlight(index: number | null) {
+    const keys = computeKeys(lastItems);
+    const next = index === null ? null : (keys[index] ?? null);
+    if (next === highlightKey) return;
+    highlightKey = next;
+    // Re-apply at the current fade rather than tweening: opacity is fade x dim, and re-running each
+    // handle's own factor keeps an in-flight add/remove fade untouched.
+    for (const handle of handles.values()) applyOpacityFactor(handle, handle.fadeFactor);
+    // Rendering is on demand, so a material change on its own puts nothing on screen.
+    requestRender();
   }
 
   function setLayout(mode: LayoutMode) {
@@ -1357,6 +1388,7 @@ export function createScene(container: HTMLElement): SizeScene {
     },
     setView,
     setLayout,
+    setHighlight,
     setInset,
     setUnits(next: Units) {
       if (next === units) return;

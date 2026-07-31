@@ -130,6 +130,13 @@ export default function Viewer({ asideRef }: ViewerProps) {
     sceneRef.current?.setUnits(state.units);
   }, [state.units, ready]);
 
+  // Hovering a sidebar row picks out its item in the scene. The index is into state.items, which is the
+  // same array and order setItems was given, so no key translation is needed here.
+  useEffect(() => {
+    if (!ready) return;
+    sceneRef.current?.setHighlight(state.hovered);
+  }, [state.hovered, ready]);
+
   return (
     <div ref={ref} className="relative h-full min-h-[320px] w-full" data-testid="viewer">
       {unavailable && (
