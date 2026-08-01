@@ -89,7 +89,7 @@ export function ComparisonProvider({ children }: { children: ReactNode }) {
     units: getStoredUnits() ?? 'metric',
     missing: [],
     layoutMode: 'row' as LayoutMode,
-    projection: 'perspective' as Projection,
+    projection: 'orthographic' as Projection,
     hovered: null,
   }));
   return <Ctx.Provider value={{ state, dispatch }}>{children}</Ctx.Provider>;

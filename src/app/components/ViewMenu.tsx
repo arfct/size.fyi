@@ -93,21 +93,24 @@ export default function ViewMenu() {
               inert there. Shown conditionally rather than disabled — a control that can't do anything
               is better absent than greyed out. */}
           {state.view === '3d' && (
-            <button
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={state.projection === 'perspective'}
-              onClick={() => {
-                setOpen(false);
-                dispatch({
-                  type: 'setProjection',
-                  projection: state.projection === 'perspective' ? 'orthographic' : 'perspective',
-                });
-              }}
-              className={itemClass(state.projection === 'perspective')}
-            >
-              Perspective {check(state.projection === 'perspective')}
-            </button>
+            <>
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={state.projection === 'perspective'}
+                onClick={() => {
+                  setOpen(false);
+                  dispatch({
+                    type: 'setProjection',
+                    projection: state.projection === 'perspective' ? 'orthographic' : 'perspective',
+                  });
+                }}
+                className={itemClass(state.projection === 'perspective')}
+              >
+                Perspective {check(state.projection === 'perspective')}
+              </button>
+              <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
+            </>
           )}
 
           <button

@@ -75,21 +75,16 @@ test('choosing Imperial units updates checked state and persists', async () => {
   expect(getStoredUnits()).toBe('imperial');
 });
 
-test('Perspective is one row that toggles, checked by default', async () => {
+test('Perspective is one row that toggles, unchecked by default', async () => {
   const user = open();
   await user.click(screen.getByRole('button', { name: /view: 3d/i }));
-  expect(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-
-  // Unchecking it is what selects orthographic; there is no separate Orthographic row.
-  await user.click(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ }));
-  await user.click(screen.getByRole('button', { name: /view: 3d/i }));
+  // 3D opens orthographic: it reads as a measured drawing rather than a photograph, which is what a
+  // size comparison is for. Checking this row is what opts into perspective.
   expect(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ })).toHaveAttribute(
     'aria-checked',
     'false',
   );
+  // And there is no separate Orthographic row to go with it.
   expect(screen.queryByRole('menuitemcheckbox', { name: /orthographic/i })).toBeNull();
 
   await user.click(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ }));
@@ -97,6 +92,13 @@ test('Perspective is one row that toggles, checked by default', async () => {
   expect(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ })).toHaveAttribute(
     'aria-checked',
     'true',
+  );
+
+  await user.click(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ }));
+  await user.click(screen.getByRole('button', { name: /view: 3d/i }));
+  expect(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ })).toHaveAttribute(
+    'aria-checked',
+    'false',
   );
 });
 

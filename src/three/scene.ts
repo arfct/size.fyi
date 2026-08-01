@@ -597,7 +597,7 @@ export function createScene(container: HTMLElement): SizeScene {
   let camera: THREE.Camera = persp;
   // 3D renders through either camera: perspective by default, or the ortho one from an equal-component
   // direction for orthographic. The flat views always use ortho regardless.
-  let projection: Projection = 'perspective';
+  let projection: Projection = 'orthographic';
   let view: ViewName = '3d';
   let inset = 0; // left inset (px) reserved for the floating sidebar; 0 on mobile
   let insetTop = 0; // top inset (px) reserved for the overlapping segmented control; used on mobile
@@ -1342,7 +1342,12 @@ export function createScene(container: HTMLElement): SizeScene {
       ortho.top = ortho.right / aspect;
       ortho.bottom = -ortho.top;
     };
-    const far = Math.max(s.x, s.y, s.z) * 4 + 1000;
+    // Every camera in every view stands this far off the centre — see view3dCameraDistance. An
+    // orthographic frustum frames the same content whatever its distance, so the standoff is free to
+    // match, and matching it makes a view change a pure rotation about the centre instead of a rotation
+    // plus a fly-out. The flat views used to sit at `max(size) * 2 + 500`, which for a phone was ~2.7x
+    // further than 3D and read as the camera lurching backwards on the way there.
+    const standoff = view3dCameraDistance(Math.max(s.x, s.y, s.z));
     let targetCam: THREE.Camera;
     if (next === '3d' && projection === 'perspective') {
       persp.aspect = aspect;
@@ -1358,8 +1363,6 @@ export function createScene(container: HTMLElement): SizeScene {
       // rescale as it turns — a box fit would clip as soon as the diagonal swung into view.
       const r = 0.5 * Math.hypot(s.x, s.y, s.z);
       fit(2 * r, 2 * r);
-      // Same distance as the perspective camera — see view3dCameraDistance. It used to sit out at `far`,
-      // which made switching projection a 4x-to-14x fly-out rather than a rotation.
       const isoOff = view3dCameraOffset(Math.max(s.x, s.y, s.z), VIEW_ORTHO_DIR);
       ortho.position.set(c.x + isoOff.x, c.y + isoOff.y, c.z + isoOff.z);
       ortho.lookAt(c);
@@ -1372,15 +1375,15 @@ export function createScene(container: HTMLElement): SizeScene {
       const labelPad = 2 * (labelWorldH + Math.max(0, ...lastItems.map((i) => labelGap(i))));
       if (next === 'front') {
         fit(s.x + labelPad, s.y + labelPad);
-        ortho.position.set(c.x, c.y, c.z + far / 2);
+        ortho.position.set(c.x, c.y, c.z + standoff);
       }
       if (next === 'side') {
         fit(s.z, s.y);
-        ortho.position.set(c.x + far / 2, c.y, c.z);
+        ortho.position.set(c.x + standoff, c.y, c.z);
       }
       if (next === 'top') {
         fit(s.x, s.z);
-        ortho.position.set(c.x, c.y + far / 2, c.z);
+        ortho.position.set(c.x, c.y + standoff, c.z);
       }
       ortho.lookAt(c);
       applyViewOffset(ortho, frame, inset, insetTop);
