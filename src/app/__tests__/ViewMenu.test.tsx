@@ -29,30 +29,35 @@ test('the menu holds view, layout and units controls together', async () => {
   const user = open();
   await user.click(screen.getByRole('button', { name: /view: 3d/i }));
   const menu = screen.getByRole('menu');
-  for (const label of [
-    '3D',
-    'Front',
-    'Side',
-    'Top',
-    'Side-by-side',
-    'Stack',
-    'Metric',
-    'Imperial',
-  ]) {
+  for (const label of ['3D', 'Front', 'Side', 'Top', 'Metric', 'Imperial']) {
     expect(within(menu).getByRole('menuitemradio', { name: label })).toBeInTheDocument();
   }
+  // The two-state settings are single checkable rows, not a pair of radios each.
+  for (const label of ['Perspective', 'Stack']) {
+    expect(within(menu).getByRole('menuitemcheckbox', { name: label })).toBeInTheDocument();
+  }
+  expect(within(menu).queryByRole('menuitemradio', { name: /side-by-side/i })).toBeNull();
 });
 
-test('choosing Stack layout updates the checked state', async () => {
+test('Stack is one row that toggles, unchecked meaning side-by-side', async () => {
   const user = open();
   await user.click(screen.getByRole('button', { name: /view: 3d/i }));
-  await user.click(screen.getByRole('menuitemradio', { name: /^Stack/ }));
+  expect(screen.getByRole('menuitemcheckbox', { name: /^Stack/ })).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
+
+  await user.click(screen.getByRole('menuitemcheckbox', { name: /^Stack/ }));
   await user.click(screen.getByRole('button', { name: /view: 3d/i }));
-  expect(screen.getByRole('menuitemradio', { name: /^Stack/ })).toHaveAttribute(
+  expect(screen.getByRole('menuitemcheckbox', { name: /^Stack/ })).toHaveAttribute(
     'aria-checked',
     'true',
   );
-  expect(screen.getByRole('menuitemradio', { name: /^Side-by-side/ })).toHaveAttribute(
+
+  // And the same row turns it back off — there's no separate side-by-side item to go back to.
+  await user.click(screen.getByRole('menuitemcheckbox', { name: /^Stack/ }));
+  await user.click(screen.getByRole('button', { name: /view: 3d/i }));
+  expect(screen.getByRole('menuitemcheckbox', { name: /^Stack/ })).toHaveAttribute(
     'aria-checked',
     'false',
   );
@@ -70,37 +75,38 @@ test('choosing Imperial units updates checked state and persists', async () => {
   expect(getStoredUnits()).toBe('imperial');
 });
 
-test('offers a projection choice in 3D, defaulting to perspective', async () => {
+test('Perspective is one row that toggles, checked by default', async () => {
   const user = open();
   await user.click(screen.getByRole('button', { name: /view: 3d/i }));
-  const menu = screen.getByRole('menu');
-  expect(within(menu).getByRole('menuitemradio', { name: /^Perspective/ })).toHaveAttribute(
+  expect(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ })).toHaveAttribute(
     'aria-checked',
     'true',
   );
-  expect(within(menu).getByRole('menuitemradio', { name: /^Orthographic/ })).toHaveAttribute(
+
+  // Unchecking it is what selects orthographic; there is no separate Orthographic row.
+  await user.click(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ }));
+  await user.click(screen.getByRole('button', { name: /view: 3d/i }));
+  expect(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ })).toHaveAttribute(
     'aria-checked',
     'false',
   );
-});
+  expect(screen.queryByRole('menuitemcheckbox', { name: /orthographic/i })).toBeNull();
 
-test('choosing Orthographic updates the checked state', async () => {
-  const user = open();
+  await user.click(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ }));
   await user.click(screen.getByRole('button', { name: /view: 3d/i }));
-  await user.click(screen.getByRole('menuitemradio', { name: /^Orthographic/ }));
-  await user.click(screen.getByRole('button', { name: /view: 3d/i }));
-  expect(screen.getByRole('menuitemradio', { name: /^Orthographic/ })).toHaveAttribute(
+  expect(screen.getByRole('menuitemcheckbox', { name: /^Perspective/ })).toHaveAttribute(
     'aria-checked',
     'true',
   );
 });
 
-test('hides the projection choice in the flat views, where it would do nothing', async () => {
+test('hides the projection row in the flat views, where it would do nothing', async () => {
   const user = open();
   await user.click(screen.getByRole('button', { name: /view: 3d/i }));
   await user.click(screen.getByRole('menuitemradio', { name: /^Front/ }));
   await user.click(screen.getByRole('button', { name: /view: front/i }));
   // Orthographic by definition, so there is no choice to make.
-  expect(screen.queryByRole('menuitemradio', { name: /^Perspective/ })).not.toBeInTheDocument();
-  expect(screen.queryByRole('menuitemradio', { name: /^Orthographic/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('menuitemcheckbox', { name: /^Perspective/ })).not.toBeInTheDocument();
+  // Layout still applies, so its row stays.
+  expect(screen.getByRole('menuitemcheckbox', { name: /^Stack/ })).toBeInTheDocument();
 });

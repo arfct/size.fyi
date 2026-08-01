@@ -29,8 +29,8 @@ test('the display menu carries view, layout and units together', async () => {
   const trigger = screen.getAllByRole('button', { name: /view: 3d/i })[0]!;
   await userEvent.setup().click(trigger);
   const menu = screen.getAllByRole('menu')[0]!;
-  expect(within(menu).getByRole('menuitemradio', { name: /^Side-by-side/ })).toBeInTheDocument();
-  expect(within(menu).getByRole('menuitemradio', { name: /^Stack/ })).toBeInTheDocument();
+  expect(within(menu).getByRole('menuitemcheckbox', { name: /^Perspective/ })).toBeInTheDocument();
+  expect(within(menu).getByRole('menuitemcheckbox', { name: /^Stack/ })).toBeInTheDocument();
   expect(within(menu).getByRole('menuitemradio', { name: /^Metric/ })).toBeInTheDocument();
   expect(within(menu).getByRole('menuitemradio', { name: /^Imperial/ })).toBeInTheDocument();
 });

@@ -661,11 +661,11 @@ export function createScene(container: HTMLElement): SizeScene {
   // perceptually lopsided: the perspective divide collapses in the last few percent of the tween, so
   // nearly all the visual change lands in one snap at the end. This morph instead dollies the camera out
   // while narrowing the field of view, so every frame is a real perspective projection converging on the
-  // orthographic one, and the change is spread evenly across the whole animation.
+  // orthographic one, and the change is spread evenly across the whole animation. `dir` is fixed for the
+  // duration: a projection change is not a move, so the camera holds the angle it was already on.
   let morph: {
     centre: THREE.Vector3;
-    fromDir: THREE.Vector3;
-    toDir: THREE.Vector3;
+    dir: THREE.Vector3;
     fromDist: number;
     toDist: number;
     fromHalfH: number;
@@ -1279,21 +1279,31 @@ export function createScene(container: HTMLElement): SizeScene {
     computeEnd('3d');
     const orthoHalfH = ortho.top;
     projection = next;
-    const end = computeEnd('3d');
+    computeEnd('3d');
+
+    // Toggling projection changes how the camera projects, not where it points. computeEnd puts the
+    // target camera at that projection's canonical angle, so put it back on the angle we're already
+    // looking from — both projections sit at the same distance, so this is a pure rotation of the
+    // landing pose. Re-read it afterwards, since computeEnd's return value is a clone.
+    const dir = live.clone().sub(centre).normalize();
+    const target = next === 'perspective' ? persp : ortho;
+    target.position.copy(centre).addScaledVector(dir, near);
+    target.lookAt(centre);
+    const end: ViewEndState = {
+      position: target.position.clone(),
+      quaternion: target.quaternion.clone(),
+      projectionMatrix: target.projectionMatrix.clone(),
+      controlsTarget: centre.clone(),
+    };
 
     // Distance is only meaningful for the perspective camera; an orthographic start stands in at the
     // dolly distance, which is the same thing the morph converges on from the other side.
-    const fromDir = live.clone().sub(centre).normalize();
     const fromDist = wasOrtho ? near * VIEW_ORTHO_DOLLY : live.distanceTo(centre);
-    const toDir = new THREE.Vector3()
-      .copy(next === 'orthographic' ? VIEW_ORTHO_DIR : VIEW_3D_DIR)
-      .normalize();
 
     cancelAnimation();
     morph = {
       centre,
-      fromDir,
-      toDir,
+      dir,
       fromDist,
       toDist: next === 'orthographic' ? near * VIEW_ORTHO_DOLLY : near,
       fromHalfH: wasOrtho ? orthoHalfH : halfAt(fromDist),
@@ -1472,8 +1482,7 @@ export function createScene(container: HTMLElement): SizeScene {
   function applyMorph(e: number) {
     const m = morph!;
     const { dist, fovDeg } = morphStep(m, e);
-    const dir = m.fromDir.clone().lerp(m.toDir, e).normalize();
-    persp.position.copy(m.centre).addScaledVector(dir, dist);
+    persp.position.copy(m.centre).addScaledVector(m.dir, dist);
     persp.lookAt(m.centre);
     const { width, height } = container.getBoundingClientRect();
     const frame = safeAreaFrame(width, height, inset, insetTop);

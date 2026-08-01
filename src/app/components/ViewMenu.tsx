@@ -1,6 +1,6 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { Projection, View } from '../../shared/types';
+import type { View } from '../../shared/types';
 import { setStoredUnits } from '../localStore';
 import { useComparison } from '../store';
 
@@ -10,14 +10,9 @@ const VIEWS: Array<{ id: View; label: string }> = [
   { id: 'side', label: 'Side' },
   { id: 'top', label: 'Top' },
 ];
-const PROJECTIONS: Array<{ id: Projection; label: string }> = [
-  { id: 'perspective', label: 'Perspective' },
-  { id: 'orthographic', label: 'Orthographic' },
-];
-const LAYOUTS: Array<{ mode: 'stack' | 'row'; label: string }> = [
-  { mode: 'row', label: 'Side-by-side' },
-  { mode: 'stack', label: 'Stack' },
-];
+// Projection and layout are each one of two things, so they're single checkable rows rather than a pair
+// of radios: "Perspective" off means orthographic, "Stack" off means side-by-side. One row states the
+// setting and its opposite at once, and there's no section heading worth writing above a single item.
 const UNITS: Array<{ units: 'metric' | 'imperial'; label: string }> = [
   { units: 'metric', label: 'Metric' },
   { units: 'imperial', label: 'Imperial' },
@@ -92,58 +87,41 @@ export default function ViewMenu() {
             </button>
           ))}
 
+          <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
+
           {/* Only 3D projects; the flat views are orthographic by definition, so the choice would be
               inert there. Shown conditionally rather than disabled — a control that can't do anything
               is better absent than greyed out. */}
           {state.view === '3d' && (
-            <>
-              <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
-              <p
-                role="presentation"
-                className="px-3 pt-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400"
-              >
-                Projection
-              </p>
-              {PROJECTIONS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={state.projection === p.id}
-                  onClick={() => {
-                    setOpen(false);
-                    dispatch({ type: 'setProjection', projection: p.id });
-                  }}
-                  className={itemClass(state.projection === p.id)}
-                >
-                  {p.label} {check(state.projection === p.id)}
-                </button>
-              ))}
-            </>
-          )}
-
-          <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
-          <p
-            role="presentation"
-            className="px-3 pt-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400"
-          >
-            Layout
-          </p>
-          {LAYOUTS.map((l) => (
             <button
-              key={l.mode}
               type="button"
-              role="menuitemradio"
-              aria-checked={state.layoutMode === l.mode}
+              role="menuitemcheckbox"
+              aria-checked={state.projection === 'perspective'}
               onClick={() => {
                 setOpen(false);
-                dispatch({ type: 'setLayout', mode: l.mode });
+                dispatch({
+                  type: 'setProjection',
+                  projection: state.projection === 'perspective' ? 'orthographic' : 'perspective',
+                });
               }}
-              className={itemClass(state.layoutMode === l.mode)}
+              className={itemClass(state.projection === 'perspective')}
             >
-              {l.label} {check(state.layoutMode === l.mode)}
+              Perspective {check(state.projection === 'perspective')}
             </button>
-          ))}
+          )}
+
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={state.layoutMode === 'stack'}
+            onClick={() => {
+              setOpen(false);
+              dispatch({ type: 'setLayout', mode: state.layoutMode === 'stack' ? 'row' : 'stack' });
+            }}
+            className={itemClass(state.layoutMode === 'stack')}
+          >
+            Stack {check(state.layoutMode === 'stack')}
+          </button>
 
           <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
           <p
