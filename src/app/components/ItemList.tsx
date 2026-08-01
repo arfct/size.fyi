@@ -1,4 +1,4 @@
-import { Ellipsis } from 'lucide-react';
+import { Check, Ellipsis } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatDims } from '../../shared/dimensions';
 import type { ComparisonItem, Device } from '../../shared/types';
@@ -13,42 +13,6 @@ const volumeOf = (item: ComparisonItem) => {
   return d.h * d.w * d.d;
 };
 
-// Segmented open/closed (etc.) switch for multi-state devices; selecting a state re-dispatches the
-// item with the new label (which re-sorts by volume since the size class changes).
-function StateToggle({
-  device,
-  active,
-  onSelect,
-}: {
-  device: Device;
-  active: string;
-  onSelect: (label: string) => void;
-}) {
-  return (
-    <fieldset
-      aria-label="State"
-      className="mt-1 inline-flex rounded-md border border-stone-300 p-0.5 dark:border-stone-700"
-    >
-      {device.states!.map((s) => {
-        const on = s.label === active;
-        return (
-          <button
-            key={s.label}
-            type="button"
-            aria-pressed={on}
-            onClick={() => {
-              if (!on) onSelect(s.label);
-            }}
-            className={`rounded px-2 py-0.5 text-[12px] capitalize ${on ? 'bg-stone-800 text-white dark:bg-stone-200 dark:text-stone-900' : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'}`}
-          >
-            {s.label}
-          </button>
-        );
-      })}
-    </fieldset>
-  );
-}
-
 // A neutral ellipsis menu trigger on the right of each row (the item's swatch color now lives on
 // the leading category icon). Self-contained dropdown: a ref-scoped mousedown-outside listener
 // and Escape close it; the trigger and menu live inside the ref so clicking them never counts as
@@ -62,11 +26,17 @@ function StateToggle({
 function ItemMenu({
   name,
   ar,
+  states,
+  activeState,
+  onSelectState,
   onEdit,
   onRemove,
 }: {
   name: string;
   ar?: ARTarget;
+  states?: Device['states'];
+  activeState?: string;
+  onSelectState: (label: string) => void;
   onEdit: () => void;
   onRemove: () => void;
 }) {
@@ -104,6 +74,32 @@ function ItemMenu({
           role="menu"
           className="absolute right-0 top-full z-30 mt-1 min-w-32 rounded-md border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900"
         >
+          {/* Open/closed (etc.) for a multi-state device. It lives here rather than on the row so the
+              list stays one line of type per item; picking a state re-dispatches the item with the new
+              label, which re-sorts by volume since the size class changes. */}
+          {states && states.length > 1 && (
+            <>
+              {states.map((s) => (
+                <button
+                  key={s.label}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={s.label === activeState}
+                  onClick={() => {
+                    setOpen(false);
+                    if (s.label !== activeState) onSelectState(s.label);
+                  }}
+                  className={`flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left text-[13px] capitalize hover:bg-stone-100 dark:hover:bg-stone-800 ${s.label === activeState ? 'font-semibold' : ''}`}
+                >
+                  {s.label}
+                  {s.label === activeState && (
+                    <Check size={14} aria-hidden className="text-stone-500 dark:text-stone-400" />
+                  )}
+                </button>
+              ))}
+              <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
+            </>
+          )}
           {ar && canLaunchAR() && (
             <button
               type="button"
@@ -158,7 +154,7 @@ export default function ItemList({
     .map((item, i) => ({ item, i }))
     .sort((a, b) => volumeOf(a.item) - volumeOf(b.item));
   return (
-    <ul className="space-y-2" aria-label="Items">
+    <ul aria-label="Items">
       {ordered.map(({ item, i }) => {
         const name = item.kind === 'device' ? item.device.name : item.name;
         const dims = itemDims(item);
@@ -210,20 +206,19 @@ export default function ItemList({
                 <ItemMenu
                   name={name}
                   ar={ar}
+                  states={states}
+                  activeState={activeState}
+                  onSelectState={(label) => {
+                    // Only devices have states, and only devices pass any in — the narrow is for the
+                    // type checker, which can't see that from here.
+                    if (item.kind === 'device')
+                      dispatch({ type: 'update', index: i, item: { ...item, state: label } });
+                  }}
                   onEdit={() => onEdit(i, name, `${dims.h}×${dims.w}×${dims.d}`)}
                   onRemove={() => dispatch({ type: 'remove', index: i })}
                 />
               </div>
               <p className="text-[13px] text-stone-500">{formatDims(dims, state.units)}</p>
-              {states && states.length > 1 && item.kind === 'device' && (
-                <StateToggle
-                  device={item.device}
-                  active={activeState!}
-                  onSelect={(label) =>
-                    dispatch({ type: 'update', index: i, item: { ...item, state: label } })
-                  }
-                />
-              )}
             </div>
           </li>
         );

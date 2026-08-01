@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { expect, test } from 'vitest';
-import type { ComparisonItem } from '../../shared/types';
+import type { ComparisonItem, Device } from '../../shared/types';
 import ItemList from '../components/ItemList';
 import { colorFor } from '../palette';
 import { ComparisonProvider, useComparison } from '../store';
@@ -79,6 +79,82 @@ test('the options menu is present but hidden until the row is hovered', async ()
   expect(trigger.className).toContain('group-hover:opacity-100');
   // No hover to reveal it on a touch device, so it is always shown there.
   expect(trigger.className).toContain('pointer-coarse:opacity-100');
+});
+
+// A folding phone: two states, so it gets a state control. The dims differ per state, which is what
+// makes picking one observable from outside.
+const FOLD = {
+  kind: 'device' as const,
+  device: {
+    slug: 'fold',
+    name: 'Fold',
+    category: 'phone',
+    h: 160,
+    w: 70,
+    d: 14,
+    states: [
+      { label: 'closed', h: 160, w: 70, d: 14 },
+      { label: 'open', h: 160, w: 140, d: 7 },
+    ],
+  } as Device,
+};
+
+function mountFold() {
+  function FoldHarness() {
+    const { dispatch } = useComparison();
+    useEffect(() => {
+      dispatch({ type: 'load', items: [FOLD], missing: [] });
+    }, [dispatch]);
+    return <ItemList onEdit={() => {}} />;
+  }
+  render(
+    <ComparisonProvider>
+      <FoldHarness />
+    </ComparisonProvider>,
+  );
+  return userEvent.setup();
+}
+
+test('a multi-state device shows no state control on the row itself', async () => {
+  mountFold();
+  // The row is one name and one line of dimensions; the state choice lives in the menu, so the list
+  // stays scannable when several folding devices are in the comparison.
+  const row = rowFor('Fold');
+  expect(within(row).queryByRole('menuitemradio')).toBeNull();
+  expect(within(row).queryByText('closed')).toBeNull();
+  expect(within(row).queryByText('open')).toBeNull();
+});
+
+test('the states are in the options menu, with the active one checked', async () => {
+  const user = mountFold();
+  await user.click(screen.getByRole('button', { name: 'Options for Fold' }));
+  const closed = screen.getByRole('menuitemradio', { name: /closed/i });
+  expect(closed).toHaveAttribute('aria-checked', 'true');
+  expect(screen.getByRole('menuitemradio', { name: /^open/i })).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
+});
+
+test('picking a state from the menu applies it', async () => {
+  const user = mountFold();
+  await user.click(screen.getByRole('button', { name: 'Options for Fold' }));
+  await user.click(screen.getByRole('menuitemradio', { name: /^open/i }));
+  // Opening it doubles the width, so the row's dimensions are the proof it took effect.
+  expect(within(rowFor('Fold')).getByText(/140/)).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Options for Fold' }));
+  expect(screen.getByRole('menuitemradio', { name: /^open/i })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});
+
+test('a single-state device gets no state rows in its menu', async () => {
+  const user = mount();
+  await user.click(screen.getByRole('button', { name: 'Options for Small' }));
+  // Nothing to choose between, so the menu is just the actions.
+  expect(screen.queryByRole('menuitemradio')).toBeNull();
 });
 
 test('the options menu stays visible while its own dropdown is open', async () => {
