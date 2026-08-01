@@ -1,7 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
+import { AR_MODEL_VERSION } from '../../shared/ar';
 import type { ComparisonItem, Device } from '../../shared/types';
 import ItemList from '../components/ItemList';
 import { colorFor } from '../palette';
@@ -155,6 +156,76 @@ test('a single-state device gets no state rows in its menu', async () => {
   await user.click(screen.getByRole('button', { name: 'Options for Small' }));
   // Nothing to choose between, so the menu is just the actions.
   expect(screen.queryByRole('menuitemradio')).toBeNull();
+});
+
+// AR is offered per row through the same Worker route the whole-comparison button uses — a single item
+// is just a one-item comparison. Only two of the catalog's 99 devices have a pre-built model file, so
+// anything keyed to those files reached almost nothing.
+function fakeQuickLookDevice() {
+  const original = Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype, 'relList');
+  Object.defineProperty(navigator, 'maxTouchPoints', { value: 5, configurable: true });
+  Object.defineProperty(HTMLAnchorElement.prototype, 'relList', {
+    configurable: true,
+    get: () => ({ supports: (s: string) => s === 'ar', contains: () => false }),
+  });
+  return () => {
+    Object.defineProperty(navigator, 'maxTouchPoints', { value: 0, configurable: true });
+    if (original) Object.defineProperty(HTMLAnchorElement.prototype, 'relList', original);
+  };
+}
+
+function captureLaunches() {
+  const hrefs: string[] = [];
+  const real = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+    if (this.rel === 'ar') {
+      hrefs.push(this.getAttribute('href') ?? '');
+      return;
+    }
+    return real.call(this);
+  };
+  return { hrefs, restore: () => (HTMLAnchorElement.prototype.click = real) };
+}
+
+const cleanups: Array<() => void> = [];
+afterEach(() => {
+  while (cleanups.length) cleanups.pop()?.();
+});
+
+test('a device with no pre-built model still offers AR', async () => {
+  cleanups.push(fakeQuickLookDevice());
+  const { hrefs, restore } = captureLaunches();
+  cleanups.push(restore);
+  const user = mountFold();
+  await user.click(screen.getByRole('button', { name: 'Options for Fold' }));
+  await user.click(screen.getByRole('menuitem', { name: 'View in AR' }));
+  // The route generates it on request, so the slug is all it needs. The state is spelled out even
+  // though it's the default one, because the encoder stays canonical — a bare slug would answer with
+  // the route's normalizing redirect before it answered with a model.
+  expect(hrefs).toEqual([`/ar/fold-closed.usdz?v=${AR_MODEL_VERSION}`]);
+});
+
+test('the AR target follows the chosen state, since that is a different shape', async () => {
+  cleanups.push(fakeQuickLookDevice());
+  const { hrefs, restore } = captureLaunches();
+  cleanups.push(restore);
+  const user = mountFold();
+  await user.click(screen.getByRole('button', { name: 'Options for Fold' }));
+  await user.click(screen.getByRole('menuitemradio', { name: /^open/i }));
+
+  await user.click(screen.getByRole('button', { name: 'Options for Fold' }));
+  await user.click(screen.getByRole('menuitem', { name: 'View in AR' }));
+  expect(hrefs).toEqual([`/ar/fold-open.usdz?v=${AR_MODEL_VERSION}`]);
+});
+
+test('a custom item offers AR too, though it exists only in the URL', async () => {
+  cleanups.push(fakeQuickLookDevice());
+  const { hrefs, restore } = captureLaunches();
+  cleanups.push(restore);
+  const user = mount();
+  await user.click(screen.getByRole('button', { name: 'Options for Small' }));
+  await user.click(screen.getByRole('menuitem', { name: 'View in AR' }));
+  expect(hrefs).toEqual([`/ar/small~10x10x10.usdz?v=${AR_MODEL_VERSION}`]);
 });
 
 test('the options menu stays visible while its own dropdown is open', async () => {

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { formatDims } from '../../shared/dimensions';
 import type { ComparisonItem, Device } from '../../shared/types';
 import { defaultStateLabel, itemDims } from '../../shared/types';
-import { type ARTarget, canLaunchAR, launchAR } from '../ar';
+import { type ARTarget, canLaunchAR, comparisonArUrl, launchAR } from '../ar';
 import { deviceIcon, MY_ITEM_ICON } from '../categoryIcon';
 import { itemColor } from '../palette';
 import { useComparison } from '../store';
@@ -34,7 +34,7 @@ function ItemMenu({
   onRemove,
 }: {
   name: string;
-  ar?: ARTarget;
+  ar: ARTarget;
   states?: Device['states'];
   activeState?: string;
   onSelectState: (label: string) => void;
@@ -103,7 +103,7 @@ function ItemMenu({
               <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
             </>
           )}
-          {ar && canLaunchAR() && (
+          {canLaunchAR() && (
             <button
               type="button"
               role="menuitem"
@@ -171,14 +171,15 @@ export default function ItemList({
         const states = item.kind === 'device' ? item.device.states : undefined;
         const activeState =
           item.kind === 'device' ? (item.state ?? defaultStateLabel(item.device)) : undefined;
-        const ar: ARTarget | undefined =
-          item.kind === 'device' && item.device.model3d
-            ? {
-                usdzUrl: `/models/${item.device.slug}.usdz`,
-                glbUrl: `/models/${item.device.model3d.url}`,
-                title: name,
-              }
-            : undefined;
+        // One item is just a one-item comparison, so the Worker route serves it the same way it serves
+        // the whole set — including foldable states and custom items, which have no file anywhere. This
+        // used to point at a pre-built /models file, which only two of the catalog's devices have; the
+        // other 97, and everything a user typed in themselves, had no AR at all.
+        const ar: ARTarget = {
+          usdzUrl: comparisonArUrl([item], 'row', 'usdz'),
+          glbUrl: comparisonArUrl([item], 'row', 'glb'),
+          title: name,
+        };
         const Icon = item.kind === 'device' ? deviceIcon(item.device) : MY_ITEM_ICON;
         const color = itemColor(item, i);
         return (
