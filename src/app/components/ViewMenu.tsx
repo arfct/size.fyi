@@ -45,23 +45,25 @@ export default function ViewMenu() {
   const current = VIEWS.find((v) => v.id === state.view) ?? VIEWS[0]!;
 
   const itemClass = (active: boolean) =>
-    `flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800 ${active ? 'font-semibold' : ''}`;
-  // The right-hand side of a row: the shortcut hint, then a fixed-width slot for the check so every
-  // check in the menu lines up whether or not its neighbours are ticked. The hint is aria-hidden and
-  // the binding is announced with aria-keyshortcuts instead, which keeps each item's accessible name
-  // the plain label.
-  const trailing = (active: boolean, key?: string) => (
-    <span className="flex items-center gap-2">
-      {key && (
-        <kbd aria-hidden className="font-sans text-[11px] text-stone-400 dark:text-stone-500">
-          {hotkeyLabel(key)}
-        </kbd>
-      )}
-      <span className="flex w-3.5 justify-end">
+    `flex w-full items-center justify-between gap-4 py-1.5 pl-2 pr-3 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800 ${active ? 'font-semibold' : ''}`;
+  // Label with the check in a fixed-width gutter ahead of it, so every label in the menu starts on the
+  // same x whether or not its row is ticked, and the ticks read as a column.
+  const label = (text: string, active: boolean) => (
+    <span className="flex items-center gap-1.5">
+      <span className="flex w-3.5 shrink-0 justify-center">
         {active && <Check size={14} aria-hidden className="text-stone-500 dark:text-stone-400" />}
       </span>
+      {text}
     </span>
   );
+  // The shortcut hint sits on the far right. aria-hidden, with the binding announced via
+  // aria-keyshortcuts instead, so each item's accessible name stays the plain label.
+  const hint = (key?: string) =>
+    key ? (
+      <kbd aria-hidden className="font-sans text-[11px] text-stone-400 dark:text-stone-500">
+        {hotkeyLabel(key)}
+      </kbd>
+    ) : null;
 
   return (
     <div ref={ref} className="relative">
@@ -82,7 +84,7 @@ export default function ViewMenu() {
         >
           <p
             role="presentation"
-            className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400"
+            className="pt-1.5 pb-1 pl-7 pr-3 text-[10px] font-semibold uppercase tracking-wide text-stone-400"
           >
             View
           </p>
@@ -99,8 +101,8 @@ export default function ViewMenu() {
               }}
               className={itemClass(state.view === v.id)}
             >
-              {v.label}
-              {trailing(state.view === v.id, HOTKEYS[v.id])}
+              {label(v.label, state.view === v.id)}
+              {hint(HOTKEYS[v.id])}
             </button>
           ))}
 
@@ -125,8 +127,8 @@ export default function ViewMenu() {
                 }}
                 className={itemClass(state.projection === 'perspective')}
               >
-                Perspective
-                {trailing(state.projection === 'perspective', HOTKEYS.perspective)}
+                {label('Perspective', state.projection === 'perspective')}
+                {hint(HOTKEYS.perspective)}
               </button>
               <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
             </>
@@ -143,14 +145,14 @@ export default function ViewMenu() {
             }}
             className={itemClass(state.layoutMode === 'stack')}
           >
-            Stack
-            {trailing(state.layoutMode === 'stack', HOTKEYS.stack)}
+            {label('Stack', state.layoutMode === 'stack')}
+            {hint(HOTKEYS.stack)}
           </button>
 
           <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
           <p
             role="presentation"
-            className="px-3 pt-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400"
+            className="pt-0.5 pb-1 pl-7 pr-3 text-[10px] font-semibold uppercase tracking-wide text-stone-400"
           >
             Units
           </p>
@@ -167,8 +169,7 @@ export default function ViewMenu() {
               }}
               className={itemClass(state.units === u.units)}
             >
-              {u.label}
-              {trailing(state.units === u.units)}
+              {label(u.label, state.units === u.units)}
             </button>
           ))}
         </div>

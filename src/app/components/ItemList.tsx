@@ -90,12 +90,14 @@ function ItemMenu({
                     setOpen(false);
                     if (s.label !== activeState) onSelectState(s.label);
                   }}
-                  className={`flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left text-[13px] capitalize hover:bg-stone-100 dark:hover:bg-stone-800 ${s.label === activeState ? 'font-semibold' : ''}`}
+                  className={`flex w-full items-center gap-1.5 py-1.5 pl-2 pr-3 text-left text-[13px] capitalize hover:bg-stone-100 dark:hover:bg-stone-800 ${s.label === activeState ? 'font-semibold' : ''}`}
                 >
+                  <span className="flex w-3.5 shrink-0 justify-center">
+                    {s.label === activeState && (
+                      <Check size={14} aria-hidden className="text-stone-500 dark:text-stone-400" />
+                    )}
+                  </span>
                   {s.label}
-                  {s.label === activeState && (
-                    <Check size={14} aria-hidden className="text-stone-500 dark:text-stone-400" />
-                  )}
                 </button>
               ))}
               <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
@@ -109,7 +111,7 @@ function ItemMenu({
                 setOpen(false);
                 launchAR(ar);
               }}
-              className="block w-full px-3 py-1.5 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800"
+              className="block w-full py-1.5 pl-7 pr-3 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800"
             >
               View in AR
             </button>
@@ -121,7 +123,7 @@ function ItemMenu({
               setOpen(false);
               onEdit();
             }}
-            className="block w-full px-3 py-1.5 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800"
+            className="block w-full py-1.5 pl-7 pr-3 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800"
           >
             Edit
           </button>
@@ -135,7 +137,7 @@ function ItemMenu({
               setOpen(false);
               onRemove();
             }}
-            className="flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left text-[13px] text-red-600 hover:bg-stone-100 dark:hover:bg-stone-800"
+            className="flex w-full items-center justify-between gap-4 py-1.5 pl-7 pr-3 text-left text-[13px] text-red-600 hover:bg-stone-100 dark:hover:bg-stone-800"
           >
             Remove
             <kbd aria-hidden className="font-sans text-[11px] text-stone-400 dark:text-stone-500">
