@@ -129,6 +129,6 @@ test('the other flat views use the chosen layout', async () => {
 test('the projection choice reaches the scene', async () => {
   await mount();
   expect(calls.projection).toEqual(['perspective']);
-  setProjection('isometric');
-  await waitFor(() => expect(calls.projection.at(-1)).toBe('isometric'));
+  setProjection('orthographic');
+  await waitFor(() => expect(calls.projection.at(-1)).toBe('orthographic'));
 });

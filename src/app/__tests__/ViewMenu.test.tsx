@@ -78,18 +78,18 @@ test('offers a projection choice in 3D, defaulting to perspective', async () => 
     'aria-checked',
     'true',
   );
-  expect(within(menu).getByRole('menuitemradio', { name: /^Isometric/ })).toHaveAttribute(
+  expect(within(menu).getByRole('menuitemradio', { name: /^Orthographic/ })).toHaveAttribute(
     'aria-checked',
     'false',
   );
 });
 
-test('choosing Isometric updates the checked state', async () => {
+test('choosing Orthographic updates the checked state', async () => {
   const user = open();
   await user.click(screen.getByRole('button', { name: /view: 3d/i }));
-  await user.click(screen.getByRole('menuitemradio', { name: /^Isometric/ }));
+  await user.click(screen.getByRole('menuitemradio', { name: /^Orthographic/ }));
   await user.click(screen.getByRole('button', { name: /view: 3d/i }));
-  expect(screen.getByRole('menuitemradio', { name: /^Isometric/ })).toHaveAttribute(
+  expect(screen.getByRole('menuitemradio', { name: /^Orthographic/ })).toHaveAttribute(
     'aria-checked',
     'true',
   );
@@ -102,5 +102,5 @@ test('hides the projection choice in the flat views, where it would do nothing',
   await user.click(screen.getByRole('button', { name: /view: front/i }));
   // Orthographic by definition, so there is no choice to make.
   expect(screen.queryByRole('menuitemradio', { name: /^Perspective/ })).not.toBeInTheDocument();
-  expect(screen.queryByRole('menuitemradio', { name: /^Isometric/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('menuitemradio', { name: /^Orthographic/ })).not.toBeInTheDocument();
 });

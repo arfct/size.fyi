@@ -12,7 +12,7 @@ const VIEWS: Array<{ id: View; label: string }> = [
 ];
 const PROJECTIONS: Array<{ id: Projection; label: string }> = [
   { id: 'perspective', label: 'Perspective' },
-  { id: 'isometric', label: 'Isometric' },
+  { id: 'orthographic', label: 'Orthographic' },
 ];
 const LAYOUTS: Array<{ mode: 'stack' | 'row'; label: string }> = [
   { mode: 'row', label: 'Side-by-side' },

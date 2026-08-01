@@ -18,7 +18,7 @@ import {
 export { computeKeys, computeTargetBounds, computeTargets, type LayoutTarget };
 
 export type ViewName = '3d' | 'front' | 'side' | 'top';
-export type Projection = 'perspective' | 'isometric';
+export type Projection = 'perspective' | 'orthographic';
 export interface SceneItem {
   name: string;
   h: number;
@@ -172,12 +172,20 @@ const GRID_RENDER_ORDER = -1;
 // 98% of the frame and read as clipped. The front view masks this, because its label padding adds slack
 // that the other two don't have.
 const VIEW_3D_DIR = { x: 1.2, y: 0.9, z: 1.6 };
-// True isometric: equal components, so the three axes project 120 degrees apart and equal lengths along
-// them stay equal on screen. That's the property the mode is for — the perspective view's own direction
-// is deliberately unequal, which reads better but makes distant items smaller.
-const VIEW_ISO_DIR = { x: 1, y: 1, z: 1 };
+// The angle the orthographic mode starts at. Equal components make it a true isometric view: the three
+// axes project 120 degrees apart and equal lengths along them stay equal on screen. Orbiting away keeps
+// the projection orthographic but stops it being isometric — which is why the mode is named for the
+// projection, not the angle.
+const VIEW_ORTHO_DIR = { x: 1, y: 1, z: 1 };
 const VIEW_3D_BACKOFF = 0.85;
 
+const VIEW_FOV = 40; // perspective vertical field of view, in degrees
+// How far the camera dollies out while morphing to orthographic. Orthographic IS perspective viewed
+// from infinitely far with an infinitely narrow lens, so the morph walks toward that limit and swaps
+// at the end. The swap's visible step is the perspective left at this distance: 11% at 5x, 2.7% at 20x,
+// 1.1% at 50x. 50 is the point where it stops reading as a step, and 30m is nothing against the 1km
+// far plane.
+const VIEW_ORTHO_DOLLY = 50;
 // How far either 3D camera sits from the content centre, and the offset that puts it there along a given
 // direction. Both projections use this, which is the point: an orthographic camera's framing depends only
 // on its frustum extents, not its distance, so the distance is free — and making it equal to the
@@ -196,6 +204,23 @@ export function view3dCameraOffset(
   return { x: dir.x * k, y: dir.y * k, z: dir.z * k };
 }
 const ORTHO_MARGIN = 1.06;
+
+// One step of a projection morph, as distance-from-centre and the frame half-height held at it.
+//
+// The reciprocal is what's interpolated, not the distance: apparent size in a perspective view goes as
+// 1/d, so stepping d linearly would rush the start and crawl at the end. Half-height is interpolated
+// straight, since the two projections don't frame the content identically and that difference should
+// spread evenly. The lens follows from the pair — fov = 2*atan(halfH/d) — so every frame is a real
+// perspective projection converging on the orthographic one, rather than a lerp between two matrices
+// that only looks right at its endpoints. Pure — exported for testing.
+export function morphStep(
+  m: { fromDist: number; toDist: number; fromHalfH: number; toHalfH: number },
+  e: number,
+): { dist: number; halfH: number; fovDeg: number } {
+  const dist = 1 / (1 / m.fromDist + (1 / m.toDist - 1 / m.fromDist) * e);
+  const halfH = m.fromHalfH + (m.toHalfH - m.fromHalfH) * e;
+  return { dist, halfH, fovDeg: (2 * Math.atan(halfH / dist) * 180) / Math.PI };
+}
 // Fade shaping. Visibility is a screen-space "flashlight": a radial gradient centred on the room, full
 // inside GRID_LIGHT_INNER and gone by GRID_LIGHT_OUTER, measured in NDC radius (1 = viewport edge, so
 // the pool conforms to the canvas). GRID_FACING_CULL is only wide enough to drop the near-facing walls
@@ -567,17 +592,17 @@ export function createScene(container: HTMLElement): SizeScene {
   sun.position.set(1, 2, 1.5);
   scene.add(sun);
 
-  const persp = new THREE.PerspectiveCamera(40, 1, 1, 1e6);
+  const persp = new THREE.PerspectiveCamera(VIEW_FOV, 1, 1, 1e6);
   const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 1e6);
   let camera: THREE.Camera = persp;
   // 3D renders through either camera: perspective by default, or the ortho one from an equal-component
-  // direction for isometric. The flat views always use ortho regardless.
+  // direction for orthographic. The flat views always use ortho regardless.
   let projection: Projection = 'perspective';
   let view: ViewName = '3d';
   let inset = 0; // left inset (px) reserved for the floating sidebar; 0 on mobile
   let insetTop = 0; // top inset (px) reserved for the overlapping segmented control; used on mobile
 
-  // Typed over both cameras: 3D orbits the perspective one normally and the ortho one in isometric, and
+  // Typed over both cameras: 3D orbits the perspective one normally and the ortho one in orthographic, and
   // controls.object is retargeted when that changes.
   const controls = new OrbitControls<THREE.PerspectiveCamera | THREE.OrthographicCamera>(
     persp,
@@ -631,6 +656,21 @@ export function createScene(container: HTMLElement): SizeScene {
   }
   const TRANSITION_MS = reducedMotion ? 0 : 450;
   const scratchProjection = new THREE.Matrix4();
+  // Set while a projection change is animating. A view change lerps the two projection matrices, which
+  // is fine between two perspectives or two orthos — but between a perspective and an ortho it is
+  // perceptually lopsided: the perspective divide collapses in the last few percent of the tween, so
+  // nearly all the visual change lands in one snap at the end. This morph instead dollies the camera out
+  // while narrowing the field of view, so every frame is a real perspective projection converging on the
+  // orthographic one, and the change is spread evenly across the whole animation.
+  let morph: {
+    centre: THREE.Vector3;
+    fromDir: THREE.Vector3;
+    toDir: THREE.Vector3;
+    fromDist: number;
+    toDist: number;
+    fromHalfH: number;
+    toHalfH: number;
+  } | null = null;
   let firstView = true; // initial mount jumps instead of animating
   let animating = false;
   let animRaf = 0;
@@ -1217,9 +1257,56 @@ export function createScene(container: HTMLElement): SizeScene {
 
   function setProjection(next: Projection) {
     if (next === projection) return;
-    projection = next;
+    const wasOrtho = projection === 'orthographic';
     // Only 3D renders through the choice; in a flat view it just takes effect on the way back.
-    if (view === '3d') beginTransition('3d');
+    if (view !== '3d') {
+      projection = next;
+      return;
+    }
+
+    const centre = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3());
+    const near = view3dCameraDistance(Math.max(size.x, size.y, size.z));
+    const halfAt = (dist: number) => dist * Math.tan(((VIEW_FOV / 2) * Math.PI) / 180);
+    // Where the camera actually is, orbit included, so nothing snaps on the first frame. Read before
+    // computeEnd, which moves the real cameras to their canonical poses.
+    const live = (wasOrtho ? ortho : persp).position.clone();
+
+    // Fit the ortho frustum for the current content whichever way we're going: it's the height we land
+    // on when switching to orthographic, and the height we leave from when switching away. computeEnd
+    // reads `projection`, so it has to be set to the branch we want before each call.
+    projection = 'orthographic';
+    computeEnd('3d');
+    const orthoHalfH = ortho.top;
+    projection = next;
+    const end = computeEnd('3d');
+
+    // Distance is only meaningful for the perspective camera; an orthographic start stands in at the
+    // dolly distance, which is the same thing the morph converges on from the other side.
+    const fromDir = live.clone().sub(centre).normalize();
+    const fromDist = wasOrtho ? near * VIEW_ORTHO_DOLLY : live.distanceTo(centre);
+    const toDir = new THREE.Vector3()
+      .copy(next === 'orthographic' ? VIEW_ORTHO_DIR : VIEW_3D_DIR)
+      .normalize();
+
+    cancelAnimation();
+    morph = {
+      centre,
+      fromDir,
+      toDir,
+      fromDist,
+      toDist: next === 'orthographic' ? near * VIEW_ORTHO_DOLLY : near,
+      fromHalfH: wasOrtho ? orthoHalfH : halfAt(fromDist),
+      toHalfH: next === 'orthographic' ? orthoHalfH : halfAt(near),
+    };
+    animToView = '3d';
+    animFrom = currentPose();
+    animTo = end;
+    animStart = performance.now();
+    animating = true;
+    controls.enabled = false;
+    camera = persp;
+    animRaf = requestAnimationFrame(tick);
   }
 
   function setLayout(mode: LayoutMode) {
@@ -1237,7 +1324,7 @@ export function createScene(container: HTMLElement): SizeScene {
     const { width, height } = container.getBoundingClientRect();
     const frame = safeAreaFrame(width, height, inset, insetTop);
     const aspect = frame.aspect;
-    // Shared by the isometric and flat branches, which both frame with the ortho camera.
+    // Shared by the orthographic and flat branches, which both frame with the ortho camera.
     const fit = (fw: number, fh: number) => {
       const half = ((Math.max(fw / aspect, fh) * ORTHO_MARGIN) / 2) * Math.max(aspect, 1);
       ortho.left = -half * (aspect >= 1 ? 1 : aspect);
@@ -1256,14 +1343,14 @@ export function createScene(container: HTMLElement): SizeScene {
       persp.updateProjectionMatrix();
       targetCam = persp;
     } else if (next === '3d') {
-      // Isometric 3D: the ortho camera, looking down an equal-component direction. Fit to the content's
+      // Orthographic 3D: the ortho camera, looking down an equal-component (isometric) direction. Fit to the content's
       // bounding SPHERE rather than its box, because 3D is orbitable and an ortho frustum doesn't
       // rescale as it turns — a box fit would clip as soon as the diagonal swung into view.
       const r = 0.5 * Math.hypot(s.x, s.y, s.z);
       fit(2 * r, 2 * r);
       // Same distance as the perspective camera — see view3dCameraDistance. It used to sit out at `far`,
       // which made switching projection a 4x-to-14x fly-out rather than a rotation.
-      const isoOff = view3dCameraOffset(Math.max(s.x, s.y, s.z), VIEW_ISO_DIR);
+      const isoOff = view3dCameraOffset(Math.max(s.x, s.y, s.z), VIEW_ORTHO_DIR);
       ortho.position.set(c.x + isoOff.x, c.y + isoOff.y, c.z + isoOff.z);
       ortho.lookAt(c);
       applyViewOffset(ortho, frame, inset, insetTop);
@@ -1315,6 +1402,15 @@ export function createScene(container: HTMLElement): SizeScene {
     animating = false;
     animFrom = null;
     animTo = null;
+    endMorph();
+  }
+
+  // A morph drives persp.fov frame by frame, down to under a degree. Anything that happens next has to
+  // start from the real lens again, so every exit from a morph goes through here.
+  function endMorph() {
+    if (!morph) return;
+    morph = null;
+    persp.fov = VIEW_FOV;
   }
 
   // Instant camera placement — no animation. Used for the very first setView after mount,
@@ -1345,6 +1441,7 @@ export function createScene(container: HTMLElement): SizeScene {
     animTo = null;
     animRaf = 0;
     animating = false;
+    endMorph();
     if (next === '3d' && projection === 'perspective') {
       camera = persp;
       persp.position.copy(end.position);
@@ -1358,7 +1455,7 @@ export function createScene(container: HTMLElement): SizeScene {
       controls.target.copy(end.controlsTarget);
       controls.enabled = true;
     } else if (next === '3d') {
-      // Isometric: ortho's pose was set by computeEnd, but unlike the flat views this one orbits.
+      // Orthographic: ortho's pose was set by computeEnd, but unlike the flat views this one orbits.
       camera = ortho;
       controls.object = ortho;
       controls.target.copy(end.controlsTarget);
@@ -1371,10 +1468,34 @@ export function createScene(container: HTMLElement): SizeScene {
     requestRender();
   }
 
+  // Places the perspective camera at one step of the morph — see morphStep for the interpolation.
+  function applyMorph(e: number) {
+    const m = morph!;
+    const { dist, fovDeg } = morphStep(m, e);
+    const dir = m.fromDir.clone().lerp(m.toDir, e).normalize();
+    persp.position.copy(m.centre).addScaledVector(dir, dist);
+    persp.lookAt(m.centre);
+    const { width, height } = container.getBoundingClientRect();
+    const frame = safeAreaFrame(width, height, inset, insetTop);
+    persp.aspect = frame.aspect;
+    persp.fov = fovDeg;
+    applyViewOffset(persp, frame, inset, insetTop);
+    persp.updateProjectionMatrix();
+  }
+
   function tick(now: number) {
     if (disposed || !animating || !animFrom || !animTo) return;
     const t = TRANSITION_MS > 0 ? Math.min(1, (now - animStart) / TRANSITION_MS) : 1; // reduced motion → jump
     const e = easeInOutCubic(t);
+    if (morph) {
+      applyMorph(e);
+      camera = persp;
+      updateGridCamera();
+      renderer.render(scene, camera);
+      if (t >= 1) finalizeTransition();
+      else animRaf = requestAnimationFrame(tick);
+      return;
+    }
     persp.position.lerpVectors(animFrom.position, animTo.position, e);
     persp.quaternion.slerpQuaternions(animFrom.quaternion, animTo.quaternion, e);
     lerpMatrix4(scratchProjection, animFrom.projectionMatrix, animTo.projectionMatrix, e);
