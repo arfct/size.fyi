@@ -32,6 +32,10 @@ export default function Viewer({ asideRef }: ViewerProps) {
   const { state, dispatch } = useComparison();
   const [unavailable, setUnavailable] = useState(false);
   const [ready, setReady] = useState(false); // flips true once the lazy 3D chunk has created the scene
+  // The scene's callbacks are installed once, so they can't close over live state. This is what they
+  // read instead.
+  const viewRef = useRef(state.view);
+  viewRef.current = state.view;
   const isDesktop = useIsDesktop();
 
   // Lazy-load the Three.js scene as its own chunk so first paint (and the no-WebGL table fallback)
@@ -46,7 +50,15 @@ export default function Viewer({ asideRef }: ViewerProps) {
           // A drag in a flat view turns it into an orbit, which is the one place the scene changes
           // view (and projection) on its own. dispatch is stable, so the effect still runs once.
           sceneRef.current = createScene(ref.current, {
-            onViewChange: (view) => dispatch({ type: 'setView', view }),
+            onViewChange: (view) => {
+              // Side view's stack is an override, not a preference, so leaving it normally lets the
+              // real preference come back. Dragging out is different: the items are already stacked
+              // on screen and in the middle of a camera move, and having them slide apart at the same
+              // time reads as the drag doing two things. Latch the stack in as the preference so
+              // nothing moves; the layout row in the menu shows it, and it's one keystroke to undo.
+              if (viewRef.current === 'side') dispatch({ type: 'setLayout', mode: 'stack' });
+              dispatch({ type: 'setView', view });
+            },
             onProjectionChange: (projection) => dispatch({ type: 'setProjection', projection }),
           });
           setReady(true);

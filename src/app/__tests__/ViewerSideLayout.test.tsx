@@ -154,15 +154,39 @@ test('a drag out of a flat view puts the store back in 3D', async () => {
   expect(calls.view.at(-1)).toBe('3d');
 });
 
-test('dragging out of side view releases the stack override', async () => {
+test('dragging out of side view latches the stack in rather than unstacking', async () => {
   await mount();
+  expect(storedLayout).toBe('row');
   setView('side');
   await waitFor(() => expect(calls.layout.at(-1)).toBe('stack'));
 
   calls.cb?.onViewChange?.('3d');
-  // The override is derived from the view, so leaving side view by drag restores the chosen layout
-  // exactly as picking another view would.
+  await waitFor(() => expect(storedView).toBe('3d'));
+  // The items are already stacked and the camera is mid-drag; sliding them apart at the same moment
+  // would read as the drag doing two things. So the override becomes the preference and nothing moves.
+  expect(calls.layout.at(-1)).toBe('stack');
+  expect(storedLayout).toBe('stack');
+});
+
+test('picking another view out of side view still restores the preference', async () => {
+  await mount();
+  setView('side');
+  await waitFor(() => expect(calls.layout.at(-1)).toBe('stack'));
+
+  // Only a drag latches. Choosing a view from the menu is a deliberate move away, with no gesture in
+  // flight for the unstacking to compete with.
+  setView('front');
   await waitFor(() => expect(calls.layout.at(-1)).toBe('row'));
+  expect(storedLayout).toBe('row');
+});
+
+test('dragging out of a flat view that is not side leaves layout alone', async () => {
+  await mount();
+  setView('front');
+  await waitFor(() => expect(calls.view.at(-1)).toBe('front'));
+
+  calls.cb?.onViewChange?.('3d');
+  await waitFor(() => expect(storedView).toBe('3d'));
   expect(storedLayout).toBe('row');
 });
 
