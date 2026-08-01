@@ -86,6 +86,14 @@ function loadModelGeometry(
   }
   return pending.then((geo) => geo.clone());
 }
+// The scene is normally driven from React state. Dragging in a flat view is the one thing that changes
+// view (and, if it was set to perspective, projection) from inside the scene, so it reports back rather
+// than letting the two drift.
+export interface SceneCallbacks {
+  onViewChange?: (view: ViewName) => void;
+  onProjectionChange?: (projection: Projection) => void;
+}
+
 export interface SizeScene {
   setItems(items: SceneItem[]): void;
   setView(view: ViewName): void;
@@ -581,7 +589,7 @@ const labelGap = (item: SceneItem) => Math.max(item.w, item.h) * 0.03; // cleara
 // the set of devices changes. Higher = smaller text (more chars fit across the same width).
 const LABEL_CHARS = 14;
 
-export function createScene(container: HTMLElement): SizeScene {
+export function createScene(container: HTMLElement, callbacks: SceneCallbacks = {}): SizeScene {
   const scene = new THREE.Scene();
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -1341,6 +1349,16 @@ export function createScene(container: HTMLElement): SizeScene {
     applyDiff(lastItems);
   }
 
+  // Sets the ortho frustum to frame a fw x fh box. Shared by the orthographic 3D branch, the flat
+  // views, and the refit that happens when a drag turns a flat view into an orbit.
+  function fitOrtho(fw: number, fh: number, aspect: number) {
+    const half = ((Math.max(fw / aspect, fh) * ORTHO_MARGIN) / 2) * Math.max(aspect, 1);
+    ortho.left = -half * (aspect >= 1 ? 1 : aspect);
+    ortho.right = -ortho.left;
+    ortho.top = ortho.right / aspect;
+    ortho.bottom = -ortho.top;
+  }
+
   // Computes the target camera pose for `next` (mutating the real persp/ortho camera objects,
   // exactly as the old instant setView did) and returns cloned pose data safe to keep around
   // while persp continues to be repurposed as the in-flight transition camera.
@@ -1350,14 +1368,7 @@ export function createScene(container: HTMLElement): SizeScene {
     const { width, height } = container.getBoundingClientRect();
     const frame = safeAreaFrame(width, height, inset, insetTop);
     const aspect = frame.aspect;
-    // Shared by the orthographic and flat branches, which both frame with the ortho camera.
-    const fit = (fw: number, fh: number) => {
-      const half = ((Math.max(fw / aspect, fh) * ORTHO_MARGIN) / 2) * Math.max(aspect, 1);
-      ortho.left = -half * (aspect >= 1 ? 1 : aspect);
-      ortho.right = -ortho.left;
-      ortho.top = ortho.right / aspect;
-      ortho.bottom = -ortho.top;
-    };
+    const fit = (fw: number, fh: number) => fitOrtho(fw, fh, aspect);
     // Every camera in every view stands this far off the centre — see view3dCameraDistance. An
     // orthographic frustum frames the same content whatever its distance, so the standoff is free to
     // match, and matching it makes a view change a pure rotation about the centre instead of a rotation
@@ -1442,6 +1453,58 @@ export function createScene(container: HTMLElement): SizeScene {
     persp.fov = VIEW_FOV;
   }
 
+  // A flat view is a fixed camera, but a drag should still be able to take you out of it — turning the
+  // model is the obvious thing to try, and having it do nothing reads as broken. So controls stay live
+  // there with rotate only: no pan or zoom, which would move a view whose whole point is that it is
+  // square-on. The first drag then trips `start` below and hands off to 3D.
+  function armFlatOrbit(target: THREE.Vector3) {
+    controls.object = ortho;
+    controls.target.copy(target);
+    controls.enabled = true;
+    controls.enableRotate = true;
+    controls.enablePan = false;
+    controls.enableZoom = false;
+  }
+
+  // Rotating out of a flat view lands in 3D at the angle the drag is taking it to, with no fly-to: the
+  // camera is already where it should be, so all that changes is the frustum (refit to the bounding
+  // SPHERE, since an orbitable ortho view would otherwise clip the moment the diagonal swings in) and
+  // who thinks they own the view.
+  function leaveFlatView() {
+    if (view === '3d') return;
+    view = '3d';
+    controls.enablePan = true;
+    controls.enableZoom = true;
+
+    const s = bounds.getSize(new THREE.Vector3());
+    const r = 0.5 * Math.hypot(s.x, s.y, s.z);
+    const { width, height } = container.getBoundingClientRect();
+    const frame = safeAreaFrame(width, height, inset, insetTop);
+    const from = { left: ortho.left, top: ortho.top };
+    fitOrtho(2 * r, 2 * r, frame.aspect);
+    const to = { left: ortho.left, top: ortho.top };
+    // Tweened, because the flat views are fit tightly and the sphere fit is looser — snapping between
+    // them would read as a jump at the very moment the drag starts.
+    addTween('flat-orbit-fit', TWEEN_MS, (k) => {
+      ortho.left = from.left + (to.left - from.left) * k;
+      ortho.right = -ortho.left;
+      ortho.top = from.top + (to.top - from.top) * k;
+      ortho.bottom = -ortho.top;
+      applyViewOffset(ortho, frame, inset, insetTop);
+      ortho.updateProjectionMatrix();
+    });
+
+    callbacks.onViewChange?.('3d');
+    // The flat views are orthographic by definition, so an orbit that grows out of one is orthographic
+    // too. Say so rather than leaving the menu claiming a perspective that isn't on screen.
+    if (projection !== 'orthographic') {
+      projection = 'orthographic';
+      callbacks.onProjectionChange?.('orthographic');
+    }
+  }
+
+  controls.addEventListener('start', leaveFlatView);
+
   // Instant camera placement — no animation. Used for the very first setView after mount,
   // the setItems refit, and resize (which cancels any in-flight transition and jumps).
   function applyInstant(next: ViewName) {
@@ -1455,9 +1518,11 @@ export function createScene(container: HTMLElement): SizeScene {
       controls.object = projection === 'perspective' ? persp : ortho;
       controls.target.copy(end.controlsTarget);
       controls.enabled = true;
+      controls.enablePan = true;
+      controls.enableZoom = true;
     } else {
       camera = ortho;
-      controls.enabled = false;
+      armFlatOrbit(end.controlsTarget);
     }
     updateGridCamera();
     requestRender();
@@ -1489,9 +1554,11 @@ export function createScene(container: HTMLElement): SizeScene {
       controls.object = ortho;
       controls.target.copy(end.controlsTarget);
       controls.enabled = true;
+      controls.enablePan = true;
+      controls.enableZoom = true;
     } else {
       camera = ortho; // ortho's real position/quaternion/projectionMatrix were set by computeEnd
-      controls.enabled = false;
+      armFlatOrbit(end.controlsTarget);
     }
     updateGridCamera();
     requestRender();
@@ -1555,6 +1622,9 @@ export function createScene(container: HTMLElement): SizeScene {
   }
 
   function setView(next: ViewName) {
+    // Already there — most often because a drag just took us to 3D and the store is echoing it back.
+    // Re-running the transition would fly the camera off the angle the user just dragged to.
+    if (!firstView && next === view) return;
     if (firstView) {
       firstView = false;
       applyInstant(next);
@@ -1626,6 +1696,7 @@ export function createScene(container: HTMLElement): SizeScene {
       activeTweens = [];
       handles.clear();
       ro.disconnect();
+      controls.removeEventListener('start', leaveFlatView);
       darkQuery?.removeEventListener('change', onThemeChange);
       container.removeEventListener('wheel', onContainerWheel, { capture: true });
       controls.removeEventListener('change', requestRender);

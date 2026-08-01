@@ -29,7 +29,7 @@ const MOBILE_TOP_INSET = 56;
 export default function Viewer({ asideRef }: ViewerProps) {
   const ref = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SizeScene | null>(null);
-  const { state } = useComparison();
+  const { state, dispatch } = useComparison();
   const [unavailable, setUnavailable] = useState(false);
   const [ready, setReady] = useState(false); // flips true once the lazy 3D chunk has created the scene
   const isDesktop = useIsDesktop();
@@ -43,7 +43,12 @@ export default function Viewer({ asideRef }: ViewerProps) {
       .then(({ createScene }) => {
         if (disposed || !ref.current) return;
         try {
-          sceneRef.current = createScene(ref.current);
+          // A drag in a flat view turns it into an orbit, which is the one place the scene changes
+          // view (and projection) on its own. dispatch is stable, so the effect still runs once.
+          sceneRef.current = createScene(ref.current, {
+            onViewChange: (view) => dispatch({ type: 'setView', view }),
+            onProjectionChange: (projection) => dispatch({ type: 'setProjection', projection }),
+          });
           setReady(true);
         } catch {
           setUnavailable(true); /* WebGL unavailable; table remains */
@@ -55,7 +60,7 @@ export default function Viewer({ asideRef }: ViewerProps) {
       sceneRef.current?.dispose();
       sceneRef.current = null;
     };
-  }, []);
+  }, [dispatch]);
 
   // Measures the floating sidebar's width and feeds it to the scene as a left inset, so the
   // camera keeps framing the safe area (right of the sidebar) while the canvas itself spans the
