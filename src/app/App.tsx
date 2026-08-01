@@ -8,6 +8,7 @@ import ShareButton from './components/ShareButton';
 import Viewer from './components/Viewer';
 import ViewMenu from './components/ViewMenu';
 import { ComparisonProvider, useComparison } from './store';
+import { useHotkeys } from './useHotkeys';
 import { useIsDesktop } from './useIsDesktop';
 import { useUrlSync } from './useUrlSync';
 
@@ -18,6 +19,9 @@ function Shell() {
   const isDesktop = useIsDesktop();
   const showViewer = state.items.length > 0;
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  // Suspended while the add/edit dialog is up: it owns the keyboard, and its name field would otherwise
+  // have to compete with single-letter view switches.
+  useHotkeys(dialog === null);
 
   return (
     <div className="relative flex min-h-screen flex-col bg-white text-stone-900 dark:bg-stone-900 dark:text-stone-100 md:flex-row">

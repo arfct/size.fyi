@@ -7,6 +7,7 @@ import { type ARTarget, canLaunchAR, launchAR } from '../ar';
 import { deviceIcon, MY_ITEM_ICON } from '../categoryIcon';
 import { itemColor } from '../palette';
 import { useComparison } from '../store';
+import { HOTKEYS, hotkeyLabel } from '../useHotkeys';
 
 const volumeOf = (item: ComparisonItem) => {
   const d = itemDims(item);
@@ -127,13 +128,19 @@ function ItemMenu({
           <button
             type="button"
             role="menuitem"
+            // The same key works on the row itself without opening this menu; the hint is here because
+            // this is where someone looks for what they can do to an item.
+            aria-keyshortcuts={HOTKEYS.remove}
             onClick={() => {
               setOpen(false);
               onRemove();
             }}
-            className="block w-full px-3 py-1.5 text-left text-[13px] text-red-600 hover:bg-stone-100 dark:hover:bg-stone-800"
+            className="flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left text-[13px] text-red-600 hover:bg-stone-100 dark:hover:bg-stone-800"
           >
             Remove
+            <kbd aria-hidden className="font-sans text-[11px] text-stone-400 dark:text-stone-500">
+              {hotkeyLabel(HOTKEYS.remove)}
+            </kbd>
           </button>
         </div>
       )}

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { View } from '../../shared/types';
 import { setStoredUnits } from '../localStore';
 import { useComparison } from '../store';
+import { HOTKEYS, hotkeyLabel } from '../useHotkeys';
 
 const VIEWS: Array<{ id: View; label: string }> = [
   { id: '3d', label: '3D' },
@@ -45,8 +46,22 @@ export default function ViewMenu() {
 
   const itemClass = (active: boolean) =>
     `flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800 ${active ? 'font-semibold' : ''}`;
-  const check = (active: boolean) =>
-    active ? <Check size={14} aria-hidden className="text-stone-500 dark:text-stone-400" /> : null;
+  // The right-hand side of a row: the shortcut hint, then a fixed-width slot for the check so every
+  // check in the menu lines up whether or not its neighbours are ticked. The hint is aria-hidden and
+  // the binding is announced with aria-keyshortcuts instead, which keeps each item's accessible name
+  // the plain label.
+  const trailing = (active: boolean, key?: string) => (
+    <span className="flex items-center gap-2">
+      {key && (
+        <kbd aria-hidden className="font-sans text-[11px] text-stone-400 dark:text-stone-500">
+          {hotkeyLabel(key)}
+        </kbd>
+      )}
+      <span className="flex w-3.5 justify-end">
+        {active && <Check size={14} aria-hidden className="text-stone-500 dark:text-stone-400" />}
+      </span>
+    </span>
+  );
 
   return (
     <div ref={ref} className="relative">
@@ -77,13 +92,15 @@ export default function ViewMenu() {
               type="button"
               role="menuitemradio"
               aria-checked={state.view === v.id}
+              aria-keyshortcuts={HOTKEYS[v.id]}
               onClick={() => {
                 setOpen(false);
                 dispatch({ type: 'setView', view: v.id });
               }}
               className={itemClass(state.view === v.id)}
             >
-              {v.label} {check(state.view === v.id)}
+              {v.label}
+              {trailing(state.view === v.id, HOTKEYS[v.id])}
             </button>
           ))}
 
@@ -98,6 +115,7 @@ export default function ViewMenu() {
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked={state.projection === 'perspective'}
+                aria-keyshortcuts={HOTKEYS.perspective}
                 onClick={() => {
                   setOpen(false);
                   dispatch({
@@ -107,7 +125,8 @@ export default function ViewMenu() {
                 }}
                 className={itemClass(state.projection === 'perspective')}
               >
-                Perspective {check(state.projection === 'perspective')}
+                Perspective
+                {trailing(state.projection === 'perspective', HOTKEYS.perspective)}
               </button>
               <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
             </>
@@ -117,13 +136,15 @@ export default function ViewMenu() {
             type="button"
             role="menuitemcheckbox"
             aria-checked={state.layoutMode === 'stack'}
+            aria-keyshortcuts={HOTKEYS.stack}
             onClick={() => {
               setOpen(false);
               dispatch({ type: 'setLayout', mode: state.layoutMode === 'stack' ? 'row' : 'stack' });
             }}
             className={itemClass(state.layoutMode === 'stack')}
           >
-            Stack {check(state.layoutMode === 'stack')}
+            Stack
+            {trailing(state.layoutMode === 'stack', HOTKEYS.stack)}
           </button>
 
           <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
@@ -146,7 +167,8 @@ export default function ViewMenu() {
               }}
               className={itemClass(state.units === u.units)}
             >
-              {u.label} {check(state.units === u.units)}
+              {u.label}
+              {trailing(state.units === u.units)}
             </button>
           ))}
         </div>

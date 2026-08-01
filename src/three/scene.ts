@@ -862,14 +862,18 @@ export function createScene(container: HTMLElement): SizeScene {
     // The item's own fade (add/remove), kept as state rather than read back off the material — final
     // opacity is this times the highlight dim, so the material alone can no longer tell you the fade.
     fadeFactor: number;
+    dimFactor: number;
     fading: boolean; // true while a fade-out (pending removal) is in flight
   }
   type Target = LayoutTarget;
 
   // Hovering a row in the sidebar picks out its item here. Rather than brightening the one — every
   // material is already at its intended opacity — the others fade back, which reads as emphasis without
-  // changing any colour. Applied instantly: hover feedback that eases in feels unresponsive.
+  // changing any colour. Tweened over HIGHLIGHT_MS, short enough that the response still feels immediate
+  // but long enough that moving down a list of rows reads as one continuous change rather than a series
+  // of jumps.
   const HIGHLIGHT_DIM = 0.15; // what the others drop to
+  const HIGHLIGHT_MS = reducedMotion ? 0 : 130;
   let highlightKey: string | null = null;
 
   const handles = new Map<string, ItemHandle>();
@@ -881,12 +885,14 @@ export function createScene(container: HTMLElement): SizeScene {
     return [handle.nameLabel, handle.widthLabel, handle.sepLabel, handle.heightLabel];
   }
 
-  const dimFor = (handle: ItemHandle) =>
+  // Where this handle's dim SHOULD be for the current highlight; handle.dimFactor is where it actually
+  // is, which lags behind while the tween runs.
+  const dimTargetFor = (handle: ItemHandle) =>
     highlightKey === null || handle.keyId === highlightKey ? 1 : HIGHLIGHT_DIM;
 
   function applyOpacityFactor(handle: ItemHandle, factor: number) {
     handle.fadeFactor = factor;
-    const f = factor * dimFor(handle);
+    const f = factor * handle.dimFactor;
     (handle.mesh.material as THREE.Material).opacity = handle.meshBaseOpacity * f;
     if (handle.edges) (handle.edges.material as THREE.Material).opacity = f;
     if (handle.seam) (handle.seam.material as THREE.Material).opacity = f;
@@ -916,6 +922,17 @@ export function createScene(container: HTMLElement): SizeScene {
       },
       done,
     );
+  }
+
+  // Tweens the highlight dim from wherever it is, so sweeping across rows overrides the previous
+  // tween mid-flight instead of queueing behind it.
+  function tweenDimTo(handle: ItemHandle, target: number) {
+    const from = handle.dimFactor;
+    if (Math.abs(from - target) < 0.001) return;
+    addTween(`${handle.keyId}:dim`, HIGHLIGHT_MS, (k) => {
+      handle.dimFactor = from + (target - from) * k;
+      applyOpacityFactor(handle, handle.fadeFactor);
+    });
   }
 
   // Takes a plain vector: layout is three-free, and Vector3.equals/lerpVectors only read x/y/z.
@@ -1159,6 +1176,7 @@ export function createScene(container: HTMLElement): SizeScene {
       meshBaseOpacity,
       // Must match the opacity the materials above were created with — see INITIAL_FADE.
       fadeFactor: INITIAL_FADE,
+      dimFactor: 1,
       fading: false,
     };
   }
@@ -1248,11 +1266,9 @@ export function createScene(container: HTMLElement): SizeScene {
     const next = index === null ? null : (keys[index] ?? null);
     if (next === highlightKey) return;
     highlightKey = next;
-    // Re-apply at the current fade rather than tweening: opacity is fade x dim, and re-running each
-    // handle's own factor keeps an in-flight add/remove fade untouched.
-    for (const handle of handles.values()) applyOpacityFactor(handle, handle.fadeFactor);
-    // Rendering is on demand, so a material change on its own puts nothing on screen.
-    requestRender();
+    // Tweens dim only. Opacity is fade x dim on separate tween ids, so an item still fading in keeps
+    // its own fade and simply dims alongside it.
+    for (const handle of handles.values()) tweenDimTo(handle, dimTargetFor(handle));
   }
 
   function setProjection(next: Projection) {
