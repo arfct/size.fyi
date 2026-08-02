@@ -192,6 +192,10 @@ export default function ItemList({
             onMouseLeave={() => dispatch({ type: 'setHover', index: null })}
             onFocus={() => dispatch({ type: 'setHover', index: i })}
             onBlur={() => dispatch({ type: 'setHover', index: null })}
+            // Double-click cycles a foldable's state — the same gesture works on the item in the 3D
+            // view. A no-op for anything with nothing to cycle, which the reducer decides. Harmless on
+            // the name link and the menu, where a double-click is already doing something else.
+            onDoubleClick={() => dispatch({ type: 'cycleState', index: i })}
             // The row tints with the item's own colour at low alpha, so the highlight names which item
             // it belongs to instead of being a generic grey. `20` is the alpha byte — ~12%, enough to
             // read as a wash without fighting the text on either theme.

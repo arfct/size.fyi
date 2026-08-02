@@ -151,6 +151,23 @@ test('picking a state from the menu applies it', async () => {
   );
 });
 
+test('double-clicking a row cycles its state', async () => {
+  const user = mountFold();
+  // The same gesture works on the item in the 3D view; both go through the reducer's cycleState.
+  await user.dblClick(rowFor('Fold'));
+  expect(within(rowFor('Fold')).getByText(/140/)).toBeInTheDocument();
+
+  // And it wraps, so a two-state device toggles.
+  await user.dblClick(rowFor('Fold'));
+  expect(within(rowFor('Fold')).getByText(/70/)).toBeInTheDocument();
+});
+
+test('double-clicking an item with nothing to cycle does nothing', async () => {
+  const user = mount();
+  await user.dblClick(rowFor('Small'));
+  expect(within(rowFor('Small')).getByText(/10/)).toBeInTheDocument();
+});
+
 test('a single-state device gets no state rows in its menu', async () => {
   const user = mount();
   await user.click(screen.getByRole('button', { name: 'Options for Small' }));

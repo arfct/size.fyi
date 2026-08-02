@@ -86,6 +86,15 @@ export function defaultStateLabel(device: Device): string | undefined {
   return device.defaultState ?? device.states?.[0]?.label;
 }
 
+// The state after `state`, wrapping at the end. Undefined for a device with nothing to cycle through,
+// which is what callers test to decide whether the gesture means anything for this item.
+export function nextStateLabel(device: Device, state?: string): string | undefined {
+  const states = device.states;
+  if (!states || states.length < 2) return undefined;
+  const at = states.findIndex((s) => s.label === (state ?? defaultStateLabel(device)));
+  return states[(at + 1) % states.length]!.label;
+}
+
 export function activeState(device: Device, state?: string): DeviceState | undefined {
   if (!device.states || device.states.length === 0) return undefined;
   const label = state ?? defaultStateLabel(device);

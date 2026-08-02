@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import type { ComparisonItem } from '../../shared/types';
+import type { ComparisonItem, Device } from '../../shared/types';
 import { type ComparisonState, reducer } from '../store';
 
 const empty: ComparisonState = {
@@ -73,4 +73,60 @@ test('setting the same hover twice returns the identical state, so React can ski
   const hovered = reducer(empty, { type: 'setHover', index: 2 });
   expect(reducer(hovered, { type: 'setHover', index: 2 })).toBe(hovered);
   expect(reducer(hovered, { type: 'setHover', index: null }).hovered).toBeNull();
+});
+
+// A three-state device, so the cycle is observably a rotation and not just an A/B flip.
+const TRIPTYCH: ComparisonItem = {
+  kind: 'device',
+  device: {
+    slug: 'tri',
+    name: 'Tri',
+    category: 'phone',
+    h: 10,
+    w: 10,
+    d: 10,
+    states: [
+      { label: 'a', h: 10, w: 10, d: 10 },
+      { label: 'b', h: 10, w: 20, d: 10 },
+      { label: 'c', h: 10, w: 30, d: 10 },
+    ],
+  } as Device,
+};
+
+const stateOf = (s: ComparisonState, i = 0) => {
+  const it = s.items[i];
+  return it?.kind === 'device' ? it.state : undefined;
+};
+
+test('cycleState advances through every state and wraps', () => {
+  let s = reducer(empty, { type: 'add', item: TRIPTYCH });
+  // Starts on the default, which is implicit — no explicit state on the item yet.
+  expect(stateOf(s)).toBeUndefined();
+  for (const label of ['b', 'c', 'a', 'b']) {
+    s = reducer(s, { type: 'cycleState', index: 0 });
+    expect(stateOf(s)).toBe(label);
+  }
+});
+
+test('cycleState is a no-op for items with nothing to cycle', () => {
+  const custom = reducer(empty, { type: 'add', item: item('A') });
+  expect(reducer(custom, { type: 'cycleState', index: 0 })).toBe(custom);
+  // And an index pointing at nothing, which a stale double-click could produce.
+  expect(reducer(custom, { type: 'cycleState', index: 7 })).toBe(custom);
+});
+
+test('cycleState re-sorts, since a fold changes the size class', () => {
+  // Tri at 'c' is 10x30x10 = 3000, bigger than this 2000 box, so it moves behind it.
+  const mid: ComparisonItem = { kind: 'custom', name: 'Mid', h: 10, w: 20, d: 10 };
+  let s = reducer(reducer(empty, { type: 'add', item: TRIPTYCH }), { type: 'add', item: mid });
+  expect(s.items.map((i) => (i.kind === 'device' ? i.device.name : i.name))).toEqual([
+    'Tri',
+    'Mid',
+  ]);
+  s = reducer(s, { type: 'cycleState', index: 0 }); // -> b, 10x20x10, ties with Mid
+  s = reducer(s, { type: 'cycleState', index: 0 }); // -> c, 10x30x10, now the larger
+  expect(s.items.map((i) => (i.kind === 'device' ? i.device.name : i.name))).toEqual([
+    'Mid',
+    'Tri',
+  ]);
 });

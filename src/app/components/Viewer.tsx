@@ -60,6 +60,9 @@ export default function Viewer({ asideRef }: ViewerProps) {
               dispatch({ type: 'setView', view });
             },
             onProjectionChange: (projection) => dispatch({ type: 'setProjection', projection }),
+            // Same gesture as double-clicking the item's row in the list. The index is into
+            // state.items, which is the array setItems was given, so no translation is needed.
+            onItemActivate: (index) => dispatch({ type: 'cycleState', index }),
           });
           setReady(true);
         } catch {

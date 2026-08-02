@@ -1,6 +1,6 @@
 import { createContext, type Dispatch, type ReactNode, useContext, useReducer } from 'react';
 import type { ComparisonItem, LayoutMode, Projection, Units, View } from '../shared/types';
-import { itemDims, MAX_ITEMS } from '../shared/types';
+import { itemDims, MAX_ITEMS, nextStateLabel } from '../shared/types';
 import { getStoredUnits } from './localStore';
 
 export interface ComparisonState {
@@ -24,6 +24,7 @@ export type Action =
   | { type: 'setLayout'; mode: LayoutMode }
   | { type: 'setProjection'; projection: Projection }
   | { type: 'setHover'; index: number | null }
+  | { type: 'cycleState'; index: number }
   | { type: 'load'; items: ComparisonItem[]; missing: string[] }
   | { type: 'dismissMissing' };
 
@@ -66,6 +67,22 @@ export function reducer(state: ComparisonState, action: Action): ComparisonState
       return { ...state, layoutMode: action.mode };
     case 'setProjection':
       return { ...state, projection: action.projection };
+    // Advances a multi-state device to its next state — the double-tap gesture, from either the list or
+    // the 3D view. A no-op for anything without states to cycle, so the callers don't each have to test.
+    // Re-sorts like any other mutation, since a fold changes the size class.
+    case 'cycleState': {
+      const item = state.items[action.index];
+      if (item?.kind !== 'device') return state;
+      const next = nextStateLabel(item.device, item.state);
+      if (!next) return state;
+      return {
+        ...state,
+        items: byVolume(
+          state.items.map((it, i) => (i === action.index ? { ...item, state: next } : it)),
+        ),
+        hovered: null,
+      };
+    }
     case 'setHover':
       return state.hovered === action.index ? state : { ...state, hovered: action.index };
     case 'load':

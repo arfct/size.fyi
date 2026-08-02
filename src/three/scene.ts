@@ -92,6 +92,9 @@ function loadModelGeometry(
 export interface SceneCallbacks {
   onViewChange?: (view: ViewName) => void;
   onProjectionChange?: (projection: Projection) => void;
+  // Double-click on an item, by index into the last setItems array. The scene has no idea what that
+  // should do — it just reports which item was hit.
+  onItemActivate?: (index: number) => void;
 }
 
 export interface SizeScene {
@@ -1266,6 +1269,38 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     }
   }
 
+  // Double-click picks the item under the pointer and reports its index. Only the solid surfaces are
+  // candidates — the labels and the edge lines are decoration, and a line is a hairline target anyway.
+  // Items mid-fade-out are excluded: they're already on their way off screen and shouldn't answer.
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+
+  function onDoubleClick(e: MouseEvent) {
+    if (!callbacks.onItemActivate) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+
+    const targets: THREE.Object3D[] = [];
+    const owner = new Map<THREE.Object3D, string>();
+    for (const h of handles.values()) {
+      if (h.fading) continue;
+      for (const o of [h.mesh, h.screenMesh]) {
+        if (!o) continue;
+        targets.push(o);
+        owner.set(o, h.keyId);
+      }
+    }
+    const hit = raycaster.intersectObjects(targets, false)[0];
+    if (!hit) return;
+    const keyId = owner.get(hit.object);
+    const index = keyId === undefined ? -1 : computeKeys(lastItems).indexOf(keyId);
+    if (index >= 0) callbacks.onItemActivate(index);
+  }
+
+  renderer.domElement.addEventListener('dblclick', onDoubleClick);
+
   // Highlights one item by index into the last `setItems` array, or clears with null. Indices rather
   // than keys because the caller (a sidebar row) already has one and shouldn't need to know how the
   // scene keys its handles.
@@ -1697,6 +1732,7 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
       handles.clear();
       ro.disconnect();
       controls.removeEventListener('start', leaveFlatView);
+      renderer.domElement.removeEventListener('dblclick', onDoubleClick);
       darkQuery?.removeEventListener('change', onThemeChange);
       container.removeEventListener('wheel', onContainerWheel, { capture: true });
       controls.removeEventListener('change', requestRender);
