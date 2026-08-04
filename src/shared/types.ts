@@ -10,6 +10,10 @@ export type Category =
   | 'camera'
   | 'watch';
 export type RadiusAxis = 'x' | 'y' | 'z';
+// Which edge of the rounded cross-section the hinge runs along, for a folding device whose hinge-side
+// corners are tighter than its outer ones. Named in the cross-section's own frame, so for the usual
+// radiusAxis 'z' it is the front face as drawn.
+export type HingeEdge = 'left' | 'right' | 'top' | 'bottom';
 export interface Screen {
   h: number;
   w: number;
@@ -27,6 +31,10 @@ export interface DeviceState {
   d: number; // mm, for this state
   radius?: number;
   radiusAxis?: RadiusAxis;
+  // A fold's hinge-side corners are tighter than its outer ones. Set this and the two corners on
+  // `hinge` use it instead of `radius`. Only meaningful with a radiusAxis.
+  radiusInner?: number;
+  hinge?: HingeEdge; // default 'left'
   screen?: Screen;
   seam?: boolean; // draw a fold parting-line around the mid-thickness outline in 3D
 }
@@ -47,6 +55,8 @@ export interface Device {
   source?: string;
   radius?: number; // mm; fillets edges parallel to radiusAxis
   radiusAxis?: RadiusAxis; // x=width, y=height, z=depth
+  radiusInner?: number; // mm; the two corners on `hinge` (see DeviceState.radiusInner)
+  hinge?: HingeEdge; // default 'left'
   screen?: Screen; // mm; inset rect on the +z front face
   mesh?: 'banana'; // procedural mesh override; always renders yellow wireframe
   // Optional real 3D model (glTF/GLB under /models). Rendered fit to this device's w×h×d in place
@@ -78,6 +88,8 @@ export interface ResolvedDims {
   d: number;
   radius?: number;
   radiusAxis?: RadiusAxis;
+  radiusInner?: number;
+  hinge?: HingeEdge;
   screen?: Screen;
   seam?: boolean;
 }
@@ -110,6 +122,8 @@ export function deviceDims(device: Device, state?: string): ResolvedDims {
       d: s.d,
       radius: s.radius,
       radiusAxis: s.radiusAxis,
+      radiusInner: s.radiusInner,
+      hinge: s.hinge,
       screen: s.screen,
       seam: s.seam,
     };
@@ -119,6 +133,8 @@ export function deviceDims(device: Device, state?: string): ResolvedDims {
     d: device.d,
     radius: device.radius,
     radiusAxis: device.radiusAxis,
+    radiusInner: device.radiusInner,
+    hinge: device.hinge,
     screen: device.screen,
   };
 }

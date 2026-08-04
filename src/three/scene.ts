@@ -5,7 +5,13 @@ import { SCREEN_PROUD_MM } from '../shared/ar';
 // loadModelGeometry below, which pulls them in on demand.
 import { formatLengthValue } from '../shared/dimensions';
 import type { LayoutMode, Units } from '../shared/types';
-import { buildGeometry, buildSeamGeometry, screenGeometry } from './geometry';
+import {
+  buildGeometry,
+  buildSeamGeometry,
+  cornerRadii,
+  type HingeEdge,
+  screenGeometry,
+} from './geometry';
 import {
   computeKeys,
   computeTargetBounds,
@@ -27,6 +33,8 @@ export interface SceneItem {
   color: string;
   radius?: number;
   radiusAxis?: 'x' | 'y' | 'z';
+  radiusInner?: number; // the two corners on `hinge`, for a fold whose hinge side is tighter
+  hinge?: HingeEdge;
   screen?: { h: number; w: number; radius?: number };
   seam?: boolean; // draw a fold parting-line around the mid-thickness (z=0) outline
   mesh?: 'banana';
@@ -1124,7 +1132,10 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
 
     let seam: THREE.LineSegments | null = null;
     if (item.seam && !isWireframe && !isModel) {
-      const seamRadius = item.radiusAxis === 'z' ? (item.radius ?? 0) : 0;
+      // The parting line traces the same outline as the body, so on a fold it picks up the tighter
+      // hinge-side corners too — which is the whole point, since the hinge is what it depicts.
+      const seamRadius =
+        item.radiusAxis === 'z' ? cornerRadii(item.radius ?? 0, item.radiusInner, item.hinge) : 0;
       seam = new THREE.LineSegments(
         buildSeamGeometry(item.w, item.h, seamRadius),
         new THREE.LineBasicMaterial({

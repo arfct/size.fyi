@@ -12,6 +12,8 @@ export interface SolidSpec {
   d: number;
   radius?: number;
   radiusAxis?: 'x' | 'y' | 'z';
+  radiusInner?: number;
+  hinge?: HingeEdge;
   screen?: { h: number; w: number; radius?: number };
   mesh?: 'banana';
 }
@@ -79,23 +81,43 @@ function sampleArc(
   }
 }
 
-// A rounded rect with Figma-style smoothed corners. Built in an SVG-like top-left/y-down frame (as
-// Figma's formulas assume), sampled to points, then flipped into our centred, y-up shape space.
-export function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
-  const W = a,
-    H = b;
-  const shape = new THREE.Shape();
-  const budget = Math.min(W, H) / 2; // symmetric equal corners: each gets half the shorter side
-  const R = Math.min(r, budget);
-  if (R <= 0) {
-    shape.setFromPoints([
-      new THREE.Vector2(-W / 2, -H / 2),
-      new THREE.Vector2(W / 2, -H / 2),
-      new THREE.Vector2(W / 2, H / 2),
-      new THREE.Vector2(-W / 2, H / 2),
-    ]);
-    return shape;
+// Per-corner radii, clockwise from top-left in the rect's own frame — the same order and winding as
+// CSS border-radius. `cornerRadii` builds one of these from a device's radius/radiusInner/hinge.
+export type CornerRadii = [tl: number, tr: number, br: number, bl: number];
+
+// Which edge of the rect the hinge runs along, in the rect's own frame — for the usual radiusAxis 'z'
+// that is the face you are looking at, so 'left' means the device's left side as drawn.
+export type HingeEdge = 'left' | 'right' | 'top' | 'bottom';
+
+// A fold's corners aren't four independent numbers: the two on the hinge side are tight and the two on
+// the free side are the device's normal radius. Describing it that way keeps the catalog honest about
+// what it knows (one outer radius, one inner) and leaves picking the corners to the geometry, where
+// the winding order lives.
+//
+// Returns the plain number when there's no inner radius, so every non-folding device stays on exactly
+// the code path it was on before per-corner radii existed.
+export function cornerRadii(
+  outer: number,
+  inner: number | undefined,
+  hinge: HingeEdge = 'left',
+): number | CornerRadii {
+  if (inner === undefined) return outer;
+  switch (hinge) {
+    case 'left':
+      return [inner, outer, outer, inner];
+    case 'right':
+      return [outer, inner, inner, outer];
+    case 'top':
+      return [inner, inner, outer, outer];
+    case 'bottom':
+      return [outer, outer, inner, inner];
   }
+}
+
+// The path parameters for one corner. `p` is how far along each adjacent edge the corner reaches, and
+// it is capped at `budget` — which is what keeps two corners on the same edge from ever colliding,
+// since each is at most half the shorter side and one edge holds two of them.
+function cornerParams(R: number, budget: number) {
   const s = Math.min(CORNER_SMOOTHING, Math.max(0, budget / R - 1));
   const p = Math.min((1 + s) * R, budget);
   const arcMeasure = 90 * (1 - s);
@@ -105,43 +127,89 @@ export function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
   const cc = p3p4 * Math.cos(toRad(45 * s));
   const cd = cc * Math.tan(toRad(45 * s));
   const cb = (p - arc - cc - cd) / 3;
-  const ca = 2 * cb;
+  return { R, p, arc, cc, cd, cb, ca: 2 * cb };
+}
+
+// A rounded rect with Figma-style smoothed corners, each corner independently radiused. Built in an
+// SVG-like top-left/y-down frame (as Figma's formulas assume), sampled to points, then flipped into
+// our centred, y-up shape space.
+//
+// One parameterised corner block, walked clockwise from the top edge, where the four corners used to
+// be written out longhand. Each is the same cubic → arc → cubic expressed in that corner's own basis:
+// `u` is the direction of the edge arriving at it, `v` the edge leaving. A square corner (R <= 0)
+// contributes only its vertex.
+export function roundedRectShape(a: number, b: number, r: number | CornerRadii): THREE.Shape {
+  const W = a,
+    H = b;
+  const shape = new THREE.Shape();
+  const budget = Math.min(W, H) / 2; // each corner gets at most half the shorter side
+  const radii = (typeof r === 'number' ? [r, r, r, r] : r).map((v) =>
+    Math.min(Math.max(v, 0), budget),
+  ) as CornerRadii;
+  if (radii.every((v) => v <= 0)) {
+    shape.setFromPoints([
+      new THREE.Vector2(-W / 2, -H / 2),
+      new THREE.Vector2(W / 2, -H / 2),
+      new THREE.Vector2(W / 2, H / 2),
+      new THREE.Vector2(-W / 2, H / 2),
+    ]);
+    return shape;
+  }
+
+  // Clockwise in the y-down frame: the path starts on the top edge and turns at TR, BR, BL, TL. `i`
+  // indexes into `radii`, which is in CSS order (TL first).
+  interface Corner {
+    at: THREE.Vector2;
+    u: [number, number];
+    v: [number, number];
+    i: number;
+  }
+  const corners: Corner[] = [
+    { at: new THREE.Vector2(W, 0), u: [1, 0], v: [0, 1], i: 1 },
+    { at: new THREE.Vector2(W, H), u: [0, 1], v: [-1, 0], i: 2 },
+    { at: new THREE.Vector2(0, H), u: [-1, 0], v: [0, -1], i: 3 },
+    { at: new THREE.Vector2(0, 0), u: [0, -1], v: [1, 0], i: 0 },
+  ];
 
   const inside = new THREE.Vector2(W / 2, H / 2);
   const pts: THREE.Vector2[] = [];
-  const pen = new THREE.Vector2(W - p, 0);
-  pts.push(pen.clone());
-  const at = (dx: number, dy: number) => new THREE.Vector2(pen.x + dx, pen.y + dy);
-  const cubic = (d1x: number, d1y: number, d2x: number, d2y: number, ex: number, ey: number) => {
-    const e = at(ex, ey);
-    sampleCubic(pts, pen.clone(), at(d1x, d1y), at(d2x, d2y), e, 16);
-    pen.copy(e);
-  };
-  const arcTo = (dx: number, dy: number) => {
-    const e = at(dx, dy);
-    sampleArc(pts, pen.clone(), e, R, inside, 20);
-    pen.copy(e);
-  };
-  const lineTo = (x: number, y: number) => {
-    pen.set(x, y);
-    pts.push(pen.clone());
+  const pen = new THREE.Vector2();
+  // A point offset from `pen` by ku along the incoming edge and kv along the outgoing one.
+  const off = (u: [number, number], v: [number, number], ku: number, kv: number) =>
+    new THREE.Vector2(pen.x + u[0] * ku + v[0] * kv, pen.y + u[1] * ku + v[1] * kv);
+  // Where a corner's path begins: p back along its incoming edge from its vertex.
+  const entry = (c: Corner) => {
+    const r = radii[c.i]!;
+    const back = r > 0 ? cornerParams(r, budget).p : 0;
+    return new THREE.Vector2(c.at.x - c.u[0] * back, c.at.y - c.u[1] * back);
   };
 
-  cubic(ca, 0, ca + cb, 0, ca + cb + cc, cd);
-  arcTo(arc, arc);
-  cubic(cd, cc, cd, cb + cc, cd, ca + cb + cc);
-  lineTo(W, H - p);
-  cubic(0, ca, 0, ca + cb, -cd, ca + cb + cc);
-  arcTo(-arc, arc);
-  cubic(-cc, cd, -(cb + cc), cd, -(ca + cb + cc), cd);
-  lineTo(p, H);
-  cubic(-ca, 0, -(ca + cb), 0, -(ca + cb + cc), -cd);
-  arcTo(-arc, -arc);
-  cubic(-cd, -cc, -cd, -(cb + cc), -cd, -(ca + cb + cc));
-  lineTo(0, p);
-  cubic(0, -ca, 0, -(ca + cb), cd, -(ca + cb + cc));
-  arcTo(arc, -arc);
-  cubic(cc, -cd, cb + cc, -cd, ca + cb + cc, -cd);
+  pen.copy(entry(corners[0]!));
+  pts.push(pen.clone());
+
+  for (let n = 0; n < 4; n++) {
+    const c = corners[n]!;
+    const { u, v } = c;
+    if (radii[c.i]! > 0) {
+      const { R, arc, ca, cb, cc, cd } = cornerParams(radii[c.i]!, budget);
+      let e = off(u, v, ca + cb + cc, cd);
+      sampleCubic(pts, pen.clone(), off(u, v, ca, 0), off(u, v, ca + cb, 0), e, 16);
+      pen.copy(e);
+      e = off(u, v, arc, arc);
+      sampleArc(pts, pen.clone(), e, R, inside, 20);
+      pen.copy(e);
+      e = off(u, v, cd, ca + cb + cc);
+      sampleCubic(pts, pen.clone(), off(u, v, cd, cc), off(u, v, cd, cb + cc), e, 16);
+      pen.copy(e);
+    } else {
+      pen.copy(c.at); // square: straight into the vertex and straight out
+      pts.push(pen.clone());
+    }
+    if (n < 3) {
+      pen.copy(entry(corners[n + 1]!));
+      pts.push(pen.clone());
+    }
+  }
 
   shape.setFromPoints(pts.map((v) => new THREE.Vector2(v.x - W / 2, H / 2 - v.y)));
   return shape;
@@ -150,7 +218,11 @@ export function roundedRectShape(a: number, b: number, r: number): THREE.Shape {
 // A closed foldable is two panels stacked in depth; this traces the w×h device outline at the
 // mid-thickness plane (local z=0) as line segments — the clamshell "parting line" that reads as
 // "this opens". Added as a child of the mesh so it inherits position/scale/fade like the edges.
-export function buildSeamGeometry(w: number, h: number, radius = 0): THREE.BufferGeometry {
+export function buildSeamGeometry(
+  w: number,
+  h: number,
+  radius: number | CornerRadii = 0,
+): THREE.BufferGeometry {
   const pts = roundedRectShape(w, h, radius).getPoints(48);
   const positions: number[] = [];
   for (let i = 0; i < pts.length; i++) {
@@ -246,20 +318,21 @@ export function buildGeometry(item: SolidSpec): THREE.BufferGeometry {
     return new RoundedBoxGeometry(item.w, item.h, item.d, 4, r);
   }
   const opts = { bevelEnabled: false, curveSegments: 12 };
+  const corners = cornerRadii(item.radius, item.radiusInner, item.hinge);
   let geo: THREE.BufferGeometry;
   if (item.radiusAxis === 'z') {
-    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.h, item.radius), {
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.h, corners), {
       ...opts,
       depth: item.d,
     });
   } else if (item.radiusAxis === 'y') {
-    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.d, item.radius), {
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.w, item.d, corners), {
       ...opts,
       depth: item.h,
     });
     geo.rotateX(-Math.PI / 2);
   } else {
-    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.d, item.h, item.radius), {
+    geo = new THREE.ExtrudeGeometry(roundedRectShape(item.d, item.h, corners), {
       ...opts,
       depth: item.w,
     });
@@ -275,9 +348,17 @@ export function buildGeometry(item: SolidSpec): THREE.BufferGeometry {
 // Concentric corners: screen radius = body radius − bezel inset, so the bezel gap stays uniform
 // through the corner (mirrors the body's rounding). Floored at the device's own stored screen radius
 // so devices with a small/absent body radius don't regress to square.
+//
+// The inner corners of a fold get no such floor. The stored screen radius describes the outer corners
+// — it was authored when every corner was the same — so applying it to a corner whose body radius is
+// 2 mm would leave the screen rounder than the body it sits in. They follow the body alone, and go
+// square when the bezel is wider than the body's inner radius.
 export function screenGeometry(item: SolidSpec): THREE.BufferGeometry | null {
   if (!item.screen) return null;
   const inset = (item.w - item.screen.w) / 2;
-  const screenR = Math.max(item.screen.radius ?? 0, item.radius ? item.radius - inset : 0);
-  return new THREE.ShapeGeometry(roundedRectShape(item.screen.w, item.screen.h, screenR));
+  const outer = Math.max(item.screen.radius ?? 0, item.radius ? item.radius - inset : 0);
+  const inner = item.radiusInner === undefined ? undefined : Math.max(0, item.radiusInner - inset);
+  return new THREE.ShapeGeometry(
+    roundedRectShape(item.screen.w, item.screen.h, cornerRadii(outer, inner, item.hinge)),
+  );
 }

@@ -114,6 +114,8 @@ export default function Viewer({ asideRef }: ViewerProps) {
               d: dims.d,
               radius: dims.radius,
               radiusAxis: dims.radiusAxis,
+              radiusInner: dims.radiusInner,
+              hinge: dims.hinge,
               screen: dims.screen,
               seam: dims.seam,
               mesh: item.kind === 'device' ? item.device.mesh : undefined,

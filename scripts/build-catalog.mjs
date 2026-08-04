@@ -52,6 +52,32 @@ function validateGeometry(g, id) {
         errors.push(`${id}: radius out of range for its cross-section`);
     }
   }
+  // A tighter radius on the hinge-side corners of a fold. Needs a radiusAxis: without one the rounding
+  // is all-edge (RoundedBox), which has no notion of four corners to treat differently. Needs a radius
+  // too, since it describes the OTHER two corners — on its own it would be a fold with no outer
+  // rounding, which no device is.
+  if (g.radiusInner !== undefined) {
+    const cross = { x: ['h', 'd'], y: ['w', 'd'], z: ['h', 'w'] }[g.radiusAxis];
+    if (!cross) {
+      errors.push(`${id}: radiusInner needs a radiusAxis`);
+    } else if (typeof g.radius !== 'number') {
+      errors.push(`${id}: radiusInner needs a radius for the outer corners`);
+    } else if (
+      typeof g.radiusInner !== 'number' ||
+      g.radiusInner < 0 ||
+      g.radiusInner > Math.min(g[cross[0]], g[cross[1]]) / 2 + 0.01
+    ) {
+      errors.push(`${id}: radiusInner out of range for its cross-section`);
+    } else if (g.radiusInner > g.radius) {
+      // Not a geometric problem, but it inverts what the field means, so it's almost certainly a typo.
+      errors.push(`${id}: radiusInner ${g.radiusInner} exceeds radius ${g.radius}`);
+    }
+  }
+  if (g.hinge !== undefined) {
+    if (!['left', 'right', 'top', 'bottom'].includes(g.hinge))
+      errors.push(`${id}: hinge must be left|right|top|bottom`);
+    if (g.radiusInner === undefined) errors.push(`${id}: hinge without radiusInner does nothing`);
+  }
   if (g.screen !== undefined) {
     if (typeof g.screen !== 'object' || g.screen === null || Array.isArray(g.screen)) {
       errors.push(`${id}: screen must be an object`);
@@ -161,6 +187,8 @@ for (const file of await jsonFiles(DATA_DIR)) {
             'd',
             'radius',
             'radiusAxis',
+            'radiusInner',
+            'hinge',
             'screen',
             'seam',
           ]);
@@ -230,6 +258,8 @@ for (const file of await jsonFiles(DATA_DIR)) {
       'source',
       'radius',
       'radiusAxis',
+      'radiusInner',
+      'hinge',
       'screen',
       'mesh',
       'model3d',
