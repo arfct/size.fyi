@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { afterEach, expect, test } from 'vitest';
-import { AR_MODEL_VERSION } from '../../shared/ar';
-import type { Device, LayoutMode } from '../../shared/types';
+import { AR_MODEL_VERSION, geometryFingerprint } from '../../shared/ar';
+import type { ComparisonItem, Device, LayoutMode } from '../../shared/types';
 import ArButton from '../components/ArButton';
 import { ComparisonProvider, useComparison } from '../store';
 
@@ -44,6 +44,13 @@ const cleanups: Array<() => void> = [];
 afterEach(() => {
   while (cleanups.length) cleanups.pop()?.();
 });
+
+// The two items the button will be pointing at, in the order the store keeps them (volume-sorted).
+const SEEDED: ComparisonItem[] = [
+  { kind: 'device', device: { slug: 'a', name: 'A', h: 10, w: 10, d: 10 } as Device },
+  { kind: 'device', device: { slug: 'b', name: 'B', h: 20, w: 20, d: 20 } as Device },
+];
+const g = `g=${geometryFingerprint(SEEDED)}`;
 
 function Seeded({ layout }: { layout?: LayoutMode }) {
   const { dispatch } = useComparison();
@@ -97,7 +104,7 @@ test('launches the comparison route on click', async () => {
   cleanups.push(restore);
   const user = mount();
   await user.click(await screen.findByRole('button', { name: 'View in AR' }));
-  expect(hrefs).toEqual([`/ar/a-vs-b.usdz?v=${AR_MODEL_VERSION}`]);
+  expect(hrefs).toEqual([`/ar/a-vs-b.usdz?v=${AR_MODEL_VERSION}&${g}`]);
 });
 
 test('carries the chosen layout, since a stack and a row are different models', async () => {
@@ -106,5 +113,5 @@ test('carries the chosen layout, since a stack and a row are different models', 
   cleanups.push(restore);
   const user = mount({ layout: 'stack' });
   await user.click(await screen.findByRole('button', { name: 'View in AR' }));
-  expect(hrefs).toEqual([`/ar/a-vs-b.usdz?layout=stack&v=${AR_MODEL_VERSION}`]);
+  expect(hrefs).toEqual([`/ar/a-vs-b.usdz?layout=stack&v=${AR_MODEL_VERSION}&${g}`]);
 });

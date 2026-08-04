@@ -1,7 +1,12 @@
 import { expect, test } from 'vitest';
-import { AR_MODEL_VERSION } from '../../shared/ar';
+import { AR_MODEL_VERSION, geometryFingerprint } from '../../shared/ar';
 import type { ComparisonItem, Device } from '../../shared/types';
 import { comparisonArUrl, isAndroid, sceneViewerUrl } from '../ar';
+
+// The cache-identity query: the generator version, plus a fingerprint of what these items measure. Both
+// have to be in the URL because the route caches immutably — see geometryFingerprint.
+const q = (items: ComparisonItem[], layout?: 'stack') =>
+  `?${layout ? 'layout=stack&' : ''}v=${AR_MODEL_VERSION}&g=${geometryFingerprint(items)}`;
 
 test('isAndroid detects the platform from the user agent', () => {
   expect(isAndroid('Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome')).toBe(true);
@@ -30,7 +35,7 @@ test('comparisonArUrl points at the Worker route using the shareable path gramma
   ];
   // Custom dimensions encode height x width x depth, matching the grammar the README documents.
   expect(comparisonArUrl(items, 'row', 'usdz')).toBe(
-    `/ar/iphone-13-mini-vs-my_box~300x200x100.usdz?v=${AR_MODEL_VERSION}`,
+    `/ar/iphone-13-mini-vs-my_box~300x200x100.usdz${q(items)}`,
   );
 });
 
@@ -40,9 +45,9 @@ test('comparisonArUrl carries the layout, since a stack and a row are different 
     { kind: 'device', device: { slug: 'b', name: 'B' } as Device },
   ];
   // Side-by-side is the route's default, so it stays out of the URL and keeps one cache entry.
-  expect(comparisonArUrl(items, 'row', 'usdz')).toBe(`/ar/a-vs-b.usdz?v=${AR_MODEL_VERSION}`);
+  expect(comparisonArUrl(items, 'row', 'usdz')).toBe(`/ar/a-vs-b.usdz${q(items)}`);
   expect(comparisonArUrl(items, 'stack', 'usdz')).toBe(
-    `/ar/a-vs-b.usdz?layout=stack&v=${AR_MODEL_VERSION}`,
+    `/ar/a-vs-b.usdz${q(items, 'stack')}`,
   );
 });
 
@@ -61,7 +66,7 @@ test('comparisonArUrl emits an explicit state, so the route never has to redirec
     { kind: 'device', device: { slug: 'x', name: 'X' } as Device },
   ];
   expect(comparisonArUrl(items, 'row', 'usdz')).toBe(
-    `/ar/galaxy-z-fold8-open-vs-x.usdz?v=${AR_MODEL_VERSION}`,
+    `/ar/galaxy-z-fold8-open-vs-x.usdz${q(items)}`,
   );
 });
 
@@ -71,9 +76,9 @@ test('comparisonArUrl serves both viewers off one path', () => {
     { kind: 'device', device: { slug: 'b', name: 'B' } as Device },
   ];
   // Quick Look takes USDZ, Scene Viewer takes GLB; same comparison, same layout handling.
-  expect(comparisonArUrl(items, 'row', 'usdz')).toBe(`/ar/a-vs-b.usdz?v=${AR_MODEL_VERSION}`);
-  expect(comparisonArUrl(items, 'row', 'glb')).toBe(`/ar/a-vs-b.glb?v=${AR_MODEL_VERSION}`);
+  expect(comparisonArUrl(items, 'row', 'usdz')).toBe(`/ar/a-vs-b.usdz${q(items)}`);
+  expect(comparisonArUrl(items, 'row', 'glb')).toBe(`/ar/a-vs-b.glb${q(items)}`);
   expect(comparisonArUrl(items, 'stack', 'glb')).toBe(
-    `/ar/a-vs-b.glb?layout=stack&v=${AR_MODEL_VERSION}`,
+    `/ar/a-vs-b.glb${q(items, 'stack')}`,
   );
 });

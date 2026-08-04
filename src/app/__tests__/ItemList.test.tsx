@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { afterEach, expect, test } from 'vitest';
-import { AR_MODEL_VERSION } from '../../shared/ar';
+import { AR_MODEL_VERSION, geometryFingerprint } from '../../shared/ar';
 import type { ComparisonItem, Device } from '../../shared/types';
 import ItemList from '../components/ItemList';
 import { colorFor } from '../palette';
@@ -219,7 +219,7 @@ test('a device with no pre-built model still offers AR', async () => {
   // The route generates it on request, so the slug is all it needs. The state is spelled out even
   // though it's the default one, because the encoder stays canonical — a bare slug would answer with
   // the route's normalizing redirect before it answered with a model.
-  expect(hrefs).toEqual([`/ar/fold-closed.usdz?v=${AR_MODEL_VERSION}`]);
+  expect(hrefs).toEqual([`/ar/fold-closed.usdz?v=${AR_MODEL_VERSION}&g=${geometryFingerprint([FOLD])}`]);
 });
 
 test('the AR target follows the chosen state, since that is a different shape', async () => {
@@ -232,7 +232,12 @@ test('the AR target follows the chosen state, since that is a different shape', 
 
   await user.click(screen.getByRole('button', { name: 'Options for Fold' }));
   await user.click(screen.getByRole('menuitem', { name: 'View in AR' }));
-  expect(hrefs).toEqual([`/ar/fold-open.usdz?v=${AR_MODEL_VERSION}`]);
+  const opened = { ...FOLD, state: 'open' };
+  expect(hrefs).toEqual([
+    `/ar/fold-open.usdz?v=${AR_MODEL_VERSION}&g=${geometryFingerprint([opened])}`,
+  ]);
+  // The two states fingerprint differently, which is the point: opening it is a different mesh.
+  expect(geometryFingerprint([opened])).not.toBe(geometryFingerprint([FOLD]));
 });
 
 test('a custom item offers AR too, though it exists only in the URL', async () => {
@@ -242,7 +247,9 @@ test('a custom item offers AR too, though it exists only in the URL', async () =
   const user = mount();
   await user.click(screen.getByRole('button', { name: 'Options for Small' }));
   await user.click(screen.getByRole('menuitem', { name: 'View in AR' }));
-  expect(hrefs).toEqual([`/ar/small~10x10x10.usdz?v=${AR_MODEL_VERSION}`]);
+  expect(hrefs).toEqual([
+    `/ar/small~10x10x10.usdz?v=${AR_MODEL_VERSION}&g=${geometryFingerprint([ITEMS[0]!])}`,
+  ]);
 });
 
 test('the options menu stays visible while its own dropdown is open', async () => {
