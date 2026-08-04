@@ -21,7 +21,7 @@ import { type Device, defaultStateLabel } from './types.ts';
 // 2: GLB uint16 indices, bufferView targets, explicit primitive mode
 // 3: GLB authored in metres with no scale node — a node transform did not carry real-world size into
 //    Scene Viewer's AR placement, which read POSITION bounds directly
-export const AR_MODEL_VERSION = 4;
+export const AR_MODEL_VERSION = 5;
 
 // How far proud of its front face a screen sits, in millimetres. Lives here rather than beside the
 // geometry because every consumer applies it as a placement offset — the renderer, the AR exporters,
