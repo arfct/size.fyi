@@ -11,6 +11,6 @@
   "year": 2025,
   "aliases": ["mac studio", "macstudio", "studio"],
   "source": "apple.com",
-  "radius": 6,
+  "radius": 20,
   "radiusAxis": "y"
 }
