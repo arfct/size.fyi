@@ -219,7 +219,9 @@ test('a device with no pre-built model still offers AR', async () => {
   // The route generates it on request, so the slug is all it needs. The state is spelled out even
   // though it's the default one, because the encoder stays canonical — a bare slug would answer with
   // the route's normalizing redirect before it answered with a model.
-  expect(hrefs).toEqual([`/ar/fold-closed.usdz?v=${AR_MODEL_VERSION}&g=${geometryFingerprint([FOLD])}`]);
+  expect(hrefs).toEqual([
+    `/ar/fold-closed.usdz?v=${AR_MODEL_VERSION}&g=${geometryFingerprint([FOLD])}`,
+  ]);
 });
 
 test('the AR target follows the chosen state, since that is a different shape', async () => {

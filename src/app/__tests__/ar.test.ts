@@ -46,9 +46,7 @@ test('comparisonArUrl carries the layout, since a stack and a row are different 
   ];
   // Side-by-side is the route's default, so it stays out of the URL and keeps one cache entry.
   expect(comparisonArUrl(items, 'row', 'usdz')).toBe(`/ar/a-vs-b.usdz${q(items)}`);
-  expect(comparisonArUrl(items, 'stack', 'usdz')).toBe(
-    `/ar/a-vs-b.usdz${q(items, 'stack')}`,
-  );
+  expect(comparisonArUrl(items, 'stack', 'usdz')).toBe(`/ar/a-vs-b.usdz${q(items, 'stack')}`);
 });
 
 test('comparisonArUrl emits an explicit state, so the route never has to redirect', () => {
@@ -78,7 +76,5 @@ test('comparisonArUrl serves both viewers off one path', () => {
   // Quick Look takes USDZ, Scene Viewer takes GLB; same comparison, same layout handling.
   expect(comparisonArUrl(items, 'row', 'usdz')).toBe(`/ar/a-vs-b.usdz${q(items)}`);
   expect(comparisonArUrl(items, 'row', 'glb')).toBe(`/ar/a-vs-b.glb${q(items)}`);
-  expect(comparisonArUrl(items, 'stack', 'glb')).toBe(
-    `/ar/a-vs-b.glb${q(items, 'stack')}`,
-  );
+  expect(comparisonArUrl(items, 'stack', 'glb')).toBe(`/ar/a-vs-b.glb${q(items, 'stack')}`);
 });

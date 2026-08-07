@@ -23,7 +23,7 @@
       "d": 10.5,
       "radius": 11,
       "radiusAxis": "z",
-        "radiusInner": 2,
+      "radiusInner": 2,
       "screen": {
         "h": 146.1,
         "w": 65.1,

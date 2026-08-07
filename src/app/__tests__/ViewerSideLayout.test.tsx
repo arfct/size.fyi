@@ -19,9 +19,9 @@ const calls = vi.hoisted(() => ({
 }));
 
 vi.mock('../../three/scene', () => ({
-  createScene: (_el: unknown, cb: Record<string, unknown>) => (
-    (calls.cb = cb),
-    {
+  createScene: (_el: unknown, cb: Record<string, unknown>) => {
+    calls.cb = cb;
+    return {
       setItems: () => {},
       setView: (v: string) => {
         calls.view.push(v);
@@ -37,8 +37,8 @@ vi.mock('../../three/scene', () => ({
       setUnits: () => {},
       resize: () => {},
       dispose: () => {},
-    }
-  ),
+    };
+  },
 }));
 
 beforeEach(() => {
