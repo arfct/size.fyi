@@ -10,12 +10,12 @@
   "d": 8,
   "year": 2024,
   "aliases": ["boox palma", "palma", "onyx boox palma"],
-  "source": "onyxboox.com",
+  "source": "shop.boox.com",
   "radius": 8,
   "radiusAxis": "z",
   "screen": {
-    "h": 130,
-    "w": 66,
+    "h": 139.5,
+    "w": 69.8,
     "radius": 4
   }
 }

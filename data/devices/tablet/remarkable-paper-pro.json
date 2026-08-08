@@ -1,0 +1,21 @@
+{
+  "slug": "remarkable-paper-pro",
+  "name": "reMarkable Paper Pro",
+  "make": "reMarkable",
+  "model": "reMarkable Paper Pro",
+  "rank": 79,
+  "category": "tablet",
+  "h": 274.1,
+  "w": 196.6,
+  "d": 5.1,
+  "year": 2024,
+  "aliases": ["remarkable paper pro", "paper pro", "rmpp", "remarkable pro"],
+  "source": "remarkable.com",
+  "radius": 4,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 239.6,
+    "w": 179.7,
+    "radius": 2
+  }
+}

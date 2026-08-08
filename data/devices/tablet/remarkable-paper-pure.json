@@ -1,0 +1,21 @@
+{
+  "slug": "remarkable-paper-pure",
+  "name": "reMarkable Paper Pure",
+  "make": "reMarkable",
+  "model": "reMarkable Paper Pure",
+  "rank": 75,
+  "category": "tablet",
+  "h": 228.1,
+  "w": 187.1,
+  "d": 6.0,
+  "year": 2025,
+  "aliases": ["remarkable paper pure", "paper pure", "remarkable pure"],
+  "source": "remarkable.com",
+  "radius": 4,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 210.4,
+    "w": 157.8,
+    "radius": 2
+  }
+}

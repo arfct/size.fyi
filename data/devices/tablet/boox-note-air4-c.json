@@ -1,0 +1,21 @@
+{
+  "slug": "boox-note-air4-c",
+  "name": "Boox Note Air4 C",
+  "make": "Boox",
+  "model": "Note Air4 C",
+  "rank": 73,
+  "category": "tablet",
+  "h": 226,
+  "w": 193,
+  "d": 5.8,
+  "year": 2024,
+  "aliases": ["boox note air4 c", "note air4 c", "note air 4", "onyx boox note air4"],
+  "source": "shop.boox.com",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 210.0,
+    "w": 157.5,
+    "radius": 2
+  }
+}

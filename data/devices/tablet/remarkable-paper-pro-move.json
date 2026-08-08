@@ -1,0 +1,21 @@
+{
+  "slug": "remarkable-paper-pro-move",
+  "name": "reMarkable Paper Pro Move",
+  "make": "reMarkable",
+  "model": "reMarkable Paper Pro Move",
+  "rank": 69,
+  "category": "tablet",
+  "h": 195.6,
+  "w": 107.8,
+  "d": 6.5,
+  "year": 2025,
+  "aliases": ["remarkable paper pro move", "paper pro move", "remarkable move"],
+  "source": "remarkable.com",
+  "radius": 4,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 163.2,
+    "w": 91.8,
+    "radius": 2
+  }
+}

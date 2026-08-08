@@ -1,0 +1,21 @@
+{
+  "slug": "boox-note-max",
+  "name": "Boox Note Max",
+  "make": "Boox",
+  "model": "Note Max",
+  "rank": 77,
+  "category": "tablet",
+  "h": 287.5,
+  "w": 243,
+  "d": 4.6,
+  "year": 2024,
+  "aliases": ["boox note max", "note max", "onyx boox note max"],
+  "source": "shop.boox.com",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 271.0,
+    "w": 203.2,
+    "radius": 2
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "slug": "boox-go-10-3",
+  "name": "Boox Go 10.3 (Gen II)",
+  "make": "Boox",
+  "model": "Go 10.3 (Gen II)",
+  "rank": 71,
+  "category": "tablet",
+  "h": 235,
+  "w": 183,
+  "d": 4.8,
+  "year": 2025,
+  "aliases": ["boox go 10.3", "go 10.3", "onyx boox go"],
+  "source": "shop.boox.com",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 210.0,
+    "w": 157.5,
+    "radius": 2
+  }
+}

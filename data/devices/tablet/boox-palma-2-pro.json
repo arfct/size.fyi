@@ -1,0 +1,21 @@
+{
+  "slug": "boox-palma-2-pro",
+  "name": "Boox Palma 2 Pro",
+  "make": "Boox",
+  "model": "Palma 2 Pro",
+  "rank": 73,
+  "category": "tablet",
+  "h": 159,
+  "w": 80,
+  "d": 8.8,
+  "year": 2025,
+  "aliases": ["boox palma 2 pro", "palma 2 pro", "palma pro", "onyx boox palma pro"],
+  "source": "shop.boox.com",
+  "radius": 8,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 139.5,
+    "w": 69.8,
+    "radius": 4
+  }
+}
