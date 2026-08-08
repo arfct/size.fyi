@@ -1,9 +1,10 @@
+import { geometryFingerprint } from '../shared/ar';
 import { formatDims } from '../shared/dimensions';
 import type { Catalog, Device } from '../shared/types';
 import { itemDims } from '../shared/types';
 import { comparisonTitle, decodeComparison } from '../shared/urlCodec';
 import { arModel } from './ar';
-import { OG_HEIGHT, OG_WIDTH, type OgFont, renderOgImage } from './og';
+import { OG_HEIGHT, OG_VERSION, OG_WIDTH, type OgFont, renderOgImage } from './og';
 
 interface Env {
   ASSETS: Fetcher;
@@ -147,6 +148,10 @@ export default {
             .join(' vs ')}`
         : 'Compare the size of devices and everyday objects in 3D.';
       const ogPath = items.length ? url.pathname : HERO;
+      // Fingerprint what the CARD draws, which on the homepage is the hero rather than this page's
+      // (empty) comparison — otherwise the default card would never refresh when a hero device's
+      // geometry changed.
+      const ogItems = items.length ? items : decodeComparison(HERO, bySlug).items;
       const canonical = `https://size.fyi${url.pathname}`;
       const transformed = new HTMLRewriter()
         .on('title', {
@@ -165,7 +170,7 @@ export default {
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/'/g, '&#39;');
-            const ogImage = `https://size.fyi/api/og${ogPath}`;
+            const ogImage = `https://size.fyi/api/og${ogPath}?v=${OG_VERSION}&g=${geometryFingerprint(ogItems)}`;
             meta(`property="og:title" content="${escAttr(title)}"`);
             meta(`property="og:description" content="${escAttr(desc)}"`);
             meta(`property="og:url" content="${escAttr(canonical)}"`);

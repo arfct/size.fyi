@@ -39,6 +39,33 @@ describe('OG injection', () => {
     expect(html).toContain('property="og:title"');
     expect(html).toContain('https://size.fyi/drinks-can-vs-paper-a4');
   });
+
+  // The card route answers `immutable` with a year to run, and social scrapers keep their own copies
+  // keyed by URL. Both keys have to be in the og:image or a redesign never reaches anyone who already
+  // shared a link. `&` is escaped because this lands inside a double-quoted HTML attribute.
+  test('og:image carries the design version and a geometry fingerprint', async () => {
+    const res = await SELF.fetch('https://size.fyi/drinks-can-vs-paper-a4');
+    const html = await res.text();
+    expect(html).toMatch(
+      /property="og:image" content="https:\/\/size\.fyi\/api\/og\/drinks-can-vs-paper-a4\?v=\d+&amp;g=[0-9a-z]+"/,
+    );
+    expect(html).toContain('name="twitter:image"');
+  });
+
+  // NOTE: this exercises the Worker's fallback branch, NOT what size.fyi/ actually serves. In
+  // production `/` matches a static asset, and with not_found_handling "none" and no run_worker_first
+  // the asset layer answers it without ever invoking the Worker — so the homepage carries no OG tags
+  // at all today, and this branch is dead until that routing changes. SELF.fetch always goes through
+  // the Worker, which is why the test can reach it.
+  test('the empty-comparison fallback fingerprints the hero, not the empty list', async () => {
+    const home = await SELF.fetch('https://size.fyi/');
+    const g = (await home.text()).match(/api\/og\/[^"]*&amp;g=([0-9a-z]+)/)?.[1];
+    expect(g).toBeTruthy();
+    // The hero path renders the same items, so it must carry the same fingerprint.
+    const hero = await SELF.fetch('https://size.fyi/iphone-17-pro-vs-galaxy-z-fold8-open');
+    const heroG = (await hero.text()).match(/api\/og\/[^"]*&amp;g=([0-9a-z]+)/)?.[1];
+    expect(g).toBe(heroG);
+  });
   test('the HTML document is served no-cache so app updates land on next load', async () => {
     const withOg = await SELF.fetch('https://size.fyi/drinks-can-vs-paper-a4');
     expect(withOg.headers.get('cache-control')).toBe('no-cache');
