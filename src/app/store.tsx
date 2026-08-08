@@ -1,6 +1,6 @@
 import { createContext, type Dispatch, type ReactNode, useContext, useReducer } from 'react';
 import type { ComparisonItem, LayoutMode, Projection, Units, View } from '../shared/types';
-import { itemDims, MAX_ITEMS, nextStateLabel } from '../shared/types';
+import { MAX_ITEMS, nextStateLabel, sortVolume } from '../shared/types';
 import { getStoredUnits } from './localStore';
 
 export interface ComparisonState {
@@ -31,11 +31,8 @@ export type Action =
 // Items are always kept sorted smallest-to-largest by volume, so a given set of devices produces
 // one canonical order (and one canonical URL) regardless of the order they were added — which is
 // what keeps recent comparisons free of add-order "inversion" duplicates.
-const volumeOf = (item: ComparisonItem) => {
-  const d = itemDims(item);
-  return d.h * d.w * d.d;
-};
-const byVolume = (items: ComparisonItem[]) => [...items].sort((a, b) => volumeOf(a) - volumeOf(b));
+const byVolume = (items: ComparisonItem[]) =>
+  [...items].sort((a, b) => sortVolume(a) - sortVolume(b));
 
 export function reducer(state: ComparisonState, action: Action): ComparisonState {
   switch (action.type) {

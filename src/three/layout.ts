@@ -23,6 +23,12 @@ export interface LayoutItem {
   h: number;
   w: number;
   d: number;
+  // What to sort by, when that shouldn't be the volume the item currently occupies. A foldable's
+  // volume changes with its state — sometimes downward — so ordering by it made toggling open/closed
+  // shuffle everything else. Callers pass the device's nominal volume (see sortVolume in shared/types)
+  // and the order then depends only on which devices are present. Defaults to h*w*d for anything with
+  // no separate identity to appeal to, which is every non-device item.
+  sortVolume?: number;
   screen?: { h: number; w: number; radius?: number };
   seam?: boolean;
   mesh?: 'banana';
@@ -50,7 +56,7 @@ export function computeKeys(items: LayoutItem[]): string[] {
   });
 }
 
-const volumeOf = (i: LayoutItem) => i.h * i.w * i.d;
+const volumeOf = (i: LayoutItem) => i.sortVolume ?? i.h * i.w * i.d;
 const minDimOf = (i: LayoutItem) => Math.min(i.h, i.w, i.d);
 const MAX_STACK_GAP = 10; // mm (1 cm) — ceiling on the depth gap between stacked items
 const ROW_CM = 10; // mm — row items snap their left edge to this grid so front-left corners sit on cm lines

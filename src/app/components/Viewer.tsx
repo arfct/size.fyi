@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
-import { itemDims } from '../../shared/types';
+import { itemDims, sortVolume } from '../../shared/types';
 import type { SizeScene } from '../../three/scene';
 import { colorFor, itemColor } from '../palette';
 import { useComparison } from '../store';
@@ -112,6 +112,7 @@ export default function Viewer({ asideRef }: ViewerProps) {
               h: dims.h,
               w: dims.w,
               d: dims.d,
+              sortVolume: sortVolume(item),
               radius: dims.radius,
               radiusAxis: dims.radiusAxis,
               radiusInner: dims.radiusInner,

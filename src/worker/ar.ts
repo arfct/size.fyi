@@ -12,7 +12,13 @@
 import { itemColor } from '../app/palette';
 import { geometryKey, SCREEN_PROUD_MM } from '../shared/ar';
 import { boxGlb, buildGlb, type GlbGeometry, type GlbPlacement } from '../shared/glb';
-import { type ComparisonItem, type Device, itemDims, type LayoutMode } from '../shared/types';
+import {
+  type ComparisonItem,
+  type Device,
+  itemDims,
+  type LayoutMode,
+  sortVolume,
+} from '../shared/types';
 import { decodeComparison, encodeComparison } from '../shared/urlCodec';
 import {
   boxMesh,
@@ -72,6 +78,7 @@ function resolve(items: ComparisonItem[], mode: LayoutMode): Resolved {
     screen: dims[i]!.screen,
     seam: dims[i]!.seam,
     mesh: item.kind === 'device' ? item.device.mesh : undefined,
+    sortVolume: sortVolume(item),
   }));
   const keys = computeKeys(layoutItems);
   const targets = computeTargets(layoutItems, keys, mode);

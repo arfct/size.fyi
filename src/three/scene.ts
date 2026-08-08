@@ -31,6 +31,7 @@ export interface SceneItem {
   w: number;
   d: number;
   color: string;
+  sortVolume?: number; // see LayoutItem.sortVolume — ordering ignores the selected state
   radius?: number;
   radiusAxis?: 'x' | 'y' | 'z';
   radiusInner?: number; // the two corners on `hinge`, for a fold whose hinge side is tighter

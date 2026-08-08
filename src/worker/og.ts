@@ -1,7 +1,7 @@
 import { ImageResponse } from 'workers-og';
 import { formatDims } from '../shared/dimensions';
 import type { ComparisonItem, ResolvedDims, Units } from '../shared/types';
-import { itemDims } from '../shared/types';
+import { itemDims, sortVolume } from '../shared/types';
 import { computeTargets } from '../three/layout';
 
 // Mirror of the app palette (src/app/palette.ts). Kept in sync by hand so the Worker stays free of
@@ -108,7 +108,7 @@ export function renderOgImage(items: ComparisonItem[], units: Units, fonts: OgFo
   // indices here: this render is one-shot, so it needs no stable identity across frames.
   const keys = items.map((_, i) => String(i));
   const targets = computeTargets(
-    dims.map((d) => ({ h: d.h, w: d.w, d: d.d })),
+    dims.map((d, i) => ({ h: d.h, w: d.w, d: d.d, sortVolume: sortVolume(items[i]!) })),
     keys,
     'row',
   );

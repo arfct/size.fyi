@@ -139,6 +139,21 @@ export function deviceDims(device: Device, state?: string): ResolvedDims {
   };
 }
 
+// The volume an item is SORTED by, which is deliberately not the volume it currently occupies.
+//
+// A foldable's volume changes with its state, and not always the way you'd guess: opening a Z Fold8
+// takes it from 98,430 to 89,989 mm3, because it thins faster than it widens. An iPhone 16 Pro is
+// 88,245, so unfolding one made it cross the iPhone and the two swapped places in the list, the row and
+// the AR scene. Toggling a state should change that item's shape, not everything's position.
+//
+// So sorting uses the device's nominal size — its top-level h/w/d, which the catalog build fills in
+// from the default state — and ignores which state is selected. The order then depends only on WHICH
+// devices are in the comparison, which is also what keeps one set of devices to one canonical URL.
+export function sortVolume(item: ComparisonItem): number {
+  const d = item.kind === 'device' ? item.device : item;
+  return d.h * d.w * d.d;
+}
+
 export function itemDims(item: ComparisonItem): ResolvedDims {
   return item.kind === 'device'
     ? deviceDims(item.device, item.state)

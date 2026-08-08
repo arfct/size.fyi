@@ -1,18 +1,13 @@
 import { Check, Ellipsis } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatDims } from '../../shared/dimensions';
-import type { ComparisonItem, Device } from '../../shared/types';
-import { defaultStateLabel, itemDims } from '../../shared/types';
+import type { Device } from '../../shared/types';
+import { defaultStateLabel, itemDims, sortVolume } from '../../shared/types';
 import { type ARTarget, canLaunchAR, comparisonArUrl, launchAR } from '../ar';
 import { deviceIcon, MY_ITEM_ICON } from '../categoryIcon';
 import { itemColor } from '../palette';
 import { useComparison } from '../store';
 import { HOTKEYS, hotkeyLabel } from '../useHotkeys';
-
-const volumeOf = (item: ComparisonItem) => {
-  const d = itemDims(item);
-  return d.h * d.w * d.d;
-};
 
 // A neutral ellipsis menu trigger on the right of each row (the item's swatch color now lives on
 // the leading category icon). Self-contained dropdown: a ref-scoped mousedown-outside listener
@@ -161,7 +156,7 @@ export default function ItemList({
   // and for the remove dispatch, which indexes into the unsorted state.
   const ordered = state.items
     .map((item, i) => ({ item, i }))
-    .sort((a, b) => volumeOf(a.item) - volumeOf(b.item));
+    .sort((a, b) => sortVolume(a.item) - sortVolume(b.item));
   return (
     <ul aria-label="Items">
       {ordered.map(({ item, i }) => {
