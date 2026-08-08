@@ -52,6 +52,28 @@ describe('OG injection', () => {
     expect(html).toContain('name="twitter:image"');
   });
 
+  // index.html ships the default card's tags so `/` unfurls without the Worker (it never runs for a
+  // path that matches a static asset). Every page that DOES reach the Worker must therefore end up with
+  // one set, not two — a scraper takes the first og:image it sees, so a leftover default would show the
+  // generic card on every comparison.
+  test('a comparison page has exactly one og:image, and it is its own', async () => {
+    const res = await SELF.fetch('https://size.fyi/drinks-can-vs-paper-a4');
+    const html = await res.text();
+    expect(html.match(/property="og:image"/g)?.length).toBe(1);
+    expect(html.match(/name="twitter:image"/g)?.length).toBe(1);
+    expect(html).toContain('/api/og/drinks-can-vs-paper-a4?v=');
+    expect(html).not.toContain('/api/og/default');
+  });
+
+  test('the default card renders without needing a comparison', async () => {
+    const res = await SELF.fetch('https://size.fyi/api/og/default?v=2');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    // PNG magic number, so this is a real image rather than an empty 200.
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect([...bytes.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
   // NOTE: this exercises the Worker's fallback branch, NOT what size.fyi/ actually serves. In
   // production `/` matches a static asset, and with not_found_handling "none" and no run_worker_first
   // the asset layer answers it without ever invoking the Worker — so the homepage carries no OG tags

@@ -228,3 +228,99 @@ export function renderOgImage(items: ComparisonItem[], units: Units, fonts: OgFo
     fonts,
   });
 }
+
+// The root card, for size.fyi/ itself. There is no comparison to draw, so this is the one place the
+// wordmark belongs — a card with neither a subject nor a name would say nothing at all.
+//
+// Deliberately built from constants rather than the catalog: it has to be reachable from a STATIC meta
+// tag in index.html (see below), which can carry `?v=` but can't carry a per-request geometry
+// fingerprint. Keeping it catalog-independent makes OG_VERSION a complete cache key for it, instead of
+// a partial one that would silently go stale when a device's dimensions changed.
+//
+// The proportions are real all the same — a credit card, a phone and a 13" tablet at true relative
+// scale — because a card advertising a size-comparison tool should be one.
+const DEFAULT_SHAPES = [
+  { h: 54, w: 85.6, radius: 3, color: PALETTE[0]! }, // credit card
+  { h: 149.6, w: 71.5, radius: 12, color: PALETTE[1]! }, // phone
+  { h: 261.6, w: 215.5, radius: 9, color: PALETTE[2]! }, // 13" tablet
+];
+const DEFAULT_GAP = 20; // mm between them, in the same spirit as the row layout's cm snapping
+
+export function renderDefaultOgImage(fonts: OgFont[]): Response {
+  const PAD = 48;
+  const TEXT_W = 420;
+  const GUTTER = 40;
+  // Text on the left, objects on the right, rather than a centred headline above a centred row. The
+  // stacked version left the bottom-left corner empty: the objects run small-to-large left-to-right, so
+  // their visual weight sits right whatever you do. Putting the words in that space fills the frame and
+  // buys the objects the full height — the tablet is a third larger here than it was stacked.
+  const STAGE_W = OG_WIDTH - PAD * 2 - TEXT_W - GUTTER;
+  const STAGE_H = OG_HEIGHT - PAD * 2;
+
+  const spanW =
+    DEFAULT_SHAPES.reduce((sum, s) => sum + s.w, 0) + DEFAULT_GAP * (DEFAULT_SHAPES.length - 1);
+  const maxH = Math.max(...DEFAULT_SHAPES.map((s) => s.h));
+  const scale = Math.min(STAGE_H / maxH, STAGE_W / spanW);
+  const px = (mm: number) => Math.round(mm * scale);
+
+  const groundY = PAD + STAGE_H;
+  const originX = OG_WIDTH - PAD - px(spanW);
+  let cursor = 0;
+
+  const shapes = DEFAULT_SHAPES.map((s) => {
+    const w = px(s.w);
+    const h = px(s.h);
+    const left = originX + px(cursor);
+    cursor += s.w + DEFAULT_GAP;
+    return box({
+      position: 'absolute',
+      left,
+      top: groundY - h,
+      width: w,
+      height: h,
+      boxSizing: 'border-box',
+      border: `${strokeFor(w, h)}px solid ${s.color}`,
+      borderRadius: `${Math.min(px(s.radius), Math.min(w, h) / 2)}px`,
+    });
+  });
+
+  const tree = box(
+    {
+      position: 'relative',
+      display: 'flex',
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#ffffff',
+      fontFamily: 'Inter',
+    },
+    [
+      box(
+        {
+          position: 'absolute',
+          left: PAD,
+          top: 0,
+          height: OG_HEIGHT,
+          width: TEXT_W,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+        },
+        [
+          text('size.fyi', { fontSize: 76, fontWeight: 700, color: '#1c1917' }),
+          text('Compare the size of anything', {
+            fontSize: 30,
+            color: '#78716c',
+            marginTop: 12,
+          }),
+        ],
+      ),
+      ...shapes,
+    ],
+  );
+
+  return new ImageResponse(tree as unknown as string, {
+    width: OG_WIDTH,
+    height: OG_HEIGHT,
+    fonts,
+  });
+}

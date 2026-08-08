@@ -1,10 +1,17 @@
 import { geometryFingerprint } from '../shared/ar';
 import { formatDims } from '../shared/dimensions';
-import type { Catalog, Device } from '../shared/types';
+import type { Catalog, ComparisonItem, Device } from '../shared/types';
 import { itemDims } from '../shared/types';
 import { comparisonTitle, decodeComparison } from '../shared/urlCodec';
 import { arModel } from './ar';
-import { OG_HEIGHT, OG_VERSION, OG_WIDTH, type OgFont, renderOgImage } from './og';
+import {
+  OG_HEIGHT,
+  OG_VERSION,
+  OG_WIDTH,
+  type OgFont,
+  renderDefaultOgImage,
+  renderOgImage,
+} from './og';
 
 interface Env {
   ASSETS: Fetcher;
@@ -67,14 +74,24 @@ async function apiOg(
   const hit = await cache.match(request);
   if (hit) return hit;
   const spec = new URL(request.url).pathname.slice('/api/og/'.length);
-  const bySlug = await loadCatalog(env, origin);
-  const { items } = decodeComparison(`/${spec}`, bySlug);
-  if (items.length === 0) return new Response('not found', { status: 404 });
+  // The root card. Reserved as a spec because index.html has to name this URL statically — see the
+  // og:image there — and `default` can never collide with a comparison: decodeComparison would read it
+  // as a device slug, and no device may be called that (the catalog build rejects it).
+  const isDefault = spec === 'default';
+  let items: ComparisonItem[] = [];
+  if (!isDefault) {
+    const bySlug = await loadCatalog(env, origin);
+    items = decodeComparison(`/${spec}`, bySlug).items;
+    if (items.length === 0) return new Response('not found', { status: 404 });
+  }
   try {
     const fonts = await loadOgFonts(env, origin);
     // Materialize the PNG (forces full rasterization; surfaces render errors instead of streaming an
     // empty body) so both the response and the cached copy carry the complete bytes.
-    const png = await renderOgImage(items, 'metric', fonts).arrayBuffer();
+    const png = await (isDefault
+      ? renderDefaultOgImage(fonts)
+      : renderOgImage(items, 'metric', fonts)
+    ).arrayBuffer();
     if (png.byteLength === 0) throw new Error('empty image');
     const res = new Response(png, {
       headers: {
@@ -154,6 +171,15 @@ export default {
       const ogItems = items.length ? items : decodeComparison(HERO, bySlug).items;
       const canonical = `https://size.fyi${url.pathname}`;
       const transformed = new HTMLRewriter()
+        // index.html carries the default card's tags so the root unfurls even though the Worker never
+        // runs for `/` (a static asset matches it). On every path that DOES reach here, those defaults
+        // have to go before ours are appended — two og:image tags and a scraper takes the first, which
+        // would show the generic card on every comparison.
+        .on('meta[property^="og:"], meta[name^="twitter:"]', {
+          element(e) {
+            e.remove();
+          },
+        })
         .on('title', {
           element(e) {
             e.setInnerContent(title);

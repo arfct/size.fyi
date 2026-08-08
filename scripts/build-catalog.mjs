@@ -152,6 +152,9 @@ for (const file of await jsonFiles(DATA_DIR)) {
     if (typeof d.slug !== 'string' || !SLUG_RE.test(d.slug)) errors.push(`${id}: bad slug`);
     if (d.slug?.includes('-vs-') || d.slug?.includes('~'))
       errors.push(`${id}: slug collides with URL grammar`);
+    // `/api/og/default` is the root share card (see renderDefaultOgImage). A device by this name would
+    // be unreachable there, silently showing the generic card instead of its own.
+    if (d.slug === 'default') errors.push(`${id}: slug is reserved for the default share card`);
     if (seen.has(d.slug)) errors.push(`${id}: duplicate slug`);
     seen.add(d.slug);
     if (typeof d.name !== 'string' || !d.name.trim()) errors.push(`${id}: missing name`);
