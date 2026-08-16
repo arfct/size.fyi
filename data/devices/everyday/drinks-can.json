@@ -1,11 +1,12 @@
 {
   "slug": "drinks-can",
-  "name": "Drinks Can",
+  "name": "Drinks Can (330 ml)",
   "category": "everyday",
   "rank": 80,
-  "h": 115,
-  "w": 65,
-  "d": 65,
-  "radius": 32.5,
-  "radiusAxis": "y"
+  "h": 115.2,
+  "w": 66,
+  "d": 66,
+  "radius": 33,
+  "radiusAxis": "y",
+  "source": "crowncork.com — 330 ml standard beverage can, 66 mm body diameter × 115.2 mm"
 }

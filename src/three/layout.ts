@@ -31,7 +31,7 @@ export interface LayoutItem {
   sortVolume?: number;
   screen?: { h: number; w: number; radius?: number };
   seam?: boolean;
-  mesh?: 'banana';
+  mesh?: 'banana' | 'bottle';
 }
 
 export interface LayoutTarget {

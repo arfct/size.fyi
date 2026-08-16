@@ -12,6 +12,7 @@ import {
   Smartphone,
   Tablet,
   Watch,
+  Wine,
 } from 'lucide-react';
 import type { Category, Device } from '../shared/types';
 
@@ -34,7 +35,11 @@ export const CATEGORY_ICON: Record<Category, LucideIcon> = {
 // Fallback for user-defined ("my") custom items, which have no category.
 export const MY_ITEM_ICON: LucideIcon = Box;
 
-// Resolve a device's icon: the dedicated banana glyph for the procedural banana mesh, otherwise
-// the category icon.
+// Resolve a device's icon: procedurally-meshed items get a glyph of their own — they are specific
+// things rather than members of a category — otherwise the category icon.
+const MESH_ICON: Record<NonNullable<Device['mesh']>, LucideIcon> = {
+  banana: Banana,
+  bottle: Wine,
+};
 export const deviceIcon = (device: Device): LucideIcon =>
-  device.mesh === 'banana' ? Banana : CATEGORY_ICON[device.category];
+  (device.mesh && MESH_ICON[device.mesh]) || CATEGORY_ICON[device.category];

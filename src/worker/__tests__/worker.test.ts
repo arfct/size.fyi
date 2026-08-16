@@ -35,7 +35,7 @@ describe('OG injection', () => {
     const res = await SELF.fetch('https://size.fyi/drinks-can-vs-paper-a4');
     const html = await res.text();
     expect(res.status).toBe(200);
-    expect(html).toContain('<title>Drinks Can vs Paper: A4 — size.fyi</title>');
+    expect(html).toContain('<title>Drinks Can (330 ml) vs Paper: A4 — size.fyi</title>');
     expect(html).toContain('property="og:title"');
     expect(html).toContain('https://size.fyi/drinks-can-vs-paper-a4');
   });
@@ -96,7 +96,7 @@ describe('OG injection', () => {
   });
   test('custom tokens work without catalog hits', async () => {
     const res = await SELF.fetch('https://size.fyi/shoebox~350x250x130-vs-drinks-can');
-    expect(await res.text()).toContain('Shoebox vs Drinks Can');
+    expect(await res.text()).toContain('Shoebox vs Drinks Can (330 ml)');
   });
   test('unknown / homepage path gets default site og tags', async () => {
     const res = await SELF.fetch('https://size.fyi/totally-unknown-thing');

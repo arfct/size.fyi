@@ -58,7 +58,7 @@ export interface Device {
   radiusInner?: number; // mm; the two corners on `hinge` (see DeviceState.radiusInner)
   hinge?: HingeEdge; // default 'left'
   screen?: Screen; // mm; inset rect on the +z front face
-  mesh?: 'banana'; // procedural mesh override; always renders yellow wireframe
+  mesh?: 'banana' | 'bottle'; // procedural mesh override, in place of the box/rounded-box primitives
   // Optional real 3D model (glTF/GLB under /models). Rendered fit to this device's w×h×d in place
   // of the box; `rotation` (degrees XYZ) aligns the model's axes to our h=height/w=width/d=depth.
   model3d?: { url: string; rotation?: [number, number, number] };

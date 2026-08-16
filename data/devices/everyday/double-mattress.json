@@ -1,9 +1,10 @@
 {
   "slug": "double-mattress",
-  "name": "Double/Full Mattress",
+  "name": "Double Mattress (US full)",
   "category": "everyday",
   "rank": 32,
   "h": 1905,
   "w": 1371.6,
-  "d": 200
+  "d": 200,
+  "source": "US \"full\"/double mattress, 54 × 75 in (1371.6 × 1905 mm)"
 }

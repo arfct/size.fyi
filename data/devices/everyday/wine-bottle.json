@@ -1,11 +1,11 @@
 {
   "slug": "wine-bottle",
-  "name": "Wine Bottle",
+  "name": "Wine Bottle (750 ml Bordeaux)",
   "category": "everyday",
   "rank": 60,
-  "h": 295,
-  "w": 70,
-  "d": 70,
-  "radius": 35,
-  "radiusAxis": "y"
+  "h": 300,
+  "w": 75,
+  "d": 75,
+  "source": "Bordeaux 750 ml: ~300 mm tall, 75 mm base diameter, 29.5 mm mouth",
+  "mesh": "bottle"
 }

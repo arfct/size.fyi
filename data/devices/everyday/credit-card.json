@@ -3,7 +3,10 @@
   "name": "Credit Card",
   "category": "everyday",
   "rank": 70,
-  "h": 54,
-  "w": 85,
-  "d": 1
+  "h": 53.98,
+  "w": 85.6,
+  "d": 0.76,
+  "radius": 3.18,
+  "radiusAxis": "z",
+  "source": "iso.org — ISO/IEC 7810 ID-1 (85.60 × 53.98 × 0.76 mm, corner radius 2.88–3.48 mm)"
 }

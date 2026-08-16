@@ -19,10 +19,10 @@ test('a non-ok devices.json fetch does not poison the cache forever', async () =
     });
 
   const failed = await SELF.fetch('https://size.fyi/drinks-can-vs-paper-a4');
-  expect(await failed.text()).not.toContain('Drinks Can vs Paper: A4');
+  expect(await failed.text()).not.toContain('Drinks Can (330 ml) vs Paper: A4');
 
   spy.mockRestore(); // devices.json now resolves normally again
 
   const recovered = await SELF.fetch('https://size.fyi/drinks-can-vs-paper-a4');
-  expect(await recovered.text()).toContain('Drinks Can vs Paper: A4');
+  expect(await recovered.text()).toContain('Drinks Can (330 ml) vs Paper: A4');
 });

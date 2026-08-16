@@ -16,7 +16,7 @@ const CATEGORIES = [
   'camera',
   'watch',
 ];
-const MESHES = ['banana'];
+const MESHES = ['banana', 'bottle'];
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const checkOnly = process.argv.includes('--check');
 

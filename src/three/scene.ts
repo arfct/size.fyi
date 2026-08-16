@@ -38,7 +38,7 @@ export interface SceneItem {
   hinge?: HingeEdge;
   screen?: { h: number; w: number; radius?: number };
   seam?: boolean; // draw a fold parting-line around the mid-thickness (z=0) outline
-  mesh?: 'banana';
+  mesh?: 'banana' | 'bottle';
   model3d?: { url: string; rotation?: [number, number, number] };
 }
 
@@ -1080,7 +1080,11 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     // Model items start as a box placeholder (fit to w×h×d) and swap to the loaded geometry when
     // it arrives, keeping the box as the fallback if the load fails.
     const geo = isModel ? new THREE.BoxGeometry(item.w, item.h, item.d) : buildGeometry(item);
-    const isWireframe = item.mesh != null;
+    // Wireframe is the banana's own joke, not a property of procedural meshes in general — it reads
+    // as "this one is a gag scale reference". A bottle is a real object and renders solid like
+    // everything else, which also gets it edge lines: EdgesGeometry's 30° threshold ignores the lathe's
+    // 11.25° radial seams and picks out only the shoulder and lip, which is exactly what you'd draw.
+    const isWireframe = item.mesh === 'banana';
     const meshBaseOpacity = isWireframe ? WIREFRAME_OPACITY : MESH_OPACITY;
     // depthWrite: false — renderOrder alone only sequences the transparent-object render queue; the
     // depth *test* still runs against whatever's already in the depth buffer, so without this a

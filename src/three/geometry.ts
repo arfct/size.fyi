@@ -15,7 +15,7 @@ export interface SolidSpec {
   radiusInner?: number;
   hinge?: HingeEdge;
   screen?: { h: number; w: number; radius?: number };
-  mesh?: 'banana';
+  mesh?: 'banana' | 'bottle';
 }
 
 // Corner smoothing (Apple/Figma "squircle"): 0 = plain circular arc, ~0.6 = iOS, 1 = maximum. The
@@ -308,8 +308,45 @@ export function buildBananaGeometry(w: number, h: number, d: number): THREE.Buff
   return geo;
 }
 
+// A wine bottle, as a surface of revolution. Everything else in the catalog is a box or a cylinder,
+// and a bottle is neither: modelled as a cylinder it loses the shoulder and the neck, which is most of
+// what makes it recognisable at a glance — and the neck is a third of its height.
+//
+// The profile is radius-against-height in normalised units (0 = base, 1 = mouth), taken from a
+// standard 750 ml Bordeaux: a straight body to just past halfway, a quick shoulder, then a slim neck
+// that flares very slightly at the lip. Radii are fractions of the base radius, so the shape scales
+// with whatever w/d the catalog gives it — 29.5/75 is the real mouth-to-base ratio.
+const BOTTLE_PROFILE: Array<[t: number, r: number]> = [
+  [0, 0], // closed base
+  [0.0, 0.98],
+  [0.02, 1],
+  [0.55, 1], // body
+  [0.62, 0.96],
+  [0.7, 0.72], // shoulder
+  [0.76, 0.5],
+  [0.8, 0.42],
+  [0.84, 0.395], // neck
+  [0.97, 0.393],
+  [0.99, 0.42], // lip
+  [1, 0.42],
+  [1, 0], // closed mouth
+];
+
+export function buildBottleGeometry(w: number, h: number, d: number): THREE.BufferGeometry {
+  const SEG = 32; // radial segments
+  const points = BOTTLE_PROFILE.map(([t, r]) => new THREE.Vector2((r * w) / 2, t * h));
+  const geo = new THREE.LatheGeometry(points, SEG);
+  geo.computeVertexNormals();
+  // Lathe spins around Y with the profile starting at y=0; centre it like every other primitive, and
+  // squash z if the catalog ever gives an oval footprint (it doesn't today, but d is a real field).
+  geo.translate(0, -h / 2, 0);
+  if (d !== w) geo.scale(1, 1, d / w);
+  return geo;
+}
+
 export function buildGeometry(item: SolidSpec): THREE.BufferGeometry {
   if (item.mesh === 'banana') return buildBananaGeometry(item.w, item.h, item.d);
+  if (item.mesh === 'bottle') return buildBottleGeometry(item.w, item.h, item.d);
   if (!item.radius) return new THREE.BoxGeometry(item.w, item.h, item.d);
   // radius without an axis rounds every edge (e.g. AirPods cases). Clamp just under half the
   // smallest side so the fillets never overrun the box.

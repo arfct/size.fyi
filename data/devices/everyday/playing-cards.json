@@ -1,9 +1,10 @@
 {
   "slug": "playing-cards",
-  "name": "Pack of Playing Cards",
+  "name": "Playing Cards (poker size)",
   "category": "everyday",
   "rank": 55,
-  "h": 90,
-  "w": 58,
-  "d": 20
+  "h": 88.9,
+  "w": 63.5,
+  "d": 20,
+  "source": "Poker size, 2.5 × 3.5 in (63.5 × 88.9 mm) — de facto convention, not a standard"
 }
