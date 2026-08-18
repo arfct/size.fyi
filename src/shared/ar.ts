@@ -25,7 +25,9 @@ import { type ComparisonItem, type Device, defaultStateLabel, itemDims } from '.
 // 4: fold hinge-side corner radii (catalog data — would now be a `g` change, not a bump)
 // 5: Mac mini footprint radius (likewise)
 // 6: Mac Studio footprint radius (likewise)
-export const AR_MODEL_VERSION = 6;
+// 7: GLB materials deduplicated by colour, and one shared screen material — an eight-item comparison
+//    emitted 15, over Scene Viewer's documented maximum of 10, which refuses the model in AR
+export const AR_MODEL_VERSION = 7;
 
 // How far proud of its front face a screen sits, in millimetres. Lives here rather than beside the
 // geometry because every consumer applies it as a placement offset — the renderer, the AR exporters,

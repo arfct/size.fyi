@@ -31,6 +31,17 @@ import { computeKeys, computeTargetBounds, computeTargets } from '../three/layou
 
 const MM_TO_M = 0.001;
 
+// One material for every screen in a GLB, instead of a per-item tint.
+//
+// Scene Viewer caps a model at 10 materials. Bodies alone can need 8, so screens have to fit in what's
+// left, and one shared colour is the only thing that always does: an eight-item comparison went from 15
+// materials to 8. USDZ keeps its per-item tint — Quick Look has no such cap, and iOS AR is the one
+// that's confirmed working, so it isn't worth changing to match.
+//
+// Little is lost: a screen that isn't on is near-black whatever the device, and in AR the body colour
+// already tells you which item is which.
+const GLB_SCREEN_COLOR = '#111111';
+
 // Darkens a hex colour toward black, for the screen face against its body.
 function darken(hex: string, factor: number): string {
   const h = hex.replace('#', '');
@@ -187,7 +198,7 @@ async function glbBody(
             y: atM.y,
             z: atM.z + (d.d / 2 + SCREEN_PROUD_MM) * MM_TO_M,
           },
-          color: darken(color, 0.35),
+          color: GLB_SCREEN_COLOR,
         });
       }
     } else {

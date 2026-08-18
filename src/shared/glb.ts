@@ -180,6 +180,28 @@ export function buildGlb(blobs: Uint8Array[], placements: GlbPlacement[]): Uint8
   const accessors: Record<string, unknown>[] = [];
   const meshes: Record<string, unknown>[] = [];
   const materials: Record<string, unknown>[] = [];
+  // Scene Viewer caps a model at 10 materials, and we were emitting one per placement — 15 for an
+  // eight-item comparison, because every body and every screen got its own even when two were the
+  // same colour. Over the cap the whole model is refused in AR. Deduplicating by the values that
+  // actually define the material is free: identical inputs can only produce identical pixels.
+  const materialIndex = new Map<string, number>();
+  const materialFor = (color: string): number => {
+    const rgb = linearRgb(color);
+    const key = rgb.join(',');
+    const hit = materialIndex.get(key);
+    if (hit !== undefined) return hit;
+    materials.push({
+      name: `mat_${materialIndex.size}`,
+      pbrMetallicRoughness: {
+        baseColorFactor: [...rgb, 1],
+        metallicFactor: 0.05,
+        roughnessFactor: 0.6,
+      },
+      doubleSided: true,
+    });
+    materialIndex.set(key, materials.length - 1);
+    return materials.length - 1;
+  };
   const nodes: Record<string, unknown>[] = [];
 
   // Lay the blobs out back to back, once each however many meshes reference them. Every blob length is
@@ -236,15 +258,6 @@ export function buildGlb(blobs: Uint8Array[], placements: GlbPlacement[]): Uint8
       indices = accessors.length - 1;
     }
 
-    materials.push({
-      name: `${p.name}_mat`,
-      pbrMetallicRoughness: {
-        baseColorFactor: [...linearRgb(p.color), 1],
-        metallicFactor: 0.05,
-        roughnessFactor: 0.6,
-      },
-      doubleSided: true,
-    });
     meshes.push({
       name: p.name,
       primitives: [
@@ -252,7 +265,7 @@ export function buildGlb(blobs: Uint8Array[], placements: GlbPlacement[]): Uint8
           attributes,
           ...(indices === undefined ? {} : { indices }),
           mode: TRIANGLES,
-          material: materials.length - 1,
+          material: materialFor(p.color),
         },
       ],
     });
