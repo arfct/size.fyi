@@ -1,0 +1,51 @@
+name: Report an error
+description: Something in the catalog is wrong — dimensions, a name, a category.
+title: "Error: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for catching it. A source link is the most useful thing you can add — it's what lets
+        the fix be verified rather than taken on trust.
+  - type: input
+    id: item
+    attributes:
+      label: Item
+      description: Which catalog entry. Prefilled if you came from the site.
+      placeholder: e.g. iPhone 17 Pro (iphone-17-pro)
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What's wrong?
+      options:
+        - Dimensions
+        - Name or model
+        - Category
+        - Screen size
+        - Corner radius or shape
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: current
+    attributes:
+      label: What the site currently shows
+      description: Prefilled if you came from the site, so the fix can be checked against what was reported.
+      placeholder: e.g. 150 × 71.9 × 8.75 mm
+  - type: input
+    id: correct
+    attributes:
+      label: What it should be
+      placeholder: e.g. 149.6 × 71.5 × 8.25 mm
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Where the correct value comes from — a manufacturer spec page or product listing.
+      placeholder: https://…
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else (optional)

@@ -263,3 +263,36 @@ test('the options menu stays visible while its own dropdown is open', async () =
   expect(trigger.className).toContain('opacity-100');
   expect(trigger.className).not.toContain('opacity-0');
 });
+
+// An item is either in the catalog or it isn't, and the menu offers whichever issue fits. Both open
+// GitHub's form prefilled rather than posting anything, so they are links, not buttons.
+test('a custom item offers to be suggested, not reported', async () => {
+  const user = mount();
+  await user.click(screen.getByRole('button', { name: 'Options for Small' }));
+  const link = screen.getByRole('menuitem', { name: 'Suggest for the catalog' });
+  expect(link).toHaveAttribute('href', expect.stringContaining('template=add-a-device.yml'));
+  expect(link).toHaveAttribute('target', '_blank');
+  expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  expect(screen.queryByRole('menuitem', { name: 'Report an error' })).toBeNull();
+});
+
+test('a catalog device offers to be reported, not suggested', async () => {
+  const user = mountFold();
+  await user.click(screen.getByRole('button', { name: 'Options for Fold' }));
+  const link = screen.getByRole('menuitem', { name: 'Report an error' });
+  expect(link).toHaveAttribute('href', expect.stringContaining('template=report-an-error.yml'));
+  // The slug rides along so a maintainer can find the file without searching by name. Asserted on the
+  // decoded value: URLSearchParams percent-encodes the parentheses, which is correct but unreadable.
+  const item = new URL(link.getAttribute('href')!).searchParams.get('item');
+  expect(item).toBe('Fold (fold)');
+  expect(screen.queryByRole('menuitem', { name: 'Suggest for the catalog' })).toBeNull();
+});
+
+test('the issue link sits above Remove, so the destructive action stays last', async () => {
+  const user = mount();
+  await user.click(screen.getByRole('button', { name: 'Options for Small' }));
+  const items = screen.getAllByRole('menuitem').map((el) => el.textContent?.trim());
+  expect(items.indexOf('Suggest for the catalog')).toBeLessThan(
+    items.findIndex((t) => t?.startsWith('Remove')),
+  );
+});

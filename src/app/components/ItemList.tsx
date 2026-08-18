@@ -5,6 +5,7 @@ import type { Device } from '../../shared/types';
 import { defaultStateLabel, itemDims, sortVolume } from '../../shared/types';
 import { type ARTarget, canLaunchAR, comparisonArUrl, launchAR } from '../ar';
 import { deviceIcon, MY_ITEM_ICON } from '../categoryIcon';
+import { catalogIssueUrl, errorIssueUrl } from '../github';
 import { itemColor } from '../palette';
 import { useComparison } from '../store';
 import { HOTKEYS, hotkeyLabel } from '../useHotkeys';
@@ -27,6 +28,7 @@ function ItemMenu({
   onSelectState,
   onEdit,
   onRemove,
+  issue,
 }: {
   name: string;
   ar: ARTarget;
@@ -35,6 +37,9 @@ function ItemMenu({
   onSelectState: (label: string) => void;
   onEdit: () => void;
   onRemove: () => void;
+  // The issue this item can raise: a catalog device can be reported wrong, a custom item can be
+  // suggested for inclusion. Never both — an item is either in the catalog or it isn't.
+  issue: { label: string; href: string };
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -122,6 +127,19 @@ function ItemMenu({
           >
             Edit
           </button>
+          {/* Opens GitHub's issue form with the fields filled in; it does NOT post anything. The
+              source — the one field we can't know and the one that makes a report actionable — stays
+              for the person to supply, and they press submit themselves. */}
+          <a
+            role="menuitem"
+            href={issue.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="block w-full whitespace-nowrap py-1.5 pl-7 pr-3 text-left text-[13px] hover:bg-stone-100 dark:hover:bg-stone-800"
+          >
+            {issue.label}
+          </a>
           <button
             type="button"
             role="menuitem"
@@ -223,6 +241,11 @@ export default function ItemList({
                     if (item.kind === 'device')
                       dispatch({ type: 'update', index: i, item: { ...item, state: label } });
                   }}
+                  issue={
+                    item.kind === 'device'
+                      ? { label: 'Report an error', href: errorIssueUrl(item) }
+                      : { label: 'Suggest for the catalog', href: catalogIssueUrl(item) }
+                  }
                   onEdit={() => onEdit(i, name, `${dims.h}×${dims.w}×${dims.d}`)}
                   onRemove={() => dispatch({ type: 'remove', index: i })}
                 />
