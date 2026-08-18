@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { geometryFingerprint } from '../ar';
+import { cardFingerprint, geometryFingerprint } from '../ar';
 import type { ComparisonItem, Device } from '../types';
 
 // The AR route caches immutably and cannot be purged from code, so everything the bytes depend on has
@@ -133,4 +133,17 @@ test('the fingerprint is short and URL-safe', () => {
   const g = geometryFingerprint([device(), fold()]);
   expect(g).toMatch(/^[0-9a-z]{1,7}$/);
   expect(encodeURIComponent(g)).toBe(g);
+});
+
+// The card draws names; AR does not. Renaming a device must move the card's URL and leave the AR
+// model's alone — the exact case that surfaced when "Steam Machine (2026)" became "Steam Machine".
+test('a rename moves the card fingerprint but not the geometry one', () => {
+  const before = device({ name: 'Steam Machine (2026)' });
+  const after = device({ name: 'Steam Machine' });
+  expect(geometryFingerprint([after])).toBe(geometryFingerprint([before]));
+  expect(cardFingerprint([after])).not.toBe(cardFingerprint([before]));
+});
+
+test('the card fingerprint still moves when geometry moves', () => {
+  expect(cardFingerprint([device({ h: 151 })])).not.toBe(cardFingerprint([device()]));
 });

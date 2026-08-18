@@ -1,4 +1,4 @@
-import { geometryFingerprint } from '../shared/ar';
+import { cardFingerprint } from '../shared/ar';
 import { formatDims } from '../shared/dimensions';
 import type { Catalog, ComparisonItem, Device } from '../shared/types';
 import { itemDims } from '../shared/types';
@@ -196,7 +196,7 @@ export default {
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/'/g, '&#39;');
-            const ogImage = `https://size.fyi/api/og${ogPath}?v=${OG_VERSION}&g=${geometryFingerprint(ogItems)}`;
+            const ogImage = `https://size.fyi/api/og${ogPath}?v=${OG_VERSION}&g=${cardFingerprint(ogItems)}`;
             meta(`property="og:title" content="${escAttr(title)}"`);
             meta(`property="og:description" content="${escAttr(desc)}"`);
             meta(`property="og:url" content="${escAttr(canonical)}"`);

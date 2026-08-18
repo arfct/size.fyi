@@ -49,7 +49,7 @@ export function geometryKey(device: Device, state?: string): string {
 
 // FNV-1a, 32 bits, base36. Not a security hash and it doesn't need to be — it only has to change when
 // the geometry changes and stay put when it doesn't.
-function fnv1a(str: string): string {
+export function fnv1a(str: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
@@ -58,7 +58,9 @@ function fnv1a(str: string): string {
   return (h >>> 0).toString(36);
 }
 
-// Fingerprints the geometry the AR route will build for these items, for the URL's `?g=`.
+// Fingerprints the geometry the AR route will build for these items, for the URL's `?g=`. Names are
+// deliberately absent: AR renders shapes, not labels, so renaming a device cannot change its model.
+// The OG card DOES draw names, so it fingerprints separately — see cardFingerprint below.
 //
 // The path already names the items and their states, but not what those items MEASURE — that lives in
 // the catalog and can change under a URL the edge is caching for a year. So the numbers that determine
@@ -91,4 +93,18 @@ export function geometryFingerprint(items: ComparisonItem[]): string {
       })
       .join(';'),
   );
+}
+
+// What the CARD's `?g=` fingerprints, which is not the same set of facts as AR's.
+//
+// The card draws names and formatted dimensions as well as shapes, so geometryFingerprint alone was
+// wrong for it: renaming a device changed the picture without changing the URL, and the route answers
+// `immutable`, so the old card would have been served for a year. Renaming "Steam Machine (2026)" to
+// "Steam Machine" is exactly that case.
+//
+// Geometry still comes from the shared fingerprint rather than being re-derived, so the two can't drift
+// on the part they have in common.
+export function cardFingerprint(items: ComparisonItem[]): string {
+  const names = items.map((i) => (i.kind === 'device' ? i.device.name : i.name)).join('|');
+  return fnv1a(`${names};${geometryFingerprint(items)}`);
 }
