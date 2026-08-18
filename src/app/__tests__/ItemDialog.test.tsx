@@ -74,3 +74,20 @@ test('edit: saving replaces the item at its index in place', async () => {
   expect(items).toHaveTextContent('Renamed 99x88x77');
   expect(items).not.toHaveTextContent('Old');
 });
+
+// The backdrop is absolutely positioned and closes on mousedown. The panel therefore has to be
+// positioned too: painting puts positioned elements above non-positioned ones whatever their DOM
+// order, so a static panel sits UNDER the scrim and every click lands on the backdrop and dismisses
+// the dialog instead of reaching the field. Shipped that way once — the dialog opened and could not
+// be typed into.
+test('the panel is positioned, so the scrim cannot cover it', async () => {
+  renderHarness({ initial: { mode: 'add', name: '' } });
+  const panel = screen.getByRole('dialog');
+  const scrim = screen.getByRole('button', { name: 'Close dialog' });
+
+  // Both are in the same stacking context, so DOM order decides only among POSITIONED siblings.
+  expect(scrim.className).toContain('absolute');
+  expect(panel.className).toMatch(/\b(relative|absolute|fixed|sticky)\b/);
+  // And the panel comes after the scrim, so with both positioned it paints last.
+  expect(scrim.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});

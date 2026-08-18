@@ -88,10 +88,15 @@ export default function ItemDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* The click-away backdrop is a real button rather than a click handler on a bare div, so it
-          carries its own role and label. It precedes the panel, so the panel paints over it. Being
-          its own element also means a drag that starts inside the panel and ends out here won't
-          close the dialog. Kept out of the tab order — Escape and the Cancel button are the
-          keyboard paths, and a focusable backdrop would just be a dead stop between them. */}
+          carries its own role and label. Being its own element also means a drag that starts inside
+          the panel and ends out here won't close the dialog. Kept out of the tab order — Escape and
+          the Cancel button are the keyboard paths, and a focusable backdrop would just be a dead
+          stop between them.
+          
+          The panel below must stay POSITIONED (relative). Coming later in the DOM is not enough:
+          painting puts positioned elements above non-positioned ones whatever the order, so a static
+          panel is covered by this absolute backdrop — and since the backdrop closes on mousedown,
+          every click on the dialog dismissed it instead of reaching the field. */}
       <button
         type="button"
         aria-label="Close dialog"
@@ -103,7 +108,7 @@ export default function ItemDialog({
         role="dialog"
         aria-modal="true"
         aria-label={state.mode === 'edit' ? 'Edit item' : 'Add item'}
-        className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl dark:bg-stone-900"
+        className="relative w-full max-w-sm rounded-lg bg-white p-5 shadow-xl dark:bg-stone-900"
       >
         <label htmlFor="dlg-name" className="block text-[13px] font-medium text-stone-500">
           {state.mode === 'edit' ? 'Edit item' : 'Add an item'}
