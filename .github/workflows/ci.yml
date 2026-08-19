@@ -17,3 +17,20 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx vitest run -c vitest.workers.config.mts
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Serialize deploys without cancelling: a cancelled wrangler upload can't be resumed,
+    # and cancel-in-progress could let an older queued commit ship after a newer one.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
