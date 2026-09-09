@@ -1,0 +1,52 @@
+{
+  "slug": "iphone-duo",
+  "name": "iPhone Duo",
+  "make": "Apple",
+  "model": "iPhone Duo",
+  "rank": 80,
+  "category": "phone",
+  "year": 2026,
+  "source": "https://www.gsmarena.com/apple_iphone_fold_5g-13804.php",
+  "defaultState": "closed",
+  "aliases": [
+    "iphone duo",
+    "duo",
+    "iphone ultra",
+    "ultra",
+    "iphone fold",
+    "foldable iphone",
+    "apple fold",
+    "iphone duo open",
+    "iphone fold open"
+  ],
+  "states": [
+    {
+      "label": "closed",
+      "h": 120.6,
+      "w": 83.8,
+      "d": 9.2,
+      "radius": 11,
+      "radiusAxis": "z",
+      "radiusInner": 2,
+      "screen": {
+        "h": 115.2,
+        "w": 78.5,
+        "radius": 8
+      },
+      "seam": true
+    },
+    {
+      "label": "open",
+      "h": 120.6,
+      "w": 167.6,
+      "d": 4.5,
+      "radius": 9,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 113.9,
+        "w": 160.9,
+        "radius": 8
+      }
+    }
+  ]
+}
