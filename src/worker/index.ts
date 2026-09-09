@@ -152,7 +152,7 @@ export default {
     try {
       const bySlug = await loadCatalog(env, url.origin);
       const { items } = decodeComparison(url.pathname, bySlug);
-      const HERO = '/iphone-17-pro-vs-galaxy-z-fold8-open'; // default homepage card
+      const HERO = '/iphone-18-pro-vs-galaxy-z-fold8-open'; // default homepage card
       const title = items.length
         ? `${comparisonTitle(items)} — size.fyi`
         : 'size.fyi — compare the size of anything';

@@ -1,16 +1,21 @@
 {
-  "slug": "iphone-17-pro",
-  "name": "iPhone 17 Pro",
+  "slug": "iphone-18-pro",
+  "name": "iPhone 18 Pro",
   "make": "Apple",
-  "model": "iPhone 17 Pro",
+  "model": "iPhone 18 Pro",
   "rank": 100,
   "category": "phone",
   "h": 150,
   "w": 71.9,
   "d": 8.75,
-  "year": 2025,
-  "aliases": ["17 pro", "iphone 17 pro"],
-  "source": "apple.com",
+  "year": 2026,
+  "aliases": [
+    "iphone 18 pro",
+    "18 pro",
+    "17 pro",
+    "iphone 17 pro"
+  ],
+  "source": "https://www.apple.com/iphone-18-pro/specs/",
   "radius": 11,
   "radiusAxis": "z",
   "screen": {
