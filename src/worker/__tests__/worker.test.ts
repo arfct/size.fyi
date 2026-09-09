@@ -84,7 +84,7 @@ describe('OG injection', () => {
     const g = (await home.text()).match(/api\/og\/[^"]*&amp;g=([0-9a-z]+)/)?.[1];
     expect(g).toBeTruthy();
     // The hero path renders the same items, so it must carry the same fingerprint.
-    const hero = await SELF.fetch('https://size.fyi/iphone-17-pro-vs-galaxy-z-fold8-open');
+    const hero = await SELF.fetch('https://size.fyi/iphone-18-pro-vs-galaxy-z-fold8-open');
     const heroG = (await hero.text()).match(/api\/og\/[^"]*&amp;g=([0-9a-z]+)/)?.[1];
     expect(g).toBe(heroG);
   });

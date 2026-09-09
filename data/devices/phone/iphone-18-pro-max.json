@@ -1,0 +1,31 @@
+{
+  "slug": "iphone-18-pro-max",
+  "name": "iPhone 18 Pro Max",
+  "make": "Apple",
+  "model": "iPhone 18 Pro Max",
+  "rank": 89,
+  "category": "phone",
+  "h": 163.4,
+  "w": 78,
+  "d": 8.75,
+  "year": 2026,
+  "aliases": [
+    "iphone 18 pro max",
+    "18 pro max",
+    "17 pro max",
+    "iphone 17 pro max"
+  ],
+  "source": "https://www.apple.com/iphone-18-pro/specs/",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 158.5,
+    "w": 73,
+    "radius": 8,
+    "px": {
+      "w": 1320,
+      "h": 2868
+    },
+    "pixelRatio": 3
+  }
+}
