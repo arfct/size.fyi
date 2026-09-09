@@ -29,6 +29,7 @@ One device per file keeps pull requests small, reviewable, and conflict-free —
   "source": "https://…",          // optional: where the dimensions came from (encouraged)
   "url": "https://…",             // optional: product page (must be https://)
   "aliases": ["iphone 17 pro"],   // optional: extra search terms
+  "slugAliases": ["old-slug"],    // optional: former slugs of a renamed device; old URLs keep resolving
 
   "radius": 12,                   // optional: corner/edge fillet radius in mm
   "radiusAxis": "z",              // optional: axis the rounded edges run parallel to — x | y | z.

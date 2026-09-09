@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { Catalog, Device } from '../shared/types';
+import { catalogBySlug } from '../shared/urlCodec';
 
 type Status = 'loading' | 'ready' | 'error';
 interface Snapshot {
@@ -62,7 +63,7 @@ export function useCatalog() {
     if (!requested) load();
   }, []);
 
-  const bySlug = useMemo(() => new Map(snap.devices.map((d) => [d.slug, d])), [snap.devices]);
+  const bySlug = useMemo(() => catalogBySlug(snap.devices), [snap.devices]);
   return { devices: snap.devices, bySlug, status: snap.status, retry: load };
 }
 

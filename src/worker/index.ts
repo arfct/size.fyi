@@ -2,7 +2,7 @@ import { cardFingerprint } from '../shared/ar';
 import { formatDims } from '../shared/dimensions';
 import type { Catalog, ComparisonItem, Device } from '../shared/types';
 import { itemDims } from '../shared/types';
-import { comparisonTitle, decodeComparison } from '../shared/urlCodec';
+import { catalogBySlug, comparisonTitle, decodeComparison } from '../shared/urlCodec';
 import { arModel } from './ar';
 import {
   OG_HEIGHT,
@@ -53,7 +53,7 @@ function loadCatalog(env: Env, origin: string): Promise<Map<string, Device>> {
       catalogCache = null; // don't cache a transient failure for the isolate's lifetime
       return { version: 1, devices: [] };
     })
-    .then((c) => new Map(c.devices.map((d) => [d.slug, d])))
+    .then((c) => catalogBySlug(c.devices))
     .catch(() => {
       catalogCache = null;
       return new Map();

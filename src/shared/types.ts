@@ -52,6 +52,7 @@ export interface Device {
   url?: string; // optional link to the product / info page
   year?: number;
   aliases?: string[];
+  slugAliases?: string[]; // former slugs of a renamed device; old URLs keep resolving
   source?: string;
   radius?: number; // mm; fillets edges parallel to radiusAxis
   radiusAxis?: RadiusAxis; // x=width, y=height, z=depth

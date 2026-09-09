@@ -10,6 +10,7 @@
   "d": 8.75,
   "year": 2026,
   "aliases": ["iphone 18 pro max", "18 pro max", "17 pro max", "iphone 17 pro max"],
+  "slugAliases": ["iphone-17-pro-max"],
   "source": "https://www.apple.com/iphone-18-pro/specs/",
   "radius": 11,
   "radiusAxis": "z",
