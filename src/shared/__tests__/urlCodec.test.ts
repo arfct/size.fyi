@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import type { ComparisonItem, Device } from '../types';
-import { comparisonTitle, decodeComparison, encodeComparison, slugify } from '../urlCodec';
+import {
+  catalogBySlug,
+  comparisonTitle,
+  decodeComparison,
+  encodeComparison,
+  slugify,
+} from '../urlCodec';
 
 const iphone: Device = {
   slug: 'iphone-16-pro',
@@ -75,6 +81,38 @@ test('caps at 8 items', () => {
 });
 test('title', () =>
   expect(comparisonTitle([dev(iphone), custom])).toBe('iPhone 16 Pro vs Shoebox'));
+
+describe('slug aliases', () => {
+  const renamed: Device = {
+    slug: 'iphone-18-pro',
+    name: 'iPhone 18 Pro',
+    category: 'phone',
+    h: 150,
+    w: 71.9,
+    d: 8.75,
+    slugAliases: ['iphone-17-pro'],
+  };
+  const renamedFold: Device = { ...fold, slug: 'fold-y', slugAliases: ['fold-x'] };
+  const map = catalogBySlug([renamed, renamedFold, a4]);
+
+  test('catalogBySlug maps aliases to the device', () => {
+    expect(map.get('iphone-18-pro')).toBe(renamed);
+    expect(map.get('iphone-17-pro')).toBe(renamed);
+  });
+  test('an old slug decodes to the renamed device', () => {
+    const r = decodeComparison('/iphone-17-pro-vs-paper-a4', map);
+    expect(r.missing).toEqual([]);
+    expect(r.items).toEqual([dev(renamed), dev(a4)]);
+  });
+  test('re-encoding yields the canonical slug', () => {
+    const r = decodeComparison('/iphone-17-pro', map);
+    expect(encodeComparison(r.items)).toBe('/iphone-18-pro');
+  });
+  test('aliases compose with state suffixes', () => {
+    const r = decodeComparison('/fold-x-open', map);
+    expect(r.items).toEqual([{ kind: 'device', device: renamedFold, state: 'open' }]);
+  });
+});
 test('slugify', () => {
   expect(slugify('Paper: A4')).toBe('paper-a4');
   expect(slugify('  Böxy thing!! ')).toBe('boxy-thing');

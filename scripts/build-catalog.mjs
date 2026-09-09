@@ -157,6 +157,17 @@ for (const file of await jsonFiles(DATA_DIR)) {
     if (d.slug === 'default') errors.push(`${id}: slug is reserved for the default share card`);
     if (seen.has(d.slug)) errors.push(`${id}: duplicate slug`);
     seen.add(d.slug);
+    if (d.slugAliases !== undefined) {
+      if (!Array.isArray(d.slugAliases) || d.slugAliases.some((a) => !SLUG_RE.test(a)))
+        errors.push(`${id}: slugAliases must be an array of valid slugs`);
+      else
+        for (const alias of d.slugAliases) {
+          if (alias.includes('-vs-') || alias.includes('~') || alias === 'default')
+            errors.push(`${id}: slugAlias ${alias} collides with URL grammar`);
+          if (seen.has(alias)) errors.push(`${id}: slugAlias ${alias} duplicates a slug`);
+          seen.add(alias);
+        }
+    }
     if (typeof d.name !== 'string' || !d.name.trim()) errors.push(`${id}: missing name`);
     if (!CATEGORIES.includes(d.category)) errors.push(`${id}: bad category ${d.category}`);
     else if (dirCategory !== '.' && dirCategory !== d.category)
@@ -258,6 +269,7 @@ for (const file of await jsonFiles(DATA_DIR)) {
       'url',
       'year',
       'aliases',
+      'slugAliases',
       'source',
       'radius',
       'radiusAxis',

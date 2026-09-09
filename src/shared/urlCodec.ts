@@ -28,6 +28,18 @@ function slugifyCustomName(name: string): string {
 
 const fmt = (n: number) => String(Math.round(n * 10) / 10);
 
+// The lookup map for decodeComparison: canonical slugs plus any slugAliases, so URLs minted
+// before a rename keep resolving. Encoding always goes through device.slug, so re-shared
+// links canonicalize on their own.
+export function catalogBySlug(devices: Device[]): Map<string, Device> {
+  const map = new Map<string, Device>();
+  for (const d of devices) {
+    map.set(d.slug, d);
+    for (const alias of d.slugAliases ?? []) map.set(alias, d);
+  }
+  return map;
+}
+
 // Multi-state devices (foldables) are addressed as `slug-state`, e.g. galaxy-z-fold8-open — which
 // reproduces the natural per-state slug and is always explicit about which state is shown. Single-
 // state devices are just their slug.
