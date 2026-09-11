@@ -75,7 +75,14 @@ Devices that change shape (a folding phone open vs. closed) use `states` instead
 
 ### 3D models and special meshes
 
-- `model3d`: `{ "url": "name.glb", "rotation": [x, y, z] }` — the `.glb` must exist in `public/models/`. Mutually exclusive with `mesh`.
+- `model3d`: `{ "url": "name.glb", "rotation": [x, y, z], "fit": "stretch" | "uniform" }` — the `.glb` must exist in `public/models/`. Mutually exclusive with `mesh`.
+  - `fit` decides how the model meets the device's `h`/`w`/`d`. `"stretch"` (the default) makes its bounding box exactly those dimensions. `"uniform"` scales by width alone on every axis and rests the model's **front face** on `+d/2`, which is what you want when the model carries something standing proud of the quoted depth — a phone's camera plateau is not included in the depth manufacturers publish. Author such a model with the screen facing the model's maximum Z so the screen rect lands flush on the glass, and make sure nothing overhangs the device's width, since that is where the scale comes from.
+  - Models are built from committed Blender scripts in `scripts/models/`, not hand-authored binaries, so the measurements stay reviewable:
+
+    ```bash
+    blender --background --python scripts/models/iphone-18-pro.py -- /tmp/src/iphone-18-pro.glb
+    node scripts/build-models.mjs /tmp/src   # welds, decimates, quantizes into public/models/
+    ```
 - `mesh`: a named built-in mesh (currently only `"banana"`). Mesh devices define their own geometry — don't set `radius`/`screen`.
 
 ## Running things

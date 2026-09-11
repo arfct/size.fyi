@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
-import { itemDims, sortVolume } from '../../shared/types';
+import { itemDims, rotationOf, sortVolume } from '../../shared/types';
 import type { SizeScene } from '../../three/scene';
 import { colorFor, itemColor } from '../palette';
 import { useComparison } from '../store';
@@ -121,6 +121,12 @@ export default function Viewer({ asideRef }: ViewerProps) {
               seam: dims.seam,
               mesh: item.kind === 'device' ? item.device.mesh : undefined,
               model3d: item.kind === 'device' ? item.device.model3d : undefined,
+              // `dims` already carries the turned width and height; the model has to be turned with
+              // them rather than stretched to fill them.
+              modelTurn:
+                item.kind === 'device' && item.rotated
+                  ? rotationOf(item.device, item.state)
+                  : undefined,
               color: itemColor(item, i),
             };
           })
