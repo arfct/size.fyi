@@ -18,6 +18,19 @@ export type HingeEdge = 'left' | 'right' | 'top' | 'bottom';
 // from the front. Authored per geometry, because it's a matter of how the thing is actually held: an
 // iPhone goes to landscape counter-clockwise, the iPhone Duo turns clockwise in both states.
 export type Rotation = 'cw' | 'ccw';
+
+// An optional real 3D model (glTF/GLB under /models), rendered in place of the box.
+//
+// `rotation` (degrees XYZ) aligns the model's own axes to our h=height/w=width/d=depth. `fit` says how
+// it meets those dimensions: "stretch" (the default) makes its bounding box exactly w×h×d; "uniform"
+// scales by width alone on every axis and rests the model's front face on the glass, which is what a
+// model needs when it carries something standing proud of the quoted depth — a camera plateau is not
+// part of the depth a manufacturer publishes.
+export interface Model3d {
+  url: string;
+  rotation?: [number, number, number];
+  fit?: 'stretch' | 'uniform';
+}
 export interface Screen {
   h: number;
   w: number;
@@ -42,6 +55,8 @@ export interface DeviceState {
   screen?: Screen;
   seam?: boolean; // draw a fold parting-line around the mid-thickness outline in 3D
   rotation?: Rotation; // present when this state has a rotated alternate
+  // A fold is a different object in each state, so the model belongs to the state, not the device.
+  model3d?: Model3d;
 }
 
 export interface Device {
@@ -68,14 +83,7 @@ export interface Device {
   mesh?: 'banana' | 'bottle'; // procedural mesh override, in place of the box/rounded-box primitives
   // Optional real 3D model (glTF/GLB under /models). Rendered fit to this device's w×h×d in place
   // of the box; `rotation` (degrees XYZ) aligns the model's axes to our h=height/w=width/d=depth.
-  // `fit` says how the model meets those dimensions: "stretch" (default) makes its bounding box
-  // exactly w×h×d; "uniform" scales by width alone on every axis and rests the front face on the
-  // glass, for a model whose camera plateau stands proud of the quoted body depth.
-  model3d?: {
-    url: string;
-    rotation?: [number, number, number];
-    fit?: 'stretch' | 'uniform';
-  };
+  model3d?: Model3d;
   // Multi-state devices (foldables): each state has its own geometry. Top-level h/w/d/screen/radius
   // mirror the default state (filled in by the catalog build) so single-state consumers keep working.
   states?: DeviceState[];
@@ -136,6 +144,13 @@ function baseGeometry(device: Device, state?: string): Device | DeviceState {
 
 export function rotationOf(device: Device, state?: string): Rotation | undefined {
   return baseGeometry(device, state).rotation;
+}
+
+// The model for the geometry on show. It resolves like dimensions do — from the active state on a
+// device that has states, from the device itself otherwise — because a fold open and a fold closed are
+// different objects and cannot share one mesh.
+export function modelOf(device: Device, state?: string): Model3d | undefined {
+  return baseGeometry(device, state).model3d;
 }
 
 // Where an edge ends up after a quarter turn seen from the front.

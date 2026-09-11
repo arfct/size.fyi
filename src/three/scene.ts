@@ -1146,7 +1146,9 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     }
 
     let seam: THREE.LineSegments | null = null;
-    if (item.seam && !isWireframe && !isModel) {
+    // Models get the parting line too: both fits leave the body's mid-thickness on z=0, where the seam
+    // is drawn, and the fold is the whole point of a folded device.
+    if (item.seam && !isWireframe) {
       // The parting line traces the same outline as the body, so on a fold it picks up the tighter
       // hinge-side corners too — which is the whole point, since the hinge is what it depicts.
       const seamRadius =

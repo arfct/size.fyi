@@ -77,6 +77,7 @@ Devices that change shape (a folding phone open vs. closed) use `states` instead
 
 - `model3d`: `{ "url": "name.glb", "rotation": [x, y, z], "fit": "stretch" | "uniform" }` — the `.glb` must exist in `public/models/`. Mutually exclusive with `mesh`.
   - `fit` decides how the model meets the device's `h`/`w`/`d`. `"stretch"` (the default) makes its bounding box exactly those dimensions. `"uniform"` scales by width alone on every axis and rests the model's **front face** on `+d/2`, which is what you want when the model carries something standing proud of the quoted depth — a phone's camera plateau is not included in the depth manufacturers publish. Author such a model with the screen facing the model's maximum Z so the screen rect lands flush on the glass, and make sure nothing overhangs the device's width, since that is where the scale comes from.
+  - On a device with `states`, `model3d` belongs to **each state**, not the device — the same rule as `h`/`w`/`d`/`screen` — because a fold open and a fold closed are different objects. See `iphone-duo.json`, which carries one model per state.
   - Models are built from committed Blender scripts in `scripts/models/`, not hand-authored binaries, so the measurements stay reviewable:
 
     ```bash
