@@ -10,6 +10,8 @@ import {
   buildSeamGeometry,
   cornerRadii,
   type HingeEdge,
+  type ModelFitMode,
+  modelFit,
   screenGeometry,
 } from './geometry';
 import {
@@ -39,7 +41,11 @@ export interface SceneItem {
   screen?: { h: number; w: number; radius?: number };
   seam?: boolean; // draw a fold parting-line around the mid-thickness (z=0) outline
   mesh?: 'banana' | 'bottle';
-  model3d?: { url: string; rotation?: [number, number, number] };
+  model3d?: { url: string; rotation?: [number, number, number]; fit?: ModelFitMode };
+  // Which way this item was turned to reach its rotated alternate, when it is showing one. The
+  // dimensions arrive already swapped; a model has to be turned to match or it would be stretched
+  // sideways into the landscape box instead of laid on its side.
+  modelTurn?: 'cw' | 'ccw';
 }
 
 // Loads a GLB and returns one BufferGeometry fit to the given w×h×d box, centred on the origin so
@@ -51,12 +57,15 @@ export interface SceneItem {
 // chunk for every visitor. Both are cached by the module registry after the first call.
 const modelGeometryCache = new Map<string, Promise<THREE.BufferGeometry>>();
 function loadModelGeometry(
-  model: { url: string; rotation?: [number, number, number] },
+  model: { url: string; rotation?: [number, number, number]; fit?: ModelFitMode },
   w: number,
   h: number,
   d: number,
+  turn?: 'cw' | 'ccw',
 ): Promise<THREE.BufferGeometry> {
-  let pending = modelGeometryCache.get(model.url);
+  // A turned item is a different geometry from the same file, so it gets its own cache entry.
+  const cacheKey = `${model.url}|${turn ?? ''}`;
+  let pending = modelGeometryCache.get(cacheKey);
   if (!pending) {
     pending = (async () => {
       const [{ GLTFLoader }, { mergeGeometries }] = await Promise.all([
@@ -82,16 +91,17 @@ function loadModelGeometry(
         geo.rotateY((ry * Math.PI) / 180);
         geo.rotateZ((rz * Math.PI) / 180);
       }
+      // Lay it on its side before measuring, so the fit sees the silhouette the item actually has.
+      // Positive about +Z is counter-clockwise seen from the front, matching the catalog's own sense.
+      if (turn) geo.rotateZ((turn === 'ccw' ? 90 : -90) * (Math.PI / 180));
       geo.computeBoundingBox();
-      const box = geo.boundingBox!;
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      geo.translate(-center.x, -center.y, -center.z);
-      geo.scale(w / (size.x || 1), h / (size.y || 1), d / (size.z || 1));
+      const { scale, translate } = modelFit(geo.boundingBox!, { w, h, d }, model.fit ?? 'stretch');
+      geo.scale(scale.x, scale.y, scale.z);
+      geo.translate(translate.x, translate.y, translate.z);
       geo.computeVertexNormals();
       return geo;
     })();
-    modelGeometryCache.set(model.url, pending);
+    modelGeometryCache.set(cacheKey, pending);
   }
   return pending.then((geo) => geo.clone());
 }
@@ -1155,7 +1165,10 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     }
 
     let screenMesh: THREE.Mesh | null = null;
-    const screenGeo = isModel ? null : screenGeometry(item);
+    // Models get a screen too. Both fits rest the model's front face on +d/2, the same plane the box
+    // presents, so the screen lands flush on the glass either way — and a modelled phone keeps the
+    // screen that makes it read as a phone rather than a blank slab.
+    const screenGeo = screenGeometry(item);
     if (screenGeo) {
       const screenMat = new THREE.MeshBasicMaterial({
         color: screenColor(item.color), // paler than the body (light mode) / darker (dark mode)
@@ -1174,7 +1187,7 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     if (isModel) {
       // Swap the placeholder box for the real geometry once loaded; skip if the handle was
       // removed meanwhile (mesh detached), and keep the box on failure.
-      loadModelGeometry(item.model3d!, item.w, item.h, item.d)
+      loadModelGeometry(item.model3d!, item.w, item.h, item.d, item.modelTurn)
         .then((g) => {
           if (!mesh.parent) {
             g.dispose();

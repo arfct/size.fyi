@@ -270,9 +270,12 @@ for (const file of await jsonFiles(DATA_DIR)) {
             m.rotation.some((n) => typeof n !== 'number' || !Number.isFinite(n)))
         )
           errors.push(`${id}: model3d.rotation must be [x, y, z] numbers`);
+        if (m.fit !== undefined && !['stretch', 'uniform'].includes(m.fit))
+          errors.push(`${id}: model3d.fit must be "stretch" or "uniform"`);
         if (d.mesh !== undefined) errors.push(`${id}: model3d and mesh are mutually exclusive`);
         for (const k of Object.keys(m))
-          if (!['url', 'rotation'].includes(k)) errors.push(`${id}: unknown key model3d.${k}`);
+          if (!['url', 'rotation', 'fit'].includes(k))
+            errors.push(`${id}: unknown key model3d.${k}`);
       }
     }
     const allowed = new Set([

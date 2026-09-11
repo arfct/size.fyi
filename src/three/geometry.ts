@@ -399,3 +399,53 @@ export function screenGeometry(item: SolidSpec): THREE.BufferGeometry | null {
     roundedRectShape(item.screen.w, item.screen.h, cornerRadii(outer, inner, item.hinge)),
   );
 }
+
+export type ModelFitMode = 'stretch' | 'uniform';
+interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+// Maps a loaded model onto an item's catalog dimensions, as scale-then-translate (v * scale + translate).
+//
+// 'stretch' makes the model's bounding box exactly w×h×d. Right when the model IS the whole item, and
+// the only behaviour there was before camera bumps.
+//
+// 'uniform' takes its ratio from width alone and applies it to every axis, then lands the model's front
+// face on +d/2. A phone's quoted depth is its body: Apple lists 8.75 mm for the 18 Pro with no
+// qualifier and publishes no with-camera figure, so a model carrying a plateau has to stand proud of d
+// rather than be squeezed into it — stretch would render that 8.75 mm body at about 6 mm to make room.
+// Anchoring the front face instead of the centre is what keeps the screen, drawn at d/2, flush on the
+// glass however deep the bump behind it is.
+export function modelFit(
+  box: { min: Vec3; max: Vec3 },
+  target: { w: number; h: number; d: number },
+  mode: ModelFitMode,
+): { scale: Vec3; translate: Vec3 } {
+  const size = { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z };
+  const center = {
+    x: (box.min.x + box.max.x) / 2,
+    y: (box.min.y + box.max.y) / 2,
+    z: (box.min.z + box.max.z) / 2,
+  };
+  // A flat model has no extent on some axis; leave that axis alone rather than dividing by zero.
+  const ratio = (extent: number, want: number) => (extent > 0 ? want / extent : 1);
+
+  if (mode === 'stretch') {
+    const scale = {
+      x: ratio(size.x, target.w),
+      y: ratio(size.y, target.h),
+      z: ratio(size.z, target.d),
+    };
+    return {
+      scale,
+      translate: { x: -center.x * scale.x, y: -center.y * scale.y, z: -center.z * scale.z },
+    };
+  }
+  const s = ratio(size.x, target.w);
+  return {
+    scale: { x: s, y: s, z: s },
+    translate: { x: -center.x * s, y: -center.y * s, z: target.d / 2 - box.max.z * s },
+  };
+}

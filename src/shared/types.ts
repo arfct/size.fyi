@@ -68,7 +68,14 @@ export interface Device {
   mesh?: 'banana' | 'bottle'; // procedural mesh override, in place of the box/rounded-box primitives
   // Optional real 3D model (glTF/GLB under /models). Rendered fit to this device's w×h×d in place
   // of the box; `rotation` (degrees XYZ) aligns the model's axes to our h=height/w=width/d=depth.
-  model3d?: { url: string; rotation?: [number, number, number] };
+  // `fit` says how the model meets those dimensions: "stretch" (default) makes its bounding box
+  // exactly w×h×d; "uniform" scales by width alone on every axis and rests the front face on the
+  // glass, for a model whose camera plateau stands proud of the quoted body depth.
+  model3d?: {
+    url: string;
+    rotation?: [number, number, number];
+    fit?: 'stretch' | 'uniform';
+  };
   // Multi-state devices (foldables): each state has its own geometry. Top-level h/w/d/screen/radius
   // mirror the default state (filled in by the catalog build) so single-state consumers keep working.
   states?: DeviceState[];
