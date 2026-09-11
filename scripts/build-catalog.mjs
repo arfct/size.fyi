@@ -26,6 +26,13 @@ const seen = new Set();
 
 // Validates the geometry fields (h/w/d + optional radius/radiusAxis/screen) on a device or one of
 // its states. `g` is the object carrying them; `id` prefixes any error.
+// A geometry's rotated alternate is derived (h/w swap, hinge turned), so the only thing to author is
+// which way it turns.
+function validateRotation(g, id) {
+  if (g.rotation !== undefined && !['cw', 'ccw'].includes(g.rotation))
+    errors.push(`${id}: rotation must be "cw" or "ccw"`);
+}
+
 function validateGeometry(g, id) {
   for (const k of ['h', 'w', 'd']) {
     const v = g[k];
@@ -150,7 +157,7 @@ for (const file of await jsonFiles(DATA_DIR)) {
   for (const d of Array.isArray(parsed) ? parsed : [parsed]) {
     const id = `${rel}:${d.slug ?? '?'}`;
     if (typeof d.slug !== 'string' || !SLUG_RE.test(d.slug)) errors.push(`${id}: bad slug`);
-    if (d.slug?.includes('-vs-') || d.slug?.includes('~'))
+    if (d.slug?.includes('-vs-') || d.slug?.includes('~') || d.slug?.endsWith('-rotated'))
       errors.push(`${id}: slug collides with URL grammar`);
     // `/api/og/default` is the root share card (see renderDefaultOgImage). A device by this name would
     // be unreachable there, silently showing the generic card instead of its own.
@@ -162,7 +169,12 @@ for (const file of await jsonFiles(DATA_DIR)) {
         errors.push(`${id}: slugAliases must be an array of valid slugs`);
       else
         for (const alias of d.slugAliases) {
-          if (alias.includes('-vs-') || alias.includes('~') || alias === 'default')
+          if (
+            alias.includes('-vs-') ||
+            alias.includes('~') ||
+            alias === 'default' ||
+            alias.endsWith('-rotated')
+          )
             errors.push(`${id}: slugAlias ${alias} collides with URL grammar`);
           if (seen.has(alias)) errors.push(`${id}: slugAlias ${alias} duplicates a slug`);
           seen.add(alias);
@@ -190,8 +202,11 @@ for (const file of await jsonFiles(DATA_DIR)) {
           const sid = `${id}.states[${i}]`;
           if (typeof s.label !== 'string' || !/^[a-z0-9]+$/.test(s.label))
             errors.push(`${sid}: label must be [a-z0-9]+`);
+          else if (s.label === 'rotated')
+            errors.push(`${sid}: "rotated" is the URL suffix for a rotated alternate, not a state`);
           else if (labels.has(s.label)) errors.push(`${sid}: duplicate state label ${s.label}`);
           else labels.add(s.label);
+          validateRotation(s, sid);
           if (s.seam !== undefined && typeof s.seam !== 'boolean')
             errors.push(`${sid}: seam must be a boolean`);
           const stateAllowed = new Set([
@@ -205,6 +220,7 @@ for (const file of await jsonFiles(DATA_DIR)) {
             'hinge',
             'screen',
             'seam',
+            'rotation',
           ]);
           for (const k of Object.keys(s))
             if (!stateAllowed.has(k)) errors.push(`${sid}: unknown key ${k}`);
@@ -218,7 +234,10 @@ for (const file of await jsonFiles(DATA_DIR)) {
       }
     } else {
       validateGeometry(d, id);
+      validateRotation(d, id);
     }
+    if (d.states !== undefined && d.rotation !== undefined)
+      errors.push(`${id}: rotation belongs on each state, not the device, when states is set`);
     if (d.mesh !== undefined) {
       if (!MESHES.includes(d.mesh)) errors.push(`${id}: unknown mesh ${d.mesh}`);
       if (d.radius !== undefined || d.radiusAxis !== undefined || d.screen !== undefined)
@@ -270,6 +289,7 @@ for (const file of await jsonFiles(DATA_DIR)) {
       'year',
       'aliases',
       'slugAliases',
+      'rotation',
       'source',
       'radius',
       'radiusAxis',

@@ -212,3 +212,66 @@ test('reserved prefix /api yields empty', () => {
   expect(r.items).toEqual([]);
   expect(r.missing).toEqual([]);
 });
+
+describe('rotated alternates', () => {
+  const phone: Device = { ...iphone, rotation: 'ccw' };
+  const duo: Device = {
+    slug: 'iphone-duo',
+    name: 'iPhone Duo',
+    category: 'phone',
+    h: 117.8,
+    w: 84.1,
+    d: 11.3,
+    defaultState: 'closed',
+    states: [
+      { label: 'closed', h: 117.8, w: 84.1, d: 11.3, rotation: 'cw' },
+      { label: 'open', h: 117.8, w: 164.6, d: 5.2, rotation: 'cw' },
+    ],
+  };
+  const map = catalogBySlug([phone, duo, a4, fold]);
+
+  test('encodes as a -rotated suffix after the slug or the state', () => {
+    expect(encodeComparison([{ kind: 'device', device: phone, rotated: true }])).toBe(
+      '/iphone-16-pro-rotated',
+    );
+    expect(encodeComparison([{ kind: 'device', device: duo, state: 'open', rotated: true }])).toBe(
+      '/iphone-duo-open-rotated',
+    );
+  });
+  test('decodes the suffix on a bare slug, a default state, and an explicit state', () => {
+    expect(decodeComparison('/iphone-16-pro-rotated', map).items).toEqual([
+      { kind: 'device', device: phone, rotated: true },
+    ]);
+    expect(decodeComparison('/iphone-duo-rotated', map).items).toEqual([
+      { kind: 'device', device: duo, rotated: true },
+    ]);
+    expect(decodeComparison('/iphone-duo-open-rotated', map).items).toEqual([
+      { kind: 'device', device: duo, state: 'open', rotated: true },
+    ]);
+  });
+  test('a suffix on geometry with no rotation fails open to the unrotated item', () => {
+    expect(decodeComparison('/paper-a4-rotated', map).items).toEqual([dev(a4)]);
+    expect(decodeComparison('/galaxy-z-fold8-open-rotated', map).items).toEqual([
+      { kind: 'device', device: fold, state: 'open' },
+    ]);
+  });
+  test('an unknown device stays missing even with the suffix', () => {
+    expect(decodeComparison('/nokia-3310-rotated', map).missing).toEqual(['nokia-3310-rotated']);
+  });
+  test('unrotated items never carry the flag or the suffix', () => {
+    const r = decodeComparison('/iphone-16-pro', map);
+    expect(r.items[0]).toEqual({ kind: 'device', device: phone });
+    expect(encodeComparison(r.items)).toBe('/iphone-16-pro');
+  });
+  test('titles name the orientation only when rotated, after the state', () => {
+    expect(comparisonTitle([{ kind: 'device', device: phone, rotated: true }])).toBe(
+      'iPhone 16 Pro (landscape)',
+    );
+    expect(comparisonTitle([{ kind: 'device', device: duo, state: 'open', rotated: true }])).toBe(
+      'iPhone Duo (open, portrait)',
+    );
+    expect(comparisonTitle([{ kind: 'device', device: duo, state: 'open' }])).toBe(
+      'iPhone Duo (open)',
+    );
+  });
+});

@@ -144,3 +144,12 @@ describe('OG injection security', () => {
     expect(descTag).not.toContain('onmouseover');
   });
 });
+
+describe('rotated alternates', () => {
+  test('a -rotated token titles the item with its turned orientation', async () => {
+    const res = await SELF.fetch(
+      'https://size.fyi/iphone-18-pro-rotated-vs-iphone-duo-open-rotated',
+    );
+    expect(await res.text()).toContain('iPhone 18 Pro (landscape) vs iPhone Duo (open, portrait)');
+  });
+});

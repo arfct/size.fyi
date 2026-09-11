@@ -38,10 +38,15 @@ function mesh(name: string, geo: THREE.BufferGeometry): UsdMesh {
 const catalog: Catalog = JSON.parse(await readFile('public/devices.json', 'utf8'));
 await mkdir(OUT, { recursive: true });
 
-// A device contributes one layer per state, or a single layer when it has none.
-type Variant = { device: Device; state?: string };
+// A device contributes one layer per state, or a single layer when it has none — and one more for
+// each geometry that has a rotated alternate, since that is a different mesh.
+type Variant = { device: Device; state?: string; rotated?: boolean };
 const variants: Variant[] = catalog.devices.flatMap((device): Variant[] =>
-  device.states?.length ? device.states.map((s) => ({ device, state: s.label })) : [{ device }],
+  (device.states?.length ? device.states : [device]).flatMap((g) => {
+    const state = 'label' in g ? g.label : undefined;
+    const base: Variant = state ? { device, state } : { device };
+    return g.rotation ? [base, { ...base, rotated: true }] : [base];
+  }),
 );
 
 // Packs one geometry into the item's binary blob. Everything is Float32 or Uint32, so each range lands
@@ -111,10 +116,10 @@ let binBytes = 0;
 let withScreen = 0;
 const manifest: Record<string, GlbGeometry> = {};
 
-for (const { device, state } of variants) {
-  const dims = deviceDims(device, state);
+for (const { device, state, rotated } of variants) {
+  const dims = deviceDims(device, state, rotated);
   const spec = { ...dims, mesh: device.mesh };
-  const key = geometryKey(device, state);
+  const key = geometryKey(device, state, rotated);
 
   const body = buildGeometry(spec);
   body.computeVertexNormals();

@@ -287,3 +287,24 @@ describe('generator version', () => {
     expect(res.headers.get('content-type')).toBe('model/gltf-binary');
   });
 });
+
+describe('rotated alternates', () => {
+  test('a -rotated token composes from the turned layer, not the upright one', async () => {
+    const res = await SELF.fetch('https://size.fyi/ar/iphone-18-pro-rotated.usdz');
+    expect(res.status).toBe(200);
+    const root = text(await res.clone().arrayBuffer(), entries(await res.arrayBuffer())[0]!);
+    expect(root).toContain('iphone-18-pro-rotated.usda');
+    expect(root).not.toContain('iphone-18-pro.usda');
+  });
+  test('the turned GLB is wider than it is tall', async () => {
+    const buf = await (
+      await SELF.fetch('https://size.fyi/ar/iphone-18-pro-rotated.glb')
+    ).arrayBuffer();
+    const { json } = glbParse(buf);
+    const body = json.accessors[json.meshes[0].primitives[0].attributes.POSITION];
+    const extent = (axis: number) => body.max[axis] - body.min[axis];
+    // Metres: 150 mm across, 71.9 mm high once turned to landscape.
+    expect(extent(0)).toBeCloseTo(0.15, 3);
+    expect(extent(1)).toBeCloseTo(0.0719, 3);
+  });
+});

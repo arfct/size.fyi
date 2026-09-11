@@ -14,6 +14,10 @@ export type RadiusAxis = 'x' | 'y' | 'z';
 // corners are tighter than its outer ones. Named in the cross-section's own frame, so for the usual
 // radiusAxis 'z' it is the front face as drawn.
 export type HingeEdge = 'left' | 'right' | 'top' | 'bottom';
+// Which way a device turns to reach its rotated alternate — a quarter turn about the depth axis, seen
+// from the front. Authored per geometry, because it's a matter of how the thing is actually held: an
+// iPhone goes to landscape counter-clockwise, the iPhone Duo turns clockwise in both states.
+export type Rotation = 'cw' | 'ccw';
 export interface Screen {
   h: number;
   w: number;
@@ -37,6 +41,7 @@ export interface DeviceState {
   hinge?: HingeEdge; // default 'left'
   screen?: Screen;
   seam?: boolean; // draw a fold parting-line around the mid-thickness outline in 3D
+  rotation?: Rotation; // present when this state has a rotated alternate
 }
 
 export interface Device {
@@ -59,6 +64,7 @@ export interface Device {
   radiusInner?: number; // mm; the two corners on `hinge` (see DeviceState.radiusInner)
   hinge?: HingeEdge; // default 'left'
   screen?: Screen; // mm; inset rect on the +z front face
+  rotation?: Rotation; // present when the base geometry has a rotated alternate
   mesh?: 'banana' | 'bottle'; // procedural mesh override, in place of the box/rounded-box primitives
   // Optional real 3D model (glTF/GLB under /models). Rendered fit to this device's w×h×d in place
   // of the box; `rotation` (degrees XYZ) aligns the model's axes to our h=height/w=width/d=depth.
@@ -73,7 +79,8 @@ export interface Catalog {
   devices: Device[];
 }
 export type ComparisonItem =
-  | { kind: 'device'; device: Device; state?: string } // state = active DeviceState label (foldables)
+  // state = active DeviceState label (foldables); rotated = showing that geometry's rotated alternate
+  | { kind: 'device'; device: Device; state?: string; rotated?: boolean }
   | { kind: 'custom'; name: string; h: number; w: number; d: number };
 export type View = '3d' | 'front' | 'side' | 'top';
 // How the 3D view projects. The flat views are always orthographic regardless.
@@ -114,30 +121,55 @@ export function activeState(device: Device, state?: string): DeviceState | undef
   return device.states.find((s) => s.label === label) ?? device.states[0];
 }
 
-export function deviceDims(device: Device, state?: string): ResolvedDims {
-  const s = activeState(device, state);
-  if (s)
-    return {
-      h: s.h,
-      w: s.w,
-      d: s.d,
-      radius: s.radius,
-      radiusAxis: s.radiusAxis,
-      radiusInner: s.radiusInner,
-      hinge: s.hinge,
-      screen: s.screen,
-      seam: s.seam,
-    };
-  return {
-    h: device.h,
-    w: device.w,
-    d: device.d,
-    radius: device.radius,
-    radiusAxis: device.radiusAxis,
-    radiusInner: device.radiusInner,
-    hinge: device.hinge,
-    screen: device.screen,
+// The geometry a device presents in `state` — the state itself, or the device's own fields when it has
+// no states (or none match).
+function baseGeometry(device: Device, state?: string): Device | DeviceState {
+  return activeState(device, state) ?? device;
+}
+
+export function rotationOf(device: Device, state?: string): Rotation | undefined {
+  return baseGeometry(device, state).rotation;
+}
+
+// Where an edge ends up after a quarter turn seen from the front.
+const TURNED: Record<Rotation, Record<HingeEdge, HingeEdge>> = {
+  cw: { left: 'top', top: 'right', right: 'bottom', bottom: 'left' },
+  ccw: { left: 'bottom', bottom: 'right', right: 'top', top: 'left' },
+};
+
+// A quarter turn about the depth axis: height and width trade places, the screen with them, and the
+// hinge moves to the edge it was turned onto. Radius is symmetric, so it stays. The hinge defaults to
+// 'left' everywhere it's read, so an unset one is turned explicitly or it would stay on the left.
+function turned(g: ResolvedDims, rotation: Rotation): ResolvedDims {
+  const screen = g.screen && {
+    ...g.screen,
+    h: g.screen.w,
+    w: g.screen.h,
+    px: g.screen.px && { w: g.screen.px.h, h: g.screen.px.w },
   };
+  return { ...g, h: g.w, w: g.h, hinge: TURNED[rotation][g.hinge ?? 'left'], screen };
+}
+
+export function deviceDims(device: Device, state?: string, rotated?: boolean): ResolvedDims {
+  const g = baseGeometry(device, state);
+  const dims: ResolvedDims = {
+    h: g.h,
+    w: g.w,
+    d: g.d,
+    radius: g.radius,
+    radiusAxis: g.radiusAxis,
+    radiusInner: g.radiusInner,
+    hinge: g.hinge,
+    screen: g.screen,
+    seam: 'seam' in g ? g.seam : undefined,
+  };
+  return rotated && g.rotation ? turned(dims, g.rotation) : dims;
+}
+
+export type Orientation = 'portrait' | 'landscape';
+// Named from the shape, never authored: a device is portrait when it stands taller than it is wide.
+export function orientation(dims: { h: number; w: number }): Orientation {
+  return dims.h >= dims.w ? 'portrait' : 'landscape';
 }
 
 // The volume an item is SORTED by, which is deliberately not the volume it currently occupies.
@@ -157,6 +189,6 @@ export function sortVolume(item: ComparisonItem): number {
 
 export function itemDims(item: ComparisonItem): ResolvedDims {
   return item.kind === 'device'
-    ? deviceDims(item.device, item.state)
+    ? deviceDims(item.device, item.state, item.rotated)
     : { h: item.h, w: item.w, d: item.d };
 }

@@ -1,6 +1,6 @@
 import { createContext, type Dispatch, type ReactNode, useContext, useReducer } from 'react';
 import type { ComparisonItem, LayoutMode, Projection, Units, View } from '../shared/types';
-import { MAX_ITEMS, nextStateLabel, sortVolume } from '../shared/types';
+import { MAX_ITEMS, nextStateLabel, rotationOf, sortVolume } from '../shared/types';
 import { getStoredUnits } from './localStore';
 
 export interface ComparisonState {
@@ -25,6 +25,7 @@ export type Action =
   | { type: 'setProjection'; projection: Projection }
   | { type: 'setHover'; index: number | null }
   | { type: 'cycleState'; index: number }
+  | { type: 'toggleRotate'; index: number }
   | { type: 'load'; items: ComparisonItem[]; missing: string[] }
   | { type: 'dismissMissing' };
 
@@ -76,6 +77,20 @@ export function reducer(state: ComparisonState, action: Action): ComparisonState
         ...state,
         items: byVolume(
           state.items.map((it, i) => (i === action.index ? { ...item, state: next } : it)),
+        ),
+        hovered: null,
+      };
+    }
+    // Shows a device's rotated alternate, or turns it back — the R key and the orientation toggle in
+    // the item menu. A no-op where the active geometry has no rotation authored, so callers don't
+    // check. Order can't change: a quarter turn keeps the volume.
+    case 'toggleRotate': {
+      const item = state.items[action.index];
+      if (item?.kind !== 'device' || !rotationOf(item.device, item.state)) return state;
+      return {
+        ...state,
+        items: state.items.map((it, i) =>
+          i === action.index ? { ...item, rotated: !item.rotated } : it,
         ),
         hovered: null,
       };

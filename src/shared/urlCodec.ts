@@ -1,11 +1,13 @@
 import type { ComparisonItem, Device } from './types';
-import { defaultStateLabel, MAX_ITEMS } from './types';
+import { defaultStateLabel, itemDims, MAX_ITEMS, orientation, rotationOf } from './types';
 
 export const RESERVED_PREFIXES = ['api', 'assets'];
 const SEP = '-vs-';
 const CUSTOM_RE = /^([a-z0-9]+(?:_[a-z0-9]+)*)~(\d+(?:\.\d)?)x(\d+(?:\.\d)?)x(\d+(?:\.\d)?)$/;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const COLON_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+$/;
+// A device shown in its rotated alternate, e.g. iphone-18-pro-rotated or iphone-duo-open-rotated.
+const ROTATED = '-rotated';
 
 export function slugify(name: string): string {
   return name
@@ -42,13 +44,14 @@ export function catalogBySlug(devices: Device[]): Map<string, Device> {
 
 // Multi-state devices (foldables) are addressed as `slug-state`, e.g. galaxy-z-fold8-open — which
 // reproduces the natural per-state slug and is always explicit about which state is shown. Single-
-// state devices are just their slug.
+// state devices are just their slug. A rotated alternate appends -rotated to either form; a stray flag
+// on geometry with no rotation is dropped, so the canonical URL never claims a turn that isn't there.
 function encodeItem(item: ComparisonItem): string {
   if (item.kind === 'device') {
     const { device } = item;
     const label = item.state ?? defaultStateLabel(device);
-    if (device.states?.length && label) return `${device.slug}-${label}`;
-    return device.slug;
+    const token = device.states?.length && label ? `${device.slug}-${label}` : device.slug;
+    return item.rotated && rotationOf(device, label) ? `${token}${ROTATED}` : token;
   }
   return `${slugifyCustomName(item.name)}~${fmt(item.h)}x${fmt(item.w)}x${fmt(item.d)}`;
 }
@@ -69,13 +72,20 @@ function titleCaseCustom(slug: string): string {
 // state for foldables); `slug-state` (e.g. galaxy-z-fold8-open); and `slug:state` (the earlier colon
 // form, kept working). For the split forms we only strip the trailing segment when the remainder is
 // a MULTI-STATE device, so ordinary slugs like `iphone-16-pro-max` are never mis-parsed; an unknown
-// state label on a real multi-state device fails open to its default rather than 404ing.
+// state label on a real multi-state device fails open to its default rather than 404ing. A trailing
+// -rotated is peeled off first and honored only where that geometry has a rotation — otherwise it,
+// too, fails open to the plain item.
 function resolveDeviceToken(
   token: string,
   bySlug: Map<string, Device>,
-): { device: Device; state?: string } | null {
+): { device: Device; state?: string; rotated?: true } | null {
   const exact = bySlug.get(token);
   if (exact) return { device: exact };
+  if (token.endsWith(ROTATED)) {
+    const plain = resolveDeviceToken(token.slice(0, -ROTATED.length), bySlug);
+    if (plain && rotationOf(plain.device, plain.state)) return { ...plain, rotated: true };
+    return plain;
+  }
   const idx = token.includes(':') ? token.indexOf(':') : token.lastIndexOf('-');
   if (idx > 0) {
     const device = bySlug.get(token.slice(0, idx));
@@ -111,11 +121,10 @@ export function decodeComparison(
       if (!SLUG_RE.test(token) && !COLON_RE.test(token)) continue;
       const resolved = resolveDeviceToken(token, bySlug);
       if (resolved) {
-        items.push(
-          resolved.state
-            ? { kind: 'device', device: resolved.device, state: resolved.state }
-            : { kind: 'device', device: resolved.device },
-        );
+        const item: ComparisonItem = { kind: 'device', device: resolved.device };
+        if (resolved.state) item.state = resolved.state;
+        if (resolved.rotated) item.rotated = true;
+        items.push(item);
       } else {
         missing.push(token);
       }
@@ -131,7 +140,11 @@ export function comparisonTitle(items: ComparisonItem[]): string {
     .map((i) => {
       if (i.kind !== 'device') return i.name;
       const label = i.state ?? defaultStateLabel(i.device);
-      return i.device.states?.length && label ? `${i.device.name} (${label})` : i.device.name;
+      const parts = [
+        i.device.states?.length && label ? label : undefined,
+        i.rotated ? orientation(itemDims(i)) : undefined,
+      ].filter((p): p is string => p !== undefined);
+      return parts.length ? `${i.device.name} (${parts.join(', ')})` : i.device.name;
     })
     .join(' vs ');
 }
