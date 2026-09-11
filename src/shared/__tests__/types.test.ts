@@ -5,6 +5,7 @@ import {
   defaultStateLabel,
   deviceDims,
   itemDims,
+  modelOf,
   orientation,
   rotationOf,
 } from '../types';
@@ -107,5 +108,44 @@ describe('rotation', () => {
     expect(orientation({ h: 150, w: 71 })).toBe('portrait');
     expect(orientation({ h: 117.8, w: 164.6 })).toBe('landscape');
     expect(orientation({ h: 100, w: 100 })).toBe('portrait');
+  });
+});
+
+describe('per-state models', () => {
+  const closedModel = { url: 'iphone-duo-closed.glb', fit: 'uniform' as const };
+  const openModel = { url: 'iphone-duo-open.glb', fit: 'uniform' as const };
+  const duo: Device = {
+    ...fold,
+    states: [
+      { label: 'closed', h: 117.8, w: 84.1, d: 11.3, model3d: closedModel },
+      { label: 'open', h: 117.8, w: 164.6, d: 5.2, model3d: openModel },
+    ],
+  };
+  const watch: Device = { ...flat, model3d: { url: 'pebble.glb' } };
+
+  test('a fold resolves the model belonging to the state on show', () => {
+    expect(modelOf(duo, 'closed')).toBe(closedModel);
+    expect(modelOf(duo, 'open')).toBe(openModel);
+  });
+  test('no state named falls back to the default state, as dimensions do', () => {
+    expect(modelOf(duo)).toBe(closedModel);
+  });
+  test('a device without states keeps carrying its own model', () => {
+    expect(modelOf(watch)).toBe(watch.model3d);
+    expect(modelOf(watch, 'open')).toBe(watch.model3d);
+  });
+  test('undefined when nothing declares one', () => {
+    expect(modelOf(flat)).toBeUndefined();
+    expect(modelOf(fold, 'open')).toBeUndefined();
+  });
+  test("a state without a model of its own does not borrow another state's", () => {
+    const half: Device = {
+      ...fold,
+      states: [
+        { label: 'closed', h: 117.8, w: 84.1, d: 11.3, model3d: closedModel },
+        { label: 'open', h: 117.8, w: 164.6, d: 5.2 },
+      ],
+    };
+    expect(modelOf(half, 'open')).toBeUndefined();
   });
 });

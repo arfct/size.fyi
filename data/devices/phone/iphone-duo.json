@@ -38,6 +38,10 @@
           "h": 2034
         }
       },
+      "model3d": {
+        "url": "iphone-duo-closed.glb",
+        "fit": "uniform"
+      },
       "seam": true,
       "rotation": "cw"
     },
@@ -56,6 +60,10 @@
           "w": 2670,
           "h": 1878
         }
+      },
+      "model3d": {
+        "url": "iphone-duo-open.glb",
+        "fit": "uniform"
       },
       "rotation": "cw"
     }

@@ -26,6 +26,30 @@ const seen = new Set();
 
 // Validates the geometry fields (h/w/d + optional radius/radiusAxis/screen) on a device or one of
 // its states. `g` is the object carrying them; `id` prefixes any error.
+// A fold is a different object in each state, so this is checked wherever geometry lives — on the
+// device for a plain item, on each state for a device that has them.
+function validateModel3d(m, id) {
+  if (typeof m !== 'object' || m === null || Array.isArray(m)) {
+    errors.push(`${id}: model3d must be an object`);
+    return;
+  }
+  if (typeof m.url !== 'string' || !/^[a-z0-9-]+\.glb$/.test(m.url))
+    errors.push(`${id}: model3d.url must look like "name.glb"`);
+  else if (!existsSync(path.join('public/models', m.url)))
+    errors.push(`${id}: model3d file public/models/${m.url} not found`);
+  if (
+    m.rotation !== undefined &&
+    (!Array.isArray(m.rotation) ||
+      m.rotation.length !== 3 ||
+      m.rotation.some((n) => typeof n !== 'number' || !Number.isFinite(n)))
+  )
+    errors.push(`${id}: model3d.rotation must be [x, y, z] numbers`);
+  if (m.fit !== undefined && !['stretch', 'uniform'].includes(m.fit))
+    errors.push(`${id}: model3d.fit must be "stretch" or "uniform"`);
+  for (const k of Object.keys(m))
+    if (!['url', 'rotation', 'fit'].includes(k)) errors.push(`${id}: unknown key model3d.${k}`);
+}
+
 // A geometry's rotated alternate is derived (h/w swap, hinge turned), so the only thing to author is
 // which way it turns.
 function validateRotation(g, id) {
@@ -190,7 +214,7 @@ for (const file of await jsonFiles(DATA_DIR)) {
     // Multi-state devices: validate each state and mirror the default state's geometry to the top
     // level so single-state consumers (and the geometry check below) keep working unchanged.
     if (d.states !== undefined) {
-      const geomKeys = ['h', 'w', 'd', 'radius', 'radiusAxis', 'screen'];
+      const geomKeys = ['h', 'w', 'd', 'radius', 'radiusAxis', 'screen', 'model3d'];
       for (const k of geomKeys)
         if (d[k] !== undefined)
           errors.push(`${id}: ${k} must live on states[], not the device, when states is set`);
@@ -221,10 +245,12 @@ for (const file of await jsonFiles(DATA_DIR)) {
             'screen',
             'seam',
             'rotation',
+            'model3d',
           ]);
           for (const k of Object.keys(s))
             if (!stateAllowed.has(k)) errors.push(`${sid}: unknown key ${k}`);
           validateGeometry(s, sid);
+          if (s.model3d !== undefined) validateModel3d(s.model3d, sid);
         }
         if (d.defaultState !== undefined && !labels.has(d.defaultState))
           errors.push(`${id}: defaultState ${d.defaultState} is not a state label`);
@@ -254,30 +280,11 @@ for (const file of await jsonFiles(DATA_DIR)) {
       errors.push(`${id}: rank must be a non-negative number`);
     if (d.url !== undefined && (typeof d.url !== 'string' || !/^https:\/\/\S+$/.test(d.url)))
       errors.push(`${id}: url must be an https:// string`);
-    if (d.model3d !== undefined) {
-      const m = d.model3d;
-      if (typeof m !== 'object' || m === null || Array.isArray(m))
-        errors.push(`${id}: model3d must be an object`);
-      else {
-        if (typeof m.url !== 'string' || !/^[a-z0-9-]+\.glb$/.test(m.url))
-          errors.push(`${id}: model3d.url must look like "name.glb"`);
-        else if (!existsSync(path.join('public/models', m.url)))
-          errors.push(`${id}: model3d file public/models/${m.url} not found`);
-        if (
-          m.rotation !== undefined &&
-          (!Array.isArray(m.rotation) ||
-            m.rotation.length !== 3 ||
-            m.rotation.some((n) => typeof n !== 'number' || !Number.isFinite(n)))
-        )
-          errors.push(`${id}: model3d.rotation must be [x, y, z] numbers`);
-        if (m.fit !== undefined && !['stretch', 'uniform'].includes(m.fit))
-          errors.push(`${id}: model3d.fit must be "stretch" or "uniform"`);
-        if (d.mesh !== undefined) errors.push(`${id}: model3d and mesh are mutually exclusive`);
-        for (const k of Object.keys(m))
-          if (!['url', 'rotation', 'fit'].includes(k))
-            errors.push(`${id}: unknown key model3d.${k}`);
-      }
-    }
+    // Only when the device owns it: a stateful device's models are checked per state, and the default
+    // state's copy has been mirrored up here by now — validating that again would report it twice.
+    if (d.states === undefined && d.model3d !== undefined) validateModel3d(d.model3d, id);
+    if (d.model3d !== undefined && d.mesh !== undefined)
+      errors.push(`${id}: model3d and mesh are mutually exclusive`);
     const allowed = new Set([
       'slug',
       'name',
