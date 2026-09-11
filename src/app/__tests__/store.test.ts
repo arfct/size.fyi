@@ -185,3 +185,34 @@ test('live volume would have swapped them, which is the bug this avoids', () => 
   // Sorting is by the device's nominal size, so both states rank identically.
   expect(sortVolume({ ...FOLD_LIKE, state: 'open' } as ComparisonItem)).toBe(sortVolume(FOLD_LIKE));
 });
+
+const ROTATABLE: Device = {
+  slug: 'phone',
+  name: 'Phone',
+  category: 'phone',
+  h: 150,
+  w: 70,
+  d: 8,
+  rotation: 'ccw',
+};
+test('toggleRotate flips the rotated flag on geometry that has a rotation', () => {
+  let s = reducer(empty, { type: 'add', item: { kind: 'device', device: ROTATABLE } });
+  s = reducer(s, { type: 'toggleRotate', index: 0 });
+  expect(s.items[0]).toMatchObject({ rotated: true });
+  s = reducer(s, { type: 'toggleRotate', index: 0 });
+  expect(s.items[0]).toMatchObject({ rotated: false });
+});
+test('toggleRotate is a no-op for geometry without a rotation, and for custom items', () => {
+  const plain = reducer(empty, {
+    type: 'add',
+    item: { kind: 'device', device: { ...ROTATABLE, rotation: undefined } },
+  });
+  expect(reducer(plain, { type: 'toggleRotate', index: 0 })).toBe(plain);
+  const custom = reducer(empty, { type: 'add', item: item('A') });
+  expect(reducer(custom, { type: 'toggleRotate', index: 0 })).toBe(custom);
+});
+test('toggleRotate clears the hover like every other mutation', () => {
+  let s = reducer(empty, { type: 'add', item: { kind: 'device', device: ROTATABLE } });
+  s = reducer(s, { type: 'setHover', index: 0 });
+  expect(reducer(s, { type: 'toggleRotate', index: 0 }).hovered).toBeNull();
+});

@@ -13,6 +13,7 @@ export const HOTKEYS = {
   top: 'z',
   perspective: 'p',
   stack: 's',
+  rotate: 'r',
   remove: 'Backspace',
 } as const;
 
@@ -71,6 +72,12 @@ export function useHotkeys(enabled: boolean) {
       if (key === HOTKEYS.stack) {
         e.preventDefault();
         dispatch({ type: 'setLayout', mode: layoutMode === 'stack' ? 'row' : 'stack' });
+        return;
+      }
+      // Turns what the pointer is on, like remove; the reducer ignores items with nothing to turn.
+      if (key === HOTKEYS.rotate) {
+        e.preventDefault();
+        if (hovered !== null) dispatch({ type: 'toggleRotate', index: hovered });
       }
     };
     window.addEventListener('keydown', onKey);

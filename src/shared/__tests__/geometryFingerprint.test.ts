@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { cardFingerprint, geometryFingerprint } from '../ar';
+import { cardFingerprint, geometryFingerprint, geometryKey } from '../ar';
 import type { ComparisonItem, Device } from '../types';
 
 // The AR route caches immutably and cannot be purged from code, so everything the bytes depend on has
@@ -146,4 +146,31 @@ test('a rename moves the card fingerprint but not the geometry one', () => {
 
 test('the card fingerprint still moves when geometry moves', () => {
   expect(cardFingerprint([device({ h: 151 })])).not.toBe(cardFingerprint([device()]));
+});
+
+test('a rotated alternate fingerprints differently, since its mesh is the turned one', () => {
+  const phone = device({ rotation: 'ccw' });
+  const turned: ComparisonItem = { ...phone, rotated: true } as ComparisonItem;
+  expect(geometryFingerprint([turned])).not.toBe(geometryFingerprint([phone]));
+  // Without a rotation authored the flag means nothing, so the fingerprint holds still.
+  const plain = device();
+  expect(geometryFingerprint([{ ...plain, rotated: true } as ComparisonItem])).toBe(
+    geometryFingerprint([plain]),
+  );
+});
+
+test('geometryKey names the rotated layer, only where a rotation exists', () => {
+  const phone = device({ rotation: 'ccw' });
+  const duo = fold({
+    states: [
+      { label: 'closed', h: 118, w: 84, d: 11, rotation: 'cw' },
+      { label: 'open', h: 118, w: 165, d: 5, rotation: 'cw' },
+    ],
+  });
+  const dev = (i: ComparisonItem) => (i.kind === 'device' ? i.device : (null as never));
+  expect(geometryKey(dev(phone), undefined, true)).toBe('phone-rotated');
+  expect(geometryKey(dev(phone))).toBe('phone');
+  expect(geometryKey(dev(duo), 'open', true)).toBe('fold-open-rotated');
+  expect(geometryKey(dev(duo), undefined, true)).toBe('fold-closed-rotated');
+  expect(geometryKey(dev(fold()), 'open', true)).toBe('fold-open');
 });

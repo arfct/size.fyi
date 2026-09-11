@@ -4,7 +4,13 @@
 // for an extensionless relative import.
 // Explicit .ts extension: build scripts import this module under bare node, which can't resolve
 // extensionless specifiers the way a bundler does.
-import { type ComparisonItem, type Device, defaultStateLabel, itemDims } from './types.ts';
+import {
+  type ComparisonItem,
+  type Device,
+  defaultStateLabel,
+  itemDims,
+  rotationOf,
+} from './types.ts';
 
 // Generator version, carried in the AR model URL as `?v=`.
 //
@@ -41,10 +47,12 @@ export const SCREEN_PROUD_MM = 0.4;
 // script writes them under it, so they share one definition: a mismatch would be a 500 per item.
 //
 // A stateful device with no state requested resolves to the same default deviceDims() would pick, so
-// the layer always matches the dimensions being laid out.
-export function geometryKey(device: Device, state?: string): string {
+// the layer always matches the dimensions being laid out. A rotated alternate is its own layer — the
+// turned mesh — named only where that geometry has a rotation, mirroring deviceDims.
+export function geometryKey(device: Device, state?: string, rotated?: boolean): string {
   const label = device.states?.length ? (state ?? defaultStateLabel(device)) : undefined;
-  return label ? `${device.slug}-${label}` : device.slug;
+  const key = label ? `${device.slug}-${label}` : device.slug;
+  return rotated && rotationOf(device, label) ? `${key}-rotated` : key;
 }
 
 // FNV-1a, 32 bits, base36. Not a security hash and it doesn't need to be — it only has to change when

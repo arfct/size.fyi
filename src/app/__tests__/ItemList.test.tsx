@@ -296,3 +296,61 @@ test('the issue link sits above Remove, so the destructive action stays last', a
     items.findIndex((t) => t?.startsWith('Remove')),
   );
 });
+
+// A phone that turns to landscape: one state, so no radios, but a rotation — so it gets a toggle.
+const PHONE = {
+  kind: 'device' as const,
+  device: {
+    slug: 'phone',
+    name: 'Phone',
+    category: 'phone',
+    h: 150,
+    w: 70,
+    d: 8,
+    rotation: 'ccw',
+  } as Device,
+};
+
+function mountPhone() {
+  function PhoneHarness() {
+    const { dispatch } = useComparison();
+    useEffect(() => {
+      dispatch({ type: 'load', items: [PHONE], missing: [] });
+    }, [dispatch]);
+    return <ItemList onEdit={() => {}} />;
+  }
+  render(
+    <ComparisonProvider>
+      <PhoneHarness />
+    </ComparisonProvider>,
+  );
+  return userEvent.setup();
+}
+
+test('a rotatable device offers its other orientation as a checkbox in the menu', async () => {
+  const user = mountPhone();
+  await user.click(screen.getByRole('button', { name: 'Options for Phone' }));
+  // Named for where the turn leads, which for a portrait phone is landscape.
+  const toggle = screen.getByRole('menuitemcheckbox', { name: /landscape/i });
+  expect(toggle).toHaveAttribute('aria-checked', 'false');
+  expect(screen.queryByRole('menuitemradio')).toBeNull();
+});
+
+test('checking the orientation turns the item, and the label keeps naming the alternate', async () => {
+  const user = mountPhone();
+  await user.click(screen.getByRole('button', { name: 'Options for Phone' }));
+  await user.click(screen.getByRole('menuitemcheckbox', { name: /landscape/i }));
+  expect(within(rowFor('Phone')).getByText(/^70 × 150/)).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Options for Phone' }));
+  expect(screen.getByRole('menuitemcheckbox', { name: /landscape/i })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});
+
+test('geometry without a rotation gets no orientation toggle', async () => {
+  const user = mountFold();
+  await user.click(screen.getByRole('button', { name: 'Options for Fold' }));
+  expect(screen.queryByRole('menuitemcheckbox')).toBeNull();
+});

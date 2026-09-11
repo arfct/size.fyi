@@ -31,7 +31,8 @@
         "w": 65,
         "radius": 8
       },
-      "seam": true
+      "seam": true,
+      "rotation": "cw"
     },
     {
       "label": "open",
@@ -44,7 +45,8 @@
         "h": 151,
         "w": 136,
         "radius": 8
-      }
+      },
+      "rotation": "cw"
     }
   ]
 }

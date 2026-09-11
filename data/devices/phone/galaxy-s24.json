@@ -17,5 +17,6 @@
     "h": 143,
     "w": 66,
     "radius": 8
-  }
+  },
+  "rotation": "ccw"
 }

@@ -1,8 +1,15 @@
 import { Check, Ellipsis } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatDims } from '../../shared/dimensions';
-import type { Device } from '../../shared/types';
-import { defaultStateLabel, itemDims, sortVolume } from '../../shared/types';
+import type { Device, Orientation } from '../../shared/types';
+import {
+  defaultStateLabel,
+  deviceDims,
+  itemDims,
+  orientation,
+  rotationOf,
+  sortVolume,
+} from '../../shared/types';
 import { type ARTarget, canLaunchAR, comparisonArUrl, launchAR } from '../ar';
 import { deviceIcon, MY_ITEM_ICON } from '../categoryIcon';
 import { catalogIssueUrl, errorIssueUrl } from '../github';
@@ -26,6 +33,8 @@ function ItemMenu({
   states,
   activeState,
   onSelectState,
+  turn,
+  onToggleRotate,
   onEdit,
   onRemove,
   issue,
@@ -35,6 +44,10 @@ function ItemMenu({
   states?: Device['states'];
   activeState?: string;
   onSelectState: (label: string) => void;
+  // The orientation a turn leads to, and whether the item is currently turned. Absent when the active
+  // geometry has no rotation authored.
+  turn?: { to: Orientation; on: boolean };
+  onToggleRotate: () => void;
   onEdit: () => void;
   onRemove: () => void;
   // The issue this item can raise: a catalog device can be reported wrong, a custom item can be
@@ -78,9 +91,9 @@ function ItemMenu({
           {/* Open/closed (etc.) for a multi-state device. It lives here rather than on the row so the
               list stays one line of type per item; picking a state re-dispatches the item with the new
               label, which re-sorts by volume since the size class changes. */}
-          {states && states.length > 1 && (
+          {((states && states.length > 1) || turn) && (
             <>
-              {states.map((s) => (
+              {states?.map((s) => (
                 <button
                   key={s.label}
                   type="button"
@@ -100,6 +113,32 @@ function ItemMenu({
                   {s.label}
                 </button>
               ))}
+              {turn && (
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={turn.on}
+                  aria-keyshortcuts={HOTKEYS.rotate}
+                  onClick={() => {
+                    setOpen(false);
+                    onToggleRotate();
+                  }}
+                  className={`flex w-full items-center gap-1.5 py-1.5 pl-2 pr-3 text-left text-[13px] capitalize hover:bg-stone-100 dark:hover:bg-stone-800 ${turn.on ? 'font-semibold' : ''}`}
+                >
+                  <span className="flex w-3.5 shrink-0 justify-center">
+                    {turn.on && (
+                      <Check size={14} aria-hidden className="text-stone-500 dark:text-stone-400" />
+                    )}
+                  </span>
+                  <span className="flex-1">{turn.to}</span>
+                  <kbd
+                    aria-hidden
+                    className="font-sans text-[11px] text-stone-400 dark:text-stone-500"
+                  >
+                    {hotkeyLabel(HOTKEYS.rotate)}
+                  </kbd>
+                </button>
+              )}
               <hr className="my-1 border-t border-stone-200 dark:border-stone-800" />
             </>
           )}
@@ -184,6 +223,15 @@ export default function ItemList({
         const states = item.kind === 'device' ? item.device.states : undefined;
         const activeState =
           item.kind === 'device' ? (item.state ?? defaultStateLabel(item.device)) : undefined;
+        // The toggle is named for the alternate, not the current orientation, so its label holds still
+        // while its check flips: "Landscape" on a phone either way, "Portrait" on an open Duo.
+        const turn =
+          item.kind === 'device' && rotationOf(item.device, item.state)
+            ? {
+                to: orientation(deviceDims(item.device, item.state, true)),
+                on: item.rotated === true,
+              }
+            : undefined;
         // One item is just a one-item comparison, so the Worker route serves it the same way it serves
         // the whole set — including foldable states and custom items, which have no file anywhere. This
         // used to point at a pre-built /models file, which only two of the catalog's devices have; the
@@ -241,6 +289,8 @@ export default function ItemList({
                     if (item.kind === 'device')
                       dispatch({ type: 'update', index: i, item: { ...item, state: label } });
                   }}
+                  turn={turn}
+                  onToggleRotate={() => dispatch({ type: 'toggleRotate', index: i })}
                   issue={
                     item.kind === 'device'
                       ? { label: 'Report an error', href: errorIssueUrl(item) }

@@ -133,3 +133,45 @@ test('the menu announces the shortcut without it becoming part of the label', as
   expect(remove).toHaveAccessibleName('Remove');
   expect(remove.textContent).toContain('⌫');
 });
+
+const PHONE: ComparisonItem = {
+  kind: 'device',
+  device: { slug: 'phone', name: 'Phone', category: 'phone', h: 150, w: 70, d: 8, rotation: 'ccw' },
+};
+let rotated: boolean[];
+function RotateHarness() {
+  const { state, dispatch } = useComparison();
+  useHotkeys(true);
+  rotated = state.items.map((i) => i.kind === 'device' && i.rotated === true);
+  useEffect(() => {
+    dispatch({ type: 'load', items: [PHONE, ITEMS[1]!], missing: [] });
+  }, [dispatch]);
+  return <ItemList onEdit={() => {}} />;
+}
+function mountRotate() {
+  render(
+    <ComparisonProvider>
+      <RotateHarness />
+    </ComparisonProvider>,
+  );
+  return userEvent.setup();
+}
+
+test('R turns the hovered item, and only that one', async () => {
+  const user = mountRotate();
+  await user.hover(rowFor('Phone'));
+  await user.keyboard(HOTKEYS.rotate);
+  expect(rotated).toEqual([true, false]);
+  // The mutation cleared the hover, and a pointer already over the row raises no new mouseenter — so
+  // leave and come back, as a hand would. A second press turns it back.
+  await user.unhover(rowFor('Phone'));
+  await user.hover(rowFor('Phone'));
+  await user.keyboard(HOTKEYS.rotate);
+  expect(rotated).toEqual([false, false]);
+});
+
+test('R with nothing hovered turns nothing', async () => {
+  const user = mountRotate();
+  await user.keyboard('r');
+  expect(rotated).toEqual([false, false]);
+});

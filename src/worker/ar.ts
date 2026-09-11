@@ -120,7 +120,7 @@ async function usdzBody(
 
     let layer: string;
     if (item.kind === 'device') {
-      const key = geometryKey(item.device, item.state);
+      const key = geometryKey(item.device, item.state, item.rotated);
       layer = `geometries/${key}.usda`;
       if (!layers.has(layer)) {
         const res = await assets.fetch(`${origin}/ar/${key}.usda`);
@@ -171,7 +171,7 @@ async function glbBody(
     const atM = { x: at.x * MM_TO_M, y: at.y * MM_TO_M, z: at.z * MM_TO_M };
 
     if (item.kind === 'device') {
-      const key = geometryKey(item.device, item.state);
+      const key = geometryKey(item.device, item.state, item.rotated);
       const entry = manifest[key];
       if (!entry) return new Response(`missing geometry for ${key}`, { status: 500 });
       let blob = blobIndex.get(key);
