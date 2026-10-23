@@ -1,6 +1,6 @@
 import { Check, Ellipsis } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { formatDims } from '../../shared/dimensions';
+import { formatDims, pickUnitFor } from '../../shared/dimensions';
 import type { Device, Orientation } from '../../shared/types';
 import {
   defaultStateLabel,
@@ -214,6 +214,8 @@ export default function ItemList({
   const ordered = state.items
     .map((item, i) => ({ item, i }))
     .sort((a, b) => sortVolume(a.item) - sortVolume(b.item));
+  // One unit for every row (and the 3D labels, which pick it from the same dims) — never m beside mm.
+  const unit = pickUnitFor(state.items.map(itemDims), state.units);
   return (
     <ul aria-label="Items">
       {ordered.map(({ item, i }) => {
@@ -300,7 +302,7 @@ export default function ItemList({
                   onRemove={() => dispatch({ type: 'remove', index: i })}
                 />
               </div>
-              <p className="text-[13px] text-stone-500">{formatDims(dims, state.units)}</p>
+              <p className="text-[13px] text-stone-500">{formatDims(dims, state.units, unit)}</p>
             </div>
           </li>
         );

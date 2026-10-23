@@ -1,5 +1,5 @@
 import { ImageResponse } from 'workers-og';
-import { formatDims } from '../shared/dimensions';
+import { formatDims, pickUnitFor } from '../shared/dimensions';
 import type { ComparisonItem, ResolvedDims, Units } from '../shared/types';
 import { itemDims, sortVolume } from '../shared/types';
 import { computeTargets } from '../three/layout';
@@ -119,6 +119,8 @@ export function renderOgImage(items: ComparisonItem[], units: Units, fonts: OgFo
       return { item, d, i, left: centre - d.w / 2 };
     })
     .sort((a, b) => a.left - b.left);
+  // Same rule as the app: one unit across every caption, picked from the smallest side shown.
+  const unit = pickUnitFor(dims, units);
 
   const spanW = Math.max(...placed.map((p) => p.left + p.d.w), 1);
   const maxH = Math.max(...dims.map((d) => d.h), 1);
@@ -152,7 +154,7 @@ export function renderOgImage(items: ComparisonItem[], units: Units, fonts: OgFo
   // than per label: mixed type sizes across three otherwise identical captions read as a mistake.
   const fitted = placed.map((p, n) => {
     const name = p.item.kind === 'device' ? p.item.device.name : p.item.name;
-    const dimsText = formatDims(p.d, units);
+    const dimsText = formatDims(p.d, units, unit);
     const need = Math.max(name.length * 0.58, dimsText.length * 0.46);
     return slotOf(n) / need;
   });
@@ -201,7 +203,7 @@ export function renderOgImage(items: ComparisonItem[], units: Units, fonts: OgFo
           color: '#1c1917',
           whiteSpace: 'nowrap',
         }),
-        text(formatDims(p.d, units), {
+        text(formatDims(p.d, units, unit), {
           fontSize: dimsSize,
           color: '#78716c',
           marginTop: 6,
