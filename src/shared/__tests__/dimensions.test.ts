@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { formatDims, formatLength, parseDimensions } from '../dimensions';
+import { formatDims, formatLength, parseDimensions, pickUnit, pickUnitFor } from '../dimensions';
 
 describe('parseDimensions', () => {
   test('bare numbers default to mm', () =>
@@ -32,16 +32,41 @@ describe('formatting', () => {
   test('metric rounds to 1dp', () => expect(formatLength(8.25, 'metric')).toBe('8.3 mm'));
   test('metric switches to m at 1000', () => expect(formatLength(1905, 'metric')).toBe('1.91 m'));
   test('imperial inches', () => expect(formatLength(85, 'imperial')).toBe('3.3 in'));
-  test('imperial ft+in at 3ft', () => expect(formatLength(1905, 'imperial')).toBe('6 ft 3 in'));
-  test('imperial ft+in rollover', () => expect(formatLength(1206.6, 'imperial')).toBe('4 ft 0 in'));
+  test('imperial switches to decimal feet at 3 ft', () =>
+    expect(formatLength(1905, 'imperial')).toBe('6.3 ft'));
   test('formatDims joins h×w×d', () =>
     expect(formatDims({ h: 297, w: 210, d: 1 }, 'metric')).toBe('297 × 210 × 1 mm'));
   test('formatDims shows the unit once (imperial, all inches)', () =>
     expect(formatDims({ h: 150, w: 71.9, d: 8.8 }, 'imperial')).toBe('5.9 × 2.8 × 0.3 in'));
-  test('formatDims keeps per-component units when they differ (m + mm)', () =>
-    expect(formatDims({ h: 1982, w: 838, d: 33 }, 'metric')).toBe('1.98 m × 838 mm × 33 mm'));
-  test('formatDims keeps per-component units when a ft+in component is present', () =>
-    expect(formatDims({ h: 1905, w: 300, d: 100 }, 'imperial')).toBe(
-      '6 ft 3 in × 11.8 in × 3.9 in',
+  test('formatDims never mixes units — the smallest side picks mm', () =>
+    expect(formatDims({ h: 1982, w: 838, d: 33 }, 'metric')).toBe('1982 × 838 × 33 mm'));
+  test('formatDims never mixes units — the smallest side picks in', () =>
+    expect(formatDims({ h: 1905, w: 300, d: 100 }, 'imperial')).toBe('75.0 × 11.8 × 3.9 in'));
+  test('formatDims uses m only when every side is at least 1 m', () =>
+    expect(formatDims({ h: 2000, w: 1500, d: 1000 }, 'metric')).toBe('2.00 × 1.50 × 1.00 m'));
+  test('formatDims honours a shared unit passed in', () =>
+    expect(formatDims({ h: 2000, w: 1500, d: 1000 }, 'metric', 'mm')).toBe(
+      '2000 × 1500 × 1000 mm',
     ));
+});
+
+describe('pickUnit', () => {
+  test('smallest length decides (metric)', () => {
+    expect(pickUnit([1414, 1000, 1], 'metric')).toBe('mm');
+    expect(pickUnit([1414, 1000, 1000], 'metric')).toBe('m');
+  });
+  test('smallest length decides (imperial)', () => {
+    expect(pickUnit([1905, 914], 'imperial')).toBe('in');
+    expect(pickUnit([1905, 914.4], 'imperial')).toBe('ft');
+  });
+  test('pickUnitFor spans every axis of every item', () =>
+    expect(
+      pickUnitFor(
+        [
+          { h: 2000, w: 2000, d: 2000 },
+          { h: 1500, w: 1200, d: 900 },
+        ],
+        'metric',
+      ),
+    ).toBe('mm'));
 });

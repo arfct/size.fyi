@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { SCREEN_PROUD_MM } from '../shared/ar';
 // NOTE: GLTFLoader and BufferGeometryUtils are deliberately NOT imported here — see
 // loadModelGeometry below, which pulls them in on demand.
-import { formatLengthValue } from '../shared/dimensions';
+import { formatLengthValue, type LengthUnit, pickUnitFor } from '../shared/dimensions';
 import type { LayoutMode, Units } from '../shared/types';
 import {
   buildGeometry,
@@ -726,6 +726,9 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
   // by how much its surface normal faces the view direction — so `uViewDir` is refreshed per frame.
   let grids: THREE.Group | null = null;
   let units: Units = 'metric';
+  // The one unit every dim label is written in, picked from all items' dims exactly as the item list
+  // picks it, so the canvas and the list always agree. Refreshed by setItems and setUnits.
+  let labelUnit: LengthUnit = 'mm';
   let bounds = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
   // Width/height ratio of a LABEL_CHARS-long dim string; labelWorldH = minDeviceWidth / this makes
   // that many characters span the narrowest device. Measured once (fallback for jsdom in tests).
@@ -1043,7 +1046,7 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     const mm = which === 'w' ? item.w : item.h;
     const inset = labelGap(item);
     const plane = makeLabelPlane(
-      formatLengthValue(mm, units),
+      formatLengthValue(mm, labelUnit),
       labelWorldH,
       500,
       dimInk(item.color),
@@ -1240,7 +1243,11 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     const prevLabelH = labelWorldH;
     const minWidth = items.length ? Math.min(...items.map((i) => i.w)) : 100;
     labelWorldH = minWidth / labelRowAspect;
-    const labelSizeChanged = Math.abs(labelWorldH - prevLabelH) > 1e-6;
+    // A new item can move the shared unit (adding a 1 mm sheet beside a door drops m to mm), which
+    // rewrites every label, not just the new one's.
+    const prevUnit = labelUnit;
+    labelUnit = pickUnitFor(items, units);
+    const labelSizeChanged = Math.abs(labelWorldH - prevLabelH) > 1e-6 || labelUnit !== prevUnit;
     const newKeySet = new Set(keys);
 
     // Removals: fade out anything no longer present (unless it's already fading). Collect first —
@@ -1284,7 +1291,7 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
       if (existing.screenMesh) existing.screenMesh.renderOrder = target.renderOrder;
       for (const l of labelsOf(existing)) l.renderOrder = target.renderOrder + LABEL_ORDER_BIAS;
       existing.item = item;
-      if (labelSizeChanged) rebuildLabels(existing); // fit changed → resize labels to stay ~13px
+      if (labelSizeChanged) rebuildLabels(existing); // fit or unit changed → rebuild the label text
       if (currentOpacityFactor(existing) < 0.999) tweenFadeTo(existing, 1);
     });
 
@@ -1748,6 +1755,7 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     setUnits(next: Units) {
       if (next === units) return;
       units = next;
+      labelUnit = pickUnitFor(lastItems, units);
       // Label text is baked into a texture, so a unit switch rebuilds each handle's labels in place.
       for (const h of handles.values()) rebuildLabels(h);
       rebuildGrid();

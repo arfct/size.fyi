@@ -27,43 +27,56 @@ export function parseDimensions(input: string): { h: number; w: number; d: numbe
   return { h, w, d };
 }
 
-// Splits a length into a bare value and its unit token — but only for the "simple" cases that
-// carry a single trailing unit (metric mm/m, imperial inches under 3 ft). Returns null for the
-// imperial ft+in compound, whose units are interleaved and so can't be factored out.
-function splitLength(mm: number, units: Units): { value: string; unit: string } | null {
-  if (units === 'metric') {
-    if (mm >= 1000) return { value: (mm / 1000).toFixed(2), unit: 'm' };
-    const r = round1(mm);
-    return { value: Number.isInteger(r) ? String(r) : r.toFixed(1), unit: 'mm' };
+// The unit a set of lengths is shown in. One unit covers everything on screen at once — the 3D labels
+// and the item list alike — so a comparison never reads "1.98 m" beside "838 mm". It's chosen from the
+// smallest length, since that's the one a coarse unit would round away (a 1 mm sheet of paper is
+// "0.00 m"); the large lengths just carry more digits.
+export type LengthUnit = 'mm' | 'm' | 'in' | 'ft';
+
+export function pickUnit(lengths: number[], units: Units): LengthUnit {
+  const smallest = lengths.length ? Math.min(...lengths) : 0;
+  if (units === 'metric') return smallest >= 1000 ? 'm' : 'mm';
+  return smallest >= 36 * 25.4 ? 'ft' : 'in';
+}
+
+// Every length a set of items will display — all three axes, because the list shows depth even
+// though the 3D labels don't, and both have to land on the same unit.
+export function pickUnitFor(
+  items: { h: number; w: number; d: number }[],
+  units: Units,
+): LengthUnit {
+  return pickUnit(
+    items.flatMap((i) => [i.h, i.w, i.d]),
+    units,
+  );
+}
+
+// Bare numeric value in the given unit, for compact side-by-side display like "71.9 × 150".
+export function formatLengthValue(mm: number, unit: LengthUnit): string {
+  switch (unit) {
+    case 'mm': {
+      const r = round1(mm);
+      return Number.isInteger(r) ? String(r) : r.toFixed(1);
+    }
+    case 'm':
+      return (mm / 1000).toFixed(2);
+    case 'in':
+      return round1(mm / 25.4).toFixed(1);
+    case 'ft':
+      return round1(mm / 304.8).toFixed(1);
   }
-  const inches = mm / 25.4;
-  if (inches >= 36) return null;
-  return { value: round1(inches).toFixed(1), unit: 'in' };
 }
 
-export function formatLength(mm: number, units: Units): string {
-  const part = splitLength(mm, units);
-  if (part) return `${part.value} ${part.unit}`;
-  const totalIn = Math.round(mm / 25.4);
-  const ft = Math.floor(totalIn / 12);
-  const rest = totalIn % 12;
-  return `${ft} ft ${rest} in`;
+export function formatLength(mm: number, units: Units, unit = pickUnit([mm], units)): string {
+  return `${formatLengthValue(mm, unit)} ${unit}`;
 }
 
-// Bare numeric value with no unit, for compact side-by-side display like "71.9 × 150". Falls back to
-// the full unit-bearing string for the imperial ft+in compound, whose interleaved units can't drop.
-export function formatLengthValue(mm: number, units: Units): string {
-  const part = splitLength(mm, units);
-  return part ? part.value : formatLength(mm, units);
-}
-
-export function formatDims(item: { h: number; w: number; d: number }, units: Units): string {
-  const parts = [item.h, item.w, item.d].map((v) => splitLength(v, units));
-  const unit = parts[0]?.unit;
-  // When all three share the same simple unit, show it once on the last component only.
-  if (unit && parts.every((p) => p?.unit === unit)) {
-    return `${parts.map((p) => p!.value).join(' × ')} ${unit}`;
-  }
-  // Mixed units (e.g. m + mm, or a ft+in component) — fall back to per-component units.
-  return `${formatLength(item.h, units)} × ${formatLength(item.w, units)} × ${formatLength(item.d, units)}`;
+// "h × w × d unit", with the unit shown once. Pass the comparison's shared unit so every row agrees;
+// on its own an item picks the unit its smallest side needs.
+export function formatDims(
+  item: { h: number; w: number; d: number },
+  units: Units,
+  unit = pickUnitFor([item], units),
+): string {
+  return `${[item.h, item.w, item.d].map((v) => formatLengthValue(v, unit)).join(' × ')} ${unit}`;
 }
