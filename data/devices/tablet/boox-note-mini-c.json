@@ -1,0 +1,21 @@
+{
+  "slug": "boox-note-mini-c",
+  "name": "Boox Note Mini C",
+  "make": "Boox",
+  "rank": 70,
+  "category": "tablet",
+  "h": 187.7,
+  "w": 156,
+  "d": 6,
+  "year": 2026,
+  "aliases": ["boox note mini c", "note mini c", "note mini", "onyx boox note mini"],
+  "source": "gsmchoice.com",
+  "url": "https://shop.boox.com/products/noteminic",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 173.1,
+    "w": 129.8,
+    "radius": 2
+  }
+}

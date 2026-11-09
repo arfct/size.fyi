@@ -1,0 +1,23 @@
+{
+  "slug": "pixel-11-pro",
+  "name": "Pixel 11 Pro",
+  "make": "Google",
+  "model": "Pixel 11 Pro",
+  "rank": 88,
+  "category": "phone",
+  "h": 152.7,
+  "w": 71.9,
+  "d": 8.4,
+  "year": 2026,
+  "aliases": ["pixel 11 pro", "pixel11pro", "google pixel 11 pro"],
+  "source": "store.google.com",
+  "url": "https://store.google.com/product/pixel_11_pro_specs",
+  "radius": 11,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 147.7,
+    "w": 66.9,
+    "radius": 8
+  },
+  "rotation": "ccw"
+}

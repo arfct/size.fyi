@@ -1,0 +1,20 @@
+{
+  "slug": "galaxy-tab-s12-plus",
+  "name": "Galaxy Tab S12+",
+  "make": "Samsung",
+  "rank": 80,
+  "category": "tablet",
+  "h": 289.5,
+  "w": 187.8,
+  "d": 5.3,
+  "year": 2026,
+  "aliases": ["galaxy tab s12+", "galaxy tab s12 plus", "tab s12+", "tab s12 plus"],
+  "source": "samsung.com",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 271.3,
+    "w": 169.8,
+    "radius": 4
+  }
+}

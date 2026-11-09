@@ -1,0 +1,20 @@
+{
+  "slug": "kindle-2026",
+  "name": "Kindle (2026)",
+  "make": "Amazon",
+  "rank": 71,
+  "category": "tablet",
+  "h": 152.8,
+  "w": 108,
+  "d": 6.85,
+  "year": 2026,
+  "aliases": ["kindle", "basic kindle", "kindle 2026", "kindle 12th gen"],
+  "source": "amazon.com",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 121.9,
+    "w": 91.4,
+    "radius": 2
+  }
+}
