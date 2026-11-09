@@ -1,0 +1,21 @@
+{
+  "slug": "boox-note-air6-c",
+  "name": "Boox Note Air6 C",
+  "make": "Boox",
+  "rank": 74,
+  "category": "tablet",
+  "h": 225,
+  "w": 192,
+  "d": 5.8,
+  "year": 2026,
+  "aliases": ["boox note air6 c", "note air6 c", "note air 6", "onyx boox note air6"],
+  "source": "onyxboox.sg",
+  "url": "https://shop.boox.com/products/noteair6c",
+  "radius": 6,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 209.3,
+    "w": 157.0,
+    "radius": 2
+  }
+}

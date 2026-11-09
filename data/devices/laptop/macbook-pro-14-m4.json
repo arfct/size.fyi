@@ -9,6 +9,13 @@
   "w": 312.6,
   "d": 15.5,
   "year": 2024,
-  "aliases": ["macbook pro", "m4 pro", "14 inch macbook pro"],
+  "aliases": [
+    "macbook pro",
+    "m4 pro",
+    "14 inch macbook pro",
+    "macbook pro m6",
+    "m6 macbook pro",
+    "14 inch macbook pro m6"
+  ],
   "source": "apple.com"
 }

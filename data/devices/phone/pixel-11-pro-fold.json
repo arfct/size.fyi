@@ -1,0 +1,45 @@
+{
+  "slug": "pixel-11-pro-fold",
+  "name": "Pixel 11 Pro Fold",
+  "make": "Google",
+  "model": "Pixel 11 Pro Fold",
+  "rank": 73,
+  "category": "phone",
+  "year": 2026,
+  "source": "store.google.com",
+  "url": "https://store.google.com/product/pixel_11_pro_fold_specs",
+  "defaultState": "closed",
+  "aliases": ["pixel 11 pro fold", "pixel 11 fold", "11 pro fold", "pixel 11 pro fold open"],
+  "states": [
+    {
+      "label": "closed",
+      "h": 155.2,
+      "w": 76,
+      "d": 10.1,
+      "radius": 11,
+      "radiusAxis": "z",
+      "radiusInner": 2,
+      "screen": {
+        "h": 150.2,
+        "w": 68.7,
+        "radius": 8
+      },
+      "seam": true,
+      "rotation": "cw"
+    },
+    {
+      "label": "open",
+      "h": 155.2,
+      "w": 150.4,
+      "d": 5.0,
+      "radius": 9,
+      "radiusAxis": "z",
+      "screen": {
+        "h": 146.3,
+        "w": 141.1,
+        "radius": 8
+      },
+      "rotation": "cw"
+    }
+  ]
+}

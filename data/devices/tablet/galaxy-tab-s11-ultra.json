@@ -9,7 +9,13 @@
   "w": 208.5,
   "d": 5.1,
   "year": 2025,
-  "aliases": ["galaxy tab s11 ultra", "tab s11 ultra", "s11 ultra tab"],
+  "aliases": [
+    "galaxy tab s11 ultra",
+    "tab s11 ultra",
+    "s11 ultra tab",
+    "galaxy tab s12 ultra",
+    "tab s12 ultra"
+  ],
   "source": "samsung.com",
   "radius": 6,
   "radiusAxis": "z",

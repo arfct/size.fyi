@@ -1,0 +1,21 @@
+{
+  "slug": "boox-palma-3",
+  "name": "Boox Palma 3",
+  "make": "Boox",
+  "rank": 73,
+  "category": "tablet",
+  "h": 159,
+  "w": 78,
+  "d": 7.8,
+  "year": 2026,
+  "aliases": ["boox palma", "palma", "palma 3", "boox palma 3"],
+  "source": "shop.boox.com",
+  "url": "https://shop.boox.com/products/palma3",
+  "radius": 8,
+  "radiusAxis": "z",
+  "screen": {
+    "h": 139.3,
+    "w": 69.6,
+    "radius": 4
+  }
+}
