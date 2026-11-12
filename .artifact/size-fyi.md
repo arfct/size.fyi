@@ -1,6 +1,7 @@
 ---
 title: size.fyi
 date: 2026-07
+status: released
 category: product
 tags: [web]
 url: https://size.fyi
@@ -17,7 +18,7 @@ media:
     caption: The stacked layout, with the phone in front and the banana behind
     alt: A 3D grid with a blue phone standing in front of an orange folding phone, and a yellow wireframe banana partly hidden behind both
 icon_shape: none
-unconfirmed: [date]
+unconfirmed: [date, status]
 ---
 
 A banana 190 mm long is among the 132 objects that size.fyi can draw side by side in 3D, at true relative scale. It is listed as Banana for scale and drawn as a wireframe, in a yellow that no other item is given. The rest are mostly phones, tablets, laptops, consoles and watches, along with sixteen paper sizes and everyday things such as a credit card, a wine bottle and a double mattress.
