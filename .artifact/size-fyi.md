@@ -2,7 +2,7 @@
 title: size.fyi
 date: 2026-07
 status: released
-category: product
+category: web-tool
 tags: [web]
 url: https://size.fyi
 links:
