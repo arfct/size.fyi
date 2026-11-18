@@ -605,10 +605,10 @@ const labelFrontZ = (item: SceneItem) => item.d / 2 + 1.5; // sit a little off t
 const LABEL_ORDER_BIAS = 0.5;
 const labelGap = (item: SceneItem) => Math.max(item.w, item.h) * 0.03; // clearance from the box edge
 
-// Label text is one constant world height for the whole scene (not per-item). It's sized so that a
-// row of ~LABEL_CHARS characters spans the narrowest device's width — enough for the "w × h" line to
-// fit on even the smallest face, and scaled up in proportion on wider devices. Recomputed whenever
-// the set of devices changes. Higher = smaller text (more chars fit across the same width).
+// Label text height is per-item: sized so that a row of ~LABEL_CHARS characters spans that item's own
+// width — enough for the "w × h" line to fit on its face. A small item beside a large one keeps
+// small labels, but the large one's labels scale with it rather than shrinking to match the smallest.
+// Higher = smaller text (more chars fit across the same width).
 const LABEL_CHARS = 14;
 
 export function createScene(container: HTMLElement, callbacks: SceneCallbacks = {}): SizeScene {
@@ -730,10 +730,10 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
   // picks it, so the canvas and the list always agree. Refreshed by setItems and setUnits.
   let labelUnit: LengthUnit = 'mm';
   let bounds = new THREE.Box3(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
-  // Width/height ratio of a LABEL_CHARS-long dim string; labelWorldH = minDeviceWidth / this makes
-  // that many characters span the narrowest device. Measured once (fallback for jsdom in tests).
+  // Width/height ratio of a LABEL_CHARS-long dim string; labelWorldH(item) = item width / this makes
+  // that many characters span the item. Measured once (fallback for jsdom in tests).
   const labelRowAspect = labelAspect('0'.repeat(LABEL_CHARS), 500) || 3.65;
-  let labelWorldH = 20; // recomputed from the device set in applyDiff
+  const labelWorldH = (item: SceneItem) => item.w / labelRowAspect;
 
   let renderQueued = false;
   let rafHandle = 0;
@@ -1047,7 +1047,7 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     const inset = labelGap(item);
     const plane = makeLabelPlane(
       formatLengthValue(mm, labelUnit),
-      labelWorldH,
+      labelWorldH(item),
       500,
       dimInk(item.color),
     );
@@ -1061,12 +1061,12 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
   // corners), parents them to the mesh, and biases their render order so they draw over the face.
   // Colours come from nameInk/dimInk (theme-aware). Reused on create and on rebuilds.
   function buildLabels(mesh: THREE.Mesh, item: SceneItem, renderOrder: number) {
-    const nameLabel = makeLabelPlane(item.name, labelWorldH, 600, nameInk(item.color));
+    const nameLabel = makeLabelPlane(item.name, labelWorldH(item), 600, nameInk(item.color));
     placeCorner(nameLabel, 0, -item.h / 2 - labelGap(item), labelFrontZ(item), 0.5, 0);
     const widthLabel = makeDimLabel(item, 'w');
     const heightLabel = makeDimLabel(item, 'h');
     // "×" centered along the bottom between the width and height numbers → reads "71.9 × 150".
-    const sepLabel = makeLabelPlane('×', labelWorldH, 500, dimInk(item.color));
+    const sepLabel = makeLabelPlane('×', labelWorldH(item), 500, dimInk(item.color));
     placeCorner(sepLabel, 0, -item.h / 2 + labelGap(item), labelFrontZ(item), 0.5, 1);
     for (const l of [nameLabel, widthLabel, sepLabel, heightLabel]) {
       l.renderOrder = renderOrder + LABEL_ORDER_BIAS;
@@ -1075,11 +1075,11 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     return { nameLabel, widthLabel, sepLabel, heightLabel };
   }
 
-  // Rebuilds a handle's three labels in place (after a unit switch or a content-size change that moved
-  // labelWorldH), preserving the item's current opacity. Fresh labels are born at INITIAL_FADE, so this
-  // goes back through applyOpacityFactor rather than assigning the fade directly — that's the only thing
-  // that also accounts for the highlight dim, and without it a rebuild while another row is hovered
-  // would snap this item's labels back to full while its box stayed dimmed.
+  // Rebuilds a handle's three labels in place (after a unit switch), preserving the item's current
+  // opacity. Fresh labels are born at INITIAL_FADE, so this goes back through applyOpacityFactor rather
+  // than assigning the fade directly — that's the only thing that also accounts for the highlight dim,
+  // and without it a rebuild while another row is hovered would snap this item's labels back to full
+  // while its box stayed dimmed.
   function rebuildLabels(handle: ItemHandle) {
     const factor = currentOpacityFactor(handle);
     for (const l of labelsOf(handle)) disposeLabel(l);
@@ -1237,17 +1237,11 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
       new THREE.Vector3(b.min.x, b.min.y, b.min.z),
       new THREE.Vector3(b.max.x, b.max.y, b.max.z),
     );
-    // Label height is derived from the narrowest device (so ~LABEL_CHARS chars span its width);
-    // recompute before building handles so new labels get the right size and existing ones rebuild
-    // if it changed.
-    const prevLabelH = labelWorldH;
-    const minWidth = items.length ? Math.min(...items.map((i) => i.w)) : 100;
-    labelWorldH = minWidth / labelRowAspect;
     // A new item can move the shared unit (adding a 1 mm sheet beside a door drops m to mm), which
     // rewrites every label, not just the new one's.
     const prevUnit = labelUnit;
     labelUnit = pickUnitFor(items, units);
-    const labelSizeChanged = Math.abs(labelWorldH - prevLabelH) > 1e-6 || labelUnit !== prevUnit;
+    const unitChanged = labelUnit !== prevUnit;
     const newKeySet = new Set(keys);
 
     // Removals: fade out anything no longer present (unless it's already fading). Collect first —
@@ -1291,7 +1285,8 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
       if (existing.screenMesh) existing.screenMesh.renderOrder = target.renderOrder;
       for (const l of labelsOf(existing)) l.renderOrder = target.renderOrder + LABEL_ORDER_BIAS;
       existing.item = item;
-      if (labelSizeChanged) rebuildLabels(existing); // fit or unit changed → rebuild the label text
+      // Label size depends only on the item's own width (part of its key), so just a unit change rebuilds.
+      if (unitChanged) rebuildLabels(existing);
       if (currentOpacityFactor(existing) < 0.999) tweenFadeTo(existing, 1);
     });
 
@@ -1472,7 +1467,7 @@ export function createScene(container: HTMLElement, callbacks: SceneCallbacks = 
     } else {
       // Front view is fit tightly to the geometry; the name label sits just below each box, so leave
       // room for its overhang (label height + gap) or it clips at the bottom edge.
-      const labelPad = 2 * (labelWorldH + Math.max(0, ...lastItems.map((i) => labelGap(i))));
+      const labelPad = 2 * Math.max(0, ...lastItems.map((i) => labelWorldH(i) + labelGap(i)));
       if (next === 'front') {
         fit(s.x + labelPad, s.y + labelPad);
         ortho.position.set(c.x, c.y, c.z + standoff);
